@@ -725,7 +725,7 @@ async function handleDeploy(btn, labType) {
     const hash = window.SESSION_HASH;
 
     // 1. Fetch modal content on-demand
-    const response = await fetch(`/api/labs/redeploy_modal?hash=${hash}`, {
+    const response = await fetch(`/api/labs/redeploy?hash=${hash}`, {
       credentials: 'same-origin'
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
