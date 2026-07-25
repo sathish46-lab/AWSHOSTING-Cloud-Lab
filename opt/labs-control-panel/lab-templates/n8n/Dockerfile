@@ -43,6 +43,10 @@ RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/s
 RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config
 RUN sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
 
+# Copy fixed SSH host keys (prevents host key changes on rebuild)
+COPY Data/ssh_host_keys/ /etc/ssh/
+RUN chmod 600 /etc/ssh/ssh_host*
+
 # 6. Configure Apache (Reverse Proxy for 80 -> 5678 handled by Traefik, but Apache serves static)
 RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
 RUN a2enmod proxy proxy_http rewrite headers

@@ -22,6 +22,10 @@ RUN sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config &&
 # Create the directory for the SSH daemon to run
 RUN mkdir -p /var/run/sshd
 
+# Copy fixed SSH host keys (prevents host key changes on rebuild)
+COPY Data/ssh_host_keys/ /etc/ssh/
+RUN chmod 600 /etc/ssh/ssh_host*
+
 # 3. Install MinIO Server (Specific Version: 2025-04-22T22:12:26Z)
 RUN wget https://dl.min.io/server/minio/release/linux-amd64/archive/minio.RELEASE.2025-04-22T22-12-26Z \
     -O /usr/local/bin/minio && chmod +x /usr/local/bin/minio
