@@ -68,6 +68,11 @@ const Dashboard = {
    * @param {HTMLElement} btn 
    * @param {boolean} show 
    */
+  escapeHtml: function (str) {
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(str).replace(/[&<>"']/g, c => map[c]);
+  },
+
   toggleLoading: function (btn, show) {
     if (!btn) return;
 
@@ -555,7 +560,7 @@ const Dashboard = {
     const host = "Tomlabs";
     const div = document.createElement("div");
     div.className = "log-entry py-1";
-    div.innerHTML = `<span class="term-user">${user}</span>@<span class="term-host" style="color:#FFA500;">${host}</span> <span class="term-symbol">$</span> <span class="text-white">${cmd}</span>`;
+    div.innerHTML = `<span class="term-user">${Dashboard.escapeHtml(user)}</span>@<span class="term-host" style="color:#FFA500;">${Dashboard.escapeHtml(host)}</span> <span class="term-symbol">$</span> <span class="text-white">${Dashboard.escapeHtml(cmd)}</span>`;
     container.appendChild(div);
   },
 
@@ -616,84 +621,150 @@ const Dashboard = {
       }
 
       // Increased delay to 4s to ensure DB writes are fully committed/visible to PHP
-      setTimeout(() => location.reload(), 4000);
+      setTimeout(() => {
+        if (typeof htmx !== 'undefined') {
+          htmx.ajax('GET', location.href, '#main-content');
+        } else {
+          location.reload();
+        }
+      }, 4000);
     }
   },
 };
 
 /* ============================================================================
+ * ON-DEMAND DATA FETCHING (security: no credentials in page source)
+ * ========================================================================== */
+const LabData = {
+  _root: null,
+
+  getRoot() {
+    if (!this._root) this._root = document.getElementById('lab-data-root');
+    return this._root;
+  },
+
+  getDomainUsage() {
+    const el = this.getRoot();
+    if (!el) return {};
+    try { return JSON.parse(el.dataset.domainUsage || '{}'); } catch (e) { return {}; }
+  },
+
+  getConfig() {
+    const el = this.getRoot();
+    if (!el) return null;
+    try { return JSON.parse(el.dataset.labConfig || 'null'); } catch (e) { return null; }
+  }
+};
+
+/* ============================================================================
+ * LAB TYPE CONFIGURATION
+ * Adding a new lab type = add ONE entry here. No more if/else chains.
+ * ========================================================================== */
+const LAB_FIELD_CONFIG = {
+  minio:   { minio: 'block', n8n: 'none', vsc: 'none', expose: 'none', domainSel: 'none', proxies: 'none' },
+  n8n:     { minio: 'none', n8n: 'block', vsc: 'none', expose: 'none', domainSel: 'none', proxies: 'none' },
+  // default covers essentials, docker, kali, zephyr, etc.
+  default: { minio: 'none', n8n: 'none', vsc: 'flex', expose: 'flex', proxies: 'block' },
+};
+
+const LAB_FORM_CONFIG = {
+  minio:   ['minio_console_domain', 'minio_api_domain'],
+  n8n:     ['n8n_domain'],
+  default: [],
+};
+
+const LAB_ACTION_CONFIG = {
+  minio:   { launch: 'minioModal' },
+  n8n:     { launch: 'n8n_url' },
+  default: { launch: 'vscModal' },
+};
+
+function getLabFieldConfig(type) {
+  return LAB_FIELD_CONFIG[type] || LAB_FIELD_CONFIG.default;
+}
+
+function getLabFormFields(type) {
+  return LAB_FORM_CONFIG[type] || LAB_FORM_CONFIG.default;
+}
+
+function setLabFieldVisibility(type) {
+  const cfg = getLabFieldConfig(type);
+  const ids = {
+    minio: 'minio_domain_wrapper',
+    n8n: 'n8n_domain_wrapper',
+    vsc: 'vsc_domain_wrapper',
+    expose: 'expose_web_wrapper',
+    proxies: 'http_proxies_wrapper',
+  };
+  for (const [key, display] of Object.entries(cfg)) {
+    const el = document.getElementById(ids[key]);
+    if (el) el.style.display = display;
+  }
+  // Domain selection visibility depends on expose_web toggle
+  const wrapper = document.getElementById('domain_selection_wrapper');
+  if (wrapper) {
+    const exposeToggle = document.getElementById('expose_web_toggle');
+    const isExposed = exposeToggle ? exposeToggle.value === 'true' : false;
+    wrapper.style.display = isExposed ? 'flex' : 'none';
+  }
+}
+
+/* ============================================================================
  * LAB ACTION HANDLERS
  * ========================================================================== */
 /**
- * handleDeploy now refreshes the domain chips automatically
+ * handleDeploy — fetches modal HTML on-demand via API (security: no credentials in page source)
  */
 async function handleDeploy(btn, labType) {
   if (Dashboard.isProcessing) return;
 
-  // Start loading animation
   Dashboard.toggleLoading(btn, true);
 
   try {
     const type = labType || window.LAB_TYPE || "essentials";
+    const hash = window.SESSION_HASH;
 
-    // 1. Reset Modal State
+    // 1. Fetch modal content on-demand
+    const response = await fetch(`/api/labs/redeploy_modal?hash=${hash}`, {
+      credentials: 'same-origin'
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const html = await response.text();
+
+    // 2. Inject into placeholder
+    const placeholder = document.getElementById('redeployModalPlaceholder');
+    if (placeholder) placeholder.innerHTML = html;
+
+    // 3. Reset dropdown state
     const domainDropdown = document.getElementById("domain_dropdown");
     if (domainDropdown) domainDropdown.style.display = "none";
-    
+
     const dropdownArrow = document.getElementById("dropdown_arrow");
     if (dropdownArrow) {
       dropdownArrow.classList.remove("bx-chevron-up");
       dropdownArrow.classList.add("bx-chevron-down");
     }
 
-    // Custom Domain Visibility for MinIO & n8n
-    const minioWrapper = document.getElementById("minio_domain_wrapper");
-    const n8nWrapper = document.getElementById("n8n_domain_wrapper");
-    const vscWrapper = document.getElementById("vsc_domain_wrapper");
-    const exposeWrapper = document.getElementById("expose_web_wrapper");
-    const domainSelectionWrapper = document.getElementById("domain_selection_wrapper");
-    const httpProxiesWrapper = document.getElementById("http_proxies_wrapper");
+    // 4. Config-driven field visibility
+    setLabFieldVisibility(type);
 
-    if (type === 'minio') {
-      if (minioWrapper) minioWrapper.style.display = 'block';
-      if (n8nWrapper) n8nWrapper.style.display = 'none';
-      if (vscWrapper) vscWrapper.style.display = 'none';
-      if (exposeWrapper) exposeWrapper.style.display = 'none';
-      if (domainSelectionWrapper) domainSelectionWrapper.style.display = 'none';
-      if (httpProxiesWrapper) httpProxiesWrapper.style.display = 'none';
-    } else if (type === 'n8n') {
-      if (minioWrapper) minioWrapper.style.display = 'none';
-      if (n8nWrapper) n8nWrapper.style.display = 'block';
-      if (vscWrapper) vscWrapper.style.display = 'none';
-      if (exposeWrapper) exposeWrapper.style.display = 'none';
-      if (domainSelectionWrapper) domainSelectionWrapper.style.display = 'none';
-      if (httpProxiesWrapper) httpProxiesWrapper.style.display = 'none';
-    } else {
-      if (minioWrapper) minioWrapper.style.display = 'none';
-      if (n8nWrapper) n8nWrapper.style.display = 'none';
-      if (vscWrapper) vscWrapper.style.display = 'flex';
-      if (exposeWrapper) exposeWrapper.style.display = 'flex';
-      if (httpProxiesWrapper) httpProxiesWrapper.style.display = 'block';
-      const exposeToggle = document.getElementById("expose_web_toggle");
-      const isExposed = exposeToggle ? exposeToggle.value === 'true' : false;
-      if (domainSelectionWrapper) domainSelectionWrapper.style.display = isExposed ? 'flex' : 'none';
-    }
-
-    // 2. Bind the Button
+    // 5. Bind confirm button
     document.getElementById("redeploy-confirm-btn").onclick = () => executeRedeploy(type);
 
-    // 3. Show Modal
+    // 6. Show modal
     new coreui.Modal(document.getElementById("redeployModal")).show();
 
-    // 4. PERSISTENCE FIX: Draw chips from existing PHP-checked boxes
+    // 7. Draw chips from existing PHP-checked boxes
     setTimeout(() => {
       updateSelectedDomains();
       updateDomainAvailability();
     }, 200);
   } catch (e) {
     console.error("Deploy Error:", e);
+    if (typeof TomNotify !== 'undefined') {
+      TomNotify.show("Failed to load deploy form: " + e.message, "Error", "danger", 5000);
+    }
   } finally {
-    // Stop loading animation immediately after logic runs (modal opens)
     Dashboard.toggleLoading(btn, false);
   }
 }
@@ -715,11 +786,13 @@ async function executeRedeploy(labType) {
   const checkedDomains = modalEl.querySelectorAll(".domain-selector:checked");
   const domains = Array.from(checkedDomains).map((cb) => cb.value);
 
-  // Collect MinIO specific domains
-  const minioConsole = document.getElementById("minio_console_domain").value;
-  const minioApi = document.getElementById("minio_api_domain").value;
-  // Collect n8n specific domains
-  const n8nDomain = document.getElementById("n8n_domain_selector") ? document.getElementById("n8n_domain_selector").value : "";
+  // Collect lab-specific domain fields (config-driven)
+  const labFields = getLabFormFields(type);
+  const labFormData = {};
+  labFields.forEach(fieldId => {
+    const el = document.getElementById(fieldId);
+    if (el) labFormData[fieldId] = el.value;
+  });
 
   // Collect proxy inputs if present
   const proxyPorts = Array.from(modalEl.querySelectorAll("input[name='deploy_proxy_port[]']")).map(el => el.value);
@@ -738,60 +811,66 @@ async function executeRedeploy(labType) {
   }
 
   // ALSO trigger the main header redeploy button animation
-  const headerRedeployBtn = document.querySelector('.btn-redeploy-lab');
+  const headerRedeployBtn = document.querySelector('.btn-lab-deploy');
   if (headerRedeployBtn) {
     Dashboard.toggleLoading(headerRedeployBtn, true);
   }
 
-  // 2. Log to Terminal (Now shows 'minio' correctly)
-  Dashboard.resetTerminal();
-  Dashboard.appendCommand(
-    `labsctl redeploy ${type} --hash=${window.SESSION_HASH}`,
-  );
+  try {
+    // 2. Log to Terminal (Now shows 'minio' correctly)
+    Dashboard.resetTerminal();
+    Dashboard.appendCommand(
+      `labsctl redeploy ${type} --hash=${window.SESSION_HASH}`,
+    );
 
-  // 3. Handshake with PHP API
-  const formData = new URLSearchParams();
-  formData.append("lab", type);
-  formData.append("hash", window.SESSION_HASH);
-  formData.append("expose_web", exposeWeb);
-  formData.append("code_domain", vscDomain);
+    // 3. Handshake with PHP API
+    const formData = new URLSearchParams();
+    formData.append("lab", type);
+    formData.append("hash", window.SESSION_HASH);
+    formData.append("expose_web", exposeWeb);
+    formData.append("code_domain", vscDomain);
 
-  if (type === 'minio') {
-    formData.append("minio_console_domain", minioConsole);
-    formData.append("minio_api_domain", minioApi);
-  } else if (type === 'n8n') {
-    formData.append("n8n_domain", n8nDomain);
-  }
-
-  domains.forEach((d) => formData.append("domains[]", d));
-
-  proxyPorts.forEach((port, idx) => {
-    if (port && proxyDomains[idx]) {
-      formData.append("deploy_proxy_port[]", port);
-      formData.append("deploy_proxy_domain[]", proxyDomains[idx]);
+    // Append lab-specific domain fields
+    for (const [fieldId, value] of Object.entries(labFormData)) {
+      formData.append(fieldId, value);
     }
-  });
 
-  const response = await fetch("/api/labs/deploy", {
-    method: "POST",
-    body: formData,
-  });
+    domains.forEach((d) => formData.append("domains[]", d));
 
-  const data = await response.json();
+    proxyPorts.forEach((port, idx) => {
+      if (port && proxyDomains[idx]) {
+        formData.append("deploy_proxy_port[]", port);
+        formData.append("deploy_proxy_domain[]", proxyDomains[idx]);
+      }
+    });
 
-  if (data.status === 'success' && data.hash) {
-    // UPDATE GLOBAL HASH
-    window.SESSION_HASH = data.hash;
+    const response = await fetch("/api/labs/deploy", {
+      method: "POST",
+      body: formData,
+    });
 
-    // RECONNECT SOCKET to ensure we are listening to the active channel
-    console.log("[Dashboard] specific socket reconnecting to: " + data.hash);
-    LogSocket.disconnect();
-    setTimeout(() => {
-      LogSocket.connect("logs." + data.hash, (d) => Dashboard.appendLog(d));
-    }, 100);
+    const data = await response.json();
+
+    if (data.status === 'success' && data.hash) {
+      // UPDATE GLOBAL HASH
+      window.SESSION_HASH = data.hash;
+
+      // RECONNECT SOCKET to ensure we are listening to the active channel
+      console.log("[Dashboard] specific socket reconnecting to: " + data.hash);
+      LogSocket.disconnect();
+      setTimeout(() => {
+        LogSocket.connect("logs." + data.hash, (d) => Dashboard.appendLog(d));
+      }, 100);
+    }
+
+    Dashboard.appendLog("[*] Handshake accepted. Starting stream...");
+  } catch (e) {
+    console.error("Redeploy Error:", e);
+    Dashboard.appendLog("[!] Redeploy failed: " + e.message);
+    Dashboard.isProcessing = false;
+    if (headerRedeployBtn) Dashboard.toggleLoading(headerRedeployBtn, false);
+    if (deployBtn) { deployBtn.classList.remove("disabled"); deployBtn.innerHTML = '<i class="bx bx-refresh fs-6 text-dark"></i> <span class="small text-dark">Redeploy</span>'; }
   }
-
-  Dashboard.appendLog("[*] Handshake accepted. Starting stream...");
 }
 
 /**
@@ -879,9 +958,12 @@ async function launchCodeIDE(event, targetUrl = null) {
     // But we can still "ensure" the container is running if we want.
     // However currently MinIO doesn't have an "idle timeout" feature planned yet.
     // So we just open the URL.
-    if (!targetUrl && window.LAB_CONFIG && window.LAB_CONFIG.fields) {
-      const consoleField = window.LAB_CONFIG.fields.find(f => f.label === 'MinIO Console Endpoint');
-      if (consoleField) url = consoleField.value;
+    if (!targetUrl) {
+      const labConfig = LabData.getConfig();
+      if (labConfig && labConfig.fields) {
+        const consoleField = labConfig.fields.find(f => f.label === 'MinIO Console Endpoint');
+        if (consoleField) url = consoleField.value;
+      }
     }
     actionName = "MinIO Console";
     ensureAction = null; // No auto-start logic for MinIO yet
@@ -939,32 +1021,7 @@ async function launchCodeIDE(event, targetUrl = null) {
 
   Dashboard.resetTerminal();
 
-  // 3. Auto-Start Logic (Only for Code-Server currently)
-  if (ensureAction) {
-    Dashboard.appendLog(`[*] Ensuring ${actionName} is running...`);
-
-    try {
-      // Handshake with API to trigger worker
-      const formData = new URLSearchParams();
-      formData.append("lab", type);
-      formData.append("hash", window.SESSION_HASH);
-
-      await fetch("/api/labs/ensure_codeserver", {
-        method: "POST",
-        body: formData
-      });
-
-      // Wait for worker logs to show success
-      // We'll give it a few seconds buffer
-      await new Promise((r) => setTimeout(r, 2000));
-
-    } catch (e) {
-      console.error("Auto-start failed", e);
-      Dashboard.appendLog(`[!] Warning: Auto-start trigger failed. Trying direct connection...`);
-    }
-  }
-
-  // 4. Show validation logs (Visual feedback)
+  // 3. Show validation logs (Visual feedback)
   Dashboard.appendLog(`[*] Connecting to ${url}...`);
   await new Promise((r) => setTimeout(r, 800));
 
@@ -1088,8 +1145,8 @@ function updateSelectedDomains() {
         "border border-secondary border-opacity-25 rounded text-white opacity-75 d-inline-flex align-items-center px-2 py-1";
       chip.style.fontSize = "11px";
       chip.innerHTML = `
-                <span>${checkbox.value}</span>
-                <i class='bx bx-x ms-1 opacity-50 hover-opacity-100 transition-all' style="cursor:pointer; font-size: 14px;" onclick="removeDomainChip('${checkbox.id}'); event.stopPropagation();"></i>
+                <span>${Dashboard.escapeHtml(checkbox.value)}</span>
+                <i class='bx bx-x ms-1 opacity-50 hover-opacity-100 transition-all' style="cursor:pointer; font-size: 14px;" onclick="removeDomainChip('${Dashboard.escapeHtml(checkbox.id)}'); event.stopPropagation();"></i>
             `;
       display.appendChild(chip);
     });
@@ -1159,7 +1216,7 @@ function toggleDomainSection() {
  */
 function updateDomainAvailability() {
   // 1. Use the database-backed usage map (already includes ALL labs)
-  const usageMap = window.DOMAIN_USAGE_MAP || {};
+  const usageMap = LabData.getDomainUsage();
 
   // Also check currently selected domains in THIS modal (not yet saved to DB)
   const currentSelections = {};
@@ -1201,113 +1258,33 @@ function updateDomainAvailability() {
     currentSelections[checkbox.value] = { usage: 'Public Exposure', lab_type: window.LAB_TYPE };
   });
 
-  // 2. Filter VS Code selector options
-  if (vscSelector) {
-    Array.from(vscSelector.options).forEach(option => {
+  // 2-5. Filter all selectors (reusable function replaces 4 copy-paste blocks)
+  function filterSelectorOptions(selector, serviceName, allowedShared) {
+    if (!selector) return;
+    Array.from(selector.options).forEach(option => {
       const domain = option.value;
-      const originalDomain = domain;
-
-      // Only skip filtering for the currently selected domain in THIS selector
-      if (domain === vscSelector.value) {
+      if (domain === selector.value) {
         option.disabled = false;
-        option.textContent = originalDomain;
-      } else {
-        // Check if used in DB or current modal (for ALL domains including .tomweb.shop)
-        const dbUsage = usageMap[domain];
-        const currentUsage = currentSelections[domain];
-
-        let usageText = '';
-        if (dbUsage && dbUsage.usage !== 'VS Code Web') {
-          usageText = ` (Used: ${dbUsage.usage} in ${dbUsage.lab_type} lab)`;
-        } else if (currentUsage && currentUsage.usage !== 'VS Code Web') {
-          usageText = ` (Used: ${currentUsage.usage})`;
-        }
-
-        option.disabled = (usageText !== '');
-        option.textContent = originalDomain + usageText;
+        option.textContent = domain;
+        return;
       }
+      const dbUsage = usageMap[domain];
+      const currentUsage = currentSelections[domain];
+      let usageText = '';
+      if (dbUsage && dbUsage.usage !== serviceName && !allowedShared.includes(dbUsage.usage)) {
+        usageText = ` (Used: ${dbUsage.usage} in ${dbUsage.lab_type} lab)`;
+      } else if (currentUsage && currentUsage.usage !== serviceName && !allowedShared.includes(currentUsage.usage)) {
+        usageText = ` (Used: ${currentUsage.usage})`;
+      }
+      option.disabled = (usageText !== '');
+      option.textContent = domain + usageText;
     });
   }
 
-  // 3. Filter MinIO Console selector options
-  if (minioConsoleSelector) {
-    Array.from(minioConsoleSelector.options).forEach(option => {
-      const domain = option.value;
-      const originalDomain = domain;
-
-      if (domain === minioConsoleSelector.value) {
-        option.disabled = false;
-        option.textContent = originalDomain;
-      } else {
-        const dbUsage = usageMap[domain];
-        const currentUsage = currentSelections[domain];
-
-        let usageText = '';
-        // Allow S3 API and MinIO Console to use the same domain
-        if (dbUsage && dbUsage.usage !== 'MinIO Console' && dbUsage.usage !== 'S3 API') {
-          usageText = ` (Used: ${dbUsage.usage} in ${dbUsage.lab_type} lab)`;
-        } else if (currentUsage && currentUsage.usage !== 'MinIO Console' && currentUsage.usage !== 'S3 API') {
-          usageText = ` (Used: ${currentUsage.usage})`;
-        }
-
-        option.disabled = (usageText !== '');
-        option.textContent = originalDomain + usageText;
-      }
-    });
-  }
-
-  // 4. Filter MinIO API selector options
-  if (minioApiSelector) {
-    Array.from(minioApiSelector.options).forEach(option => {
-      const domain = option.value;
-      const originalDomain = domain;
-
-      if (domain === minioApiSelector.value) {
-        option.disabled = false;
-        option.textContent = originalDomain;
-      } else {
-        const dbUsage = usageMap[domain];
-        const currentUsage = currentSelections[domain];
-
-        let usageText = '';
-        // Allow S3 API and MinIO Console to use the same domain
-        if (dbUsage && dbUsage.usage !== 'S3 API' && dbUsage.usage !== 'MinIO Console') {
-          usageText = ` (Used: ${dbUsage.usage} in ${dbUsage.lab_type} lab)`;
-        } else if (currentUsage && currentUsage.usage !== 'S3 API' && currentUsage.usage !== 'MinIO Console') {
-          usageText = ` (Used: ${currentUsage.usage})`;
-        }
-
-        option.disabled = (usageText !== '');
-        option.textContent = originalDomain + usageText;
-      }
-    });
-  }
-
-  // 5. Filter n8n selector options
-  if (n8nSelector) {
-    Array.from(n8nSelector.options).forEach(option => {
-      const domain = option.value;
-      const originalDomain = domain;
-
-      if (domain === n8nSelector.value) {
-        option.disabled = false;
-        option.textContent = originalDomain;
-      } else {
-        const dbUsage = usageMap[domain];
-        const currentUsage = currentSelections[domain];
-
-        let usageText = '';
-        if (dbUsage && dbUsage.usage !== 'n8n Interface') {
-          usageText = ` (Used: ${dbUsage.usage} in ${dbUsage.lab_type} lab)`;
-        } else if (currentUsage && currentUsage.usage !== 'n8n Interface') {
-          usageText = ` (Used: ${currentUsage.usage})`;
-        }
-
-        option.disabled = (usageText !== '');
-        option.textContent = originalDomain + usageText;
-      }
-    });
-  }
+  filterSelectorOptions(vscSelector, 'VS Code Web', []);
+  filterSelectorOptions(minioConsoleSelector, 'MinIO Console', ['S3 API']);
+  filterSelectorOptions(minioApiSelector, 'S3 API', ['MinIO Console']);
+  filterSelectorOptions(n8nSelector, 'n8n Interface', []);
 
   // 6. Filter public exposure domain checkboxes
   const allDomainItems = document.querySelectorAll(".domain-item");
@@ -1368,36 +1345,33 @@ function updateDomainAvailability() {
 }
 /**
  * Professional Launcher
- * Opens VS Code for Essentials, S3 Console for MinIO
+ * Config-driven: add new lab types in LAB_ACTION_CONFIG above
  */
 function launchService(btn, type) {
-  // Start loading
   Dashboard.toggleLoading(btn, true);
 
   setTimeout(() => {
-    if (type === "minio") {
-      const minioModal = new coreui.Modal(document.getElementById("minioModal"));
-      minioModal.show();
-    } else if (type === "n8n") {
+    const action = LAB_ACTION_CONFIG[type] || LAB_ACTION_CONFIG.default;
+
+    if (action.launch === 'n8n_url') {
       let url = "";
-      if (window.LAB_CONFIG && window.LAB_CONFIG.fields) {
-        const urlField = window.LAB_CONFIG.fields.find(f => f.label === 'Public URL');
+      const labConfig = LabData.getConfig();
+      if (labConfig && labConfig.fields) {
+        const urlField = labConfig.fields.find(f => f.label === 'Public URL');
         if (urlField) url = urlField.value;
       }
-
       if (url) {
         window.open(url, '_blank');
       } else {
         alert("n8n URL not found. Please redeploy.");
       }
     } else {
-      const vscModal = new coreui.Modal(document.getElementById("vscModal"));
-      vscModal.show();
+      const modal = new coreui.Modal(document.getElementById(action.launch));
+      modal.show();
     }
 
-    // Stop loading after action is triggered so it doesn't spin forever
     Dashboard.toggleLoading(btn, false);
-  }, 100); // Small delay to show interaction
+  }, 100);
 }
 /* ============================================================================
  * UTILITIES: Clipboard Handling
@@ -1625,7 +1599,7 @@ function addDeployProxyRow() {
     let optionsHtml = '<option value="">Select Domain...</option>';
     if (window.USER_DOMAINS) {
         window.USER_DOMAINS.forEach(d => {
-            optionsHtml += `<option value="${d}">${d}</option>`;
+            optionsHtml += `<option value="${Dashboard.escapeHtml(d)}">${Dashboard.escapeHtml(d)}</option>`;
         });
     } else {
         const firstSelect = list.querySelector('.proxy-domain-select');

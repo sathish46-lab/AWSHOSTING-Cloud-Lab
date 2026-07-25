@@ -54,7 +54,7 @@ $avatarMap = [
         $tCover = Session::cdn3('labassets/avatar/' . $tAvatarFile);
         $tTrashedAt = trash_relative_time($item['trashed_at'] ?? null);
     ?>
-    <div class="col" id="trash-card-<?= htmlspecialchars($tSlug) ?>">
+    <div class="col card-entrance" id="trash-card-<?= htmlspecialchars($tSlug) ?>">
         <div class="card border-0 shadow-sm instance-template-card" style="overflow: visible;">
             <div style="border-radius: 1rem; overflow: hidden; position: relative; min-height: 200px;">
                 <div class="instance-template-card-bg" style="background-image: url('<?= htmlspecialchars($tCover) ?>'), linear-gradient(135deg, <?= htmlspecialchars($tBgColor) ?> 0%, rgba(0,0,0,0.35) 100%);"></div>

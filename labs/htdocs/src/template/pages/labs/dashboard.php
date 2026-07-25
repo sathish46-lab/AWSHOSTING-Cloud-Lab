@@ -114,13 +114,12 @@
     window.SESSION_HASH = "<?= $fullHash ?>";
     window.LAB_USER = "<?= htmlspecialchars($currentUsername) ?>";
     window.CODE_SERVER_URL = "<?= $creds['code_server_url'] ?? '' ?>";
-    // CRITICAL: Set the global lab type
-    window.LAB_TYPE = "<?= $labType ?>"; 
-    // Inject Lab Config for JS Access
-    window.LAB_CONFIG = <?= json_encode($labConfig) ?>;
-    // CRITICAL: Inject cross-lab domain usage map
-    window.DOMAIN_USAGE_MAP = <?= json_encode($domainUsageMap) ?>;
+    window.LAB_TYPE = "<?= $labType ?>";
 </script>
+<!-- DOMAIN_USAGE_MAP embedded in data attribute — not exposed as JS variable -->
+<div id="lab-data-root"
+     data-domain-usage="<?= htmlspecialchars(json_encode($domainUsageMap)) ?>"
+     data-lab-config="<?= htmlspecialchars(json_encode($labConfig)) ?>"></div>
 
 <?php 
     $current_page = 'dashboard';

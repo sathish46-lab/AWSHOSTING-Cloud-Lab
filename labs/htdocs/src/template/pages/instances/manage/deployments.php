@@ -139,9 +139,17 @@ $isStopped = in_array($depStatus, ['stopped', 'none', 'error']);
 <script>
 (function() {
     function setBtnLoading(btn, loading) {
-        if (loading) {
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true"></span> Processing';
+        if (typeof Dashboard !== 'undefined' && Dashboard.toggleLoading) {
+            Dashboard.toggleLoading(btn, loading);
+        } else {
+            if (loading) {
+                btn.disabled = true;
+                if (!btn.dataset.originalContent) btn.dataset.originalContent = btn.innerHTML;
+                btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true"></span> Processing';
+            } else {
+                if (btn.dataset.originalContent) { btn.innerHTML = btn.dataset.originalContent; delete btn.dataset.originalContent; }
+                btn.disabled = false;
+            }
         }
     }
 
@@ -172,13 +180,11 @@ $isStopped = in_array($depStatus, ['stopped', 'none', 'error']);
                     btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true"></span> Deploying';
                 } else {
                     if (window.appendInstanceLog) window.appendInstanceLog('[!] ' + (data.error || 'Deploy failed'));
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="bx bx-play"></i> Deploy';
+                    setBtnLoading(btn, false);
                 }
             } catch (err) {
                 if (window.appendInstanceLog) window.appendInstanceLog('[!] Network error');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bx bx-play"></i> Deploy';
+                setBtnLoading(btn, false);
             }
         }
 
@@ -201,13 +207,11 @@ $isStopped = in_array($depStatus, ['stopped', 'none', 'error']);
                     btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true"></span> Stopping';
                 } else {
                     if (window.appendInstanceLog) window.appendInstanceLog('[!] ' + (data.error || 'Stop failed'));
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="bx bx-stop-circle"></i> Stop';
+                    setBtnLoading(btn, false);
                 }
             } catch (err) {
                 if (window.appendInstanceLog) window.appendInstanceLog('[!] Network error');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bx bx-stop-circle"></i> Stop';
+                setBtnLoading(btn, false);
             }
         }
 
@@ -229,13 +233,11 @@ $isStopped = in_array($depStatus, ['stopped', 'none', 'error']);
                     btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true"></span> Starting';
                 } else {
                     if (window.appendInstanceLog) window.appendInstanceLog('[!] ' + (data.error || 'Start failed'));
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="bx bx-play-circle"></i> Start';
+                    setBtnLoading(btn, false);
                 }
             } catch (err) {
                 if (window.appendInstanceLog) window.appendInstanceLog('[!] Network error');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="bx bx-play-circle"></i> Start';
+                setBtnLoading(btn, false);
             }
         }
     });

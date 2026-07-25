@@ -89,7 +89,7 @@ function checkProxyDomainConflict(selectEl) {
     updateProxyDomainOptions();
     const domain = selectEl.value;
     if (!domain) return;
-    const usageMap = window.DOMAIN_USAGE_MAP || {};
+    const usageMap = (typeof LabData !== 'undefined' && LabData.getDomainUsage) ? LabData.getDomainUsage() : {};
     const usage = usageMap[domain];
     if (usage && usage.usage === 'Public Exposure') {
         if (window.TomNotify) {

@@ -1,4 +1,4 @@
-<div class="col" id="instance-card-<?= htmlspecialchars($slug) ?>" data-deploy-status="<?= htmlspecialchars($instance['deploy']['status'] ?? 'none') ?>" data-instance-hash="<?= htmlspecialchars($instanceHash) ?>">
+<div class="col card-entrance" id="instance-card-<?= htmlspecialchars($slug) ?>" data-deploy-status="<?= htmlspecialchars($instance['deploy']['status'] ?? 'none') ?>" data-instance-hash="<?= htmlspecialchars($instanceHash) ?>">
     <div class="card border-0 shadow-sm instance-template-card" style="overflow: visible;">
         <div style="border-radius: 1rem; overflow: hidden; position: relative; min-height: 200px;">
             <div class="instance-template-card-bg" style="background-image: url('<?= htmlspecialchars($cover) ?>'), linear-gradient(135deg, <?= htmlspecialchars($bgColor) ?> 0%, rgba(0,0,0,0.35) 100%);"></div>

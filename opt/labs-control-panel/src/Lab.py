@@ -58,6 +58,20 @@ class Lab(BaseOrchestrator):
                 {"$set": fields}
             )
 
+    def _fail_deploy(self, instance_id, message):
+        """Set deploy status to error — called on any failure during deploy()."""
+        self.log(message, "error", "init")
+        if self.is_instance and self.instances_col:
+            self.instances_col.update_one(
+                {"instance_hash": instance_id},
+                {"$set": {"deploy.status": "error", "status": "error", "updated_at": time.time()}}
+            )
+        else:
+            self.db.deployed_labs.update_one(
+                {"instance_hash": instance_id},
+                {"$set": {"status": "error"}}
+            )
+
     def _get_instance_doc(self, instance_id):
         """For instances, get the full instances document."""
         if self.is_instance and self.instances_col:
@@ -216,13 +230,13 @@ class Lab(BaseOrchestrator):
         lab_data = self._get_deploy_data(instance_id)
         
         if not lab_data:
-            self.log(f"Metadata missing for {instance_id}", "error", "init")
+            self._fail_deploy(instance_id, f"Metadata missing for {instance_id}")
             return
 
         if not username:
             username = lab_data.get('username')
             if not username:
-                self.log("FATAL: --user flag missing and no user found in database.", "error", "init")
+                self._fail_deploy(instance_id, "FATAL: --user flag missing and no user found in database.")
                 return
 
         self.log(f"Starting deployment for user: {username}", "info", "init")
@@ -233,7 +247,7 @@ class Lab(BaseOrchestrator):
         template_config_path = os.path.join(self.config.get('templates_dir'), template_name, 'config.json')
         
         if not os.path.exists(template_config_path):
-            self.log(f"Template config missing: {template_config_path}", "error", "init")
+            self._fail_deploy(instance_id, f"Template config missing: {template_config_path}")
             return
 
         with open(template_config_path, 'r') as f:
@@ -253,11 +267,11 @@ class Lab(BaseOrchestrator):
         
         docker_prefix = self.config.get('docker_ip')
         if not docker_prefix:
-            self.log("FATAL: 'docker_ip' not set in config.", "error", "init")
+            self._fail_deploy(instance_id, "FATAL: 'docker_ip' not set in config.")
             return
         tunnel_prefix = self.config.get('tunnel_ip')
         if not tunnel_prefix:
-            self.log("FATAL: 'tunnel_ip' not set in config.", "error", "init")
+            self._fail_deploy(instance_id, "FATAL: 'tunnel_ip' not set in config.")
             return
 
         docker_ip = f"{docker_prefix}{last_octet}"
@@ -265,7 +279,7 @@ class Lab(BaseOrchestrator):
         
         orchestrator = self.config.get('orchestrator_container')
         if not orchestrator:
-            self.log("FATAL: 'orchestrator_container' not set in config.", "error", "init")
+            self._fail_deploy(instance_id, "FATAL: 'orchestrator_container' not set in config.")
             return
         code, vps_docker_ip = self.run(
             f"docker inspect {orchestrator} --format '{{{{.NetworkSettings.Networks.{docker_network}.IPAddress}}}}' 2>/dev/null", capture=True
@@ -313,7 +327,7 @@ class Lab(BaseOrchestrator):
                 code, wg_output = self.run(f"python3 {wg_script} {tunnel_ip}", capture=True)
                 lab_priv_key, lab_pub_key = wg_output.split('|')
             except Exception as e:
-                self.log("WireGuard key generation failed", "error", "network")
+                self._fail_deploy(instance_id, "WireGuard key generation failed")
                 return
         else:
             self.log("Reusing existing keys for stable connection...", "info", "network")
@@ -357,7 +371,7 @@ class Lab(BaseOrchestrator):
             docker_run_cmd = docker_run_cmd.replace('--cap-add=NET_ADMIN', f'--add-host {{vpn_domain}}:{{tunnel_gw}} --cap-add=NET_ADMIN')
         result = self.docker.run_command(docker_run_cmd, mapping)
         if not result:
-            self.log("FATAL: Container failed to start (docker run failed).", "error", "container")
+            self._fail_deploy(instance_id, "FATAL: Container failed to start (docker run failed).")
             return
         
         self.log("Waiting for container services to initialize...", "info", "container")
@@ -439,7 +453,7 @@ class Lab(BaseOrchestrator):
         
         code, _ = self.run(link_cmd, capture=False)
         if code != 0:
-            self.log("linkuser.sh failed. Check output above for details.", "error", "configure")
+            self._fail_deploy(instance_id, "linkuser.sh failed. Check output above for details.")
             return
         
         # Phase 7.5: Post-link WireGuard Routing & DNS Fix

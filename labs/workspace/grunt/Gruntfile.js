@@ -43,11 +43,13 @@ module.exports = function (grunt) {
       },
     },
 
-    uglify: {
+    terser: {
       options: {
         mangle: false,
         compress: false,
-        beautify: false,
+        format: {
+          beautify: false,
+        },
       },
       build: {
         files: {
@@ -133,7 +135,7 @@ module.exports = function (grunt) {
           "Gruntfile.js",
           "../js/**/*.js",
         ],
-        tasks: ["concat", "secureSourceMaps", "uglify:build", "obfuscator:fast"],
+        tasks: ["concat", "secureSourceMaps", "terser:build", "obfuscator:fast"],
       },
       css: {
         files: [
@@ -159,7 +161,7 @@ module.exports = function (grunt) {
   grunt.loadNpmTasks("grunt-contrib-watch");
   grunt.loadNpmTasks("grunt-contrib-concat");
   grunt.loadNpmTasks("grunt-sass");
-  grunt.loadNpmTasks("grunt-contrib-uglify");
+  grunt.loadNpmTasks("grunt-terser");
   grunt.loadNpmTasks("grunt-contrib-obfuscator");
   grunt.loadNpmTasks("grunt-contrib-copy");
 
@@ -211,7 +213,7 @@ module.exports = function (grunt) {
     "sass-build",
     "concat",
     "secureSourceMaps",
-    "uglify",
+    "terser",
     "watch",
   ]);
   grunt.registerTask("build", [
@@ -219,7 +221,7 @@ module.exports = function (grunt) {
     "sass:dist",
     "concat",
     "secureSourceMaps",
-    "uglify",
+    "terser",
     "obfuscator",
   ]);
 };
