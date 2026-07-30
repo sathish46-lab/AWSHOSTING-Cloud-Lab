@@ -582,6 +582,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
                 "password": dynamic_pass,
                 "email": user_email,
                 "su_pass": su_pass,
+                "vnc_pass": dynamic_pass,
             }
             for key, val in cred_template.items():
                 if isinstance(val, str):

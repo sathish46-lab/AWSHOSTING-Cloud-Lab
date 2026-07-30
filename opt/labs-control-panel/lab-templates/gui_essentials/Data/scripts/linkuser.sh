@@ -231,15 +231,18 @@ chmod 600 "$VNC_DIR/passwd"
 chown -R "$USER_NAME":"$USER_NAME" "$VNC_DIR"
 
 # Create xstartup for XFCE4
-cat <<'XSTARTUP' > "$VNC_DIR/xstartup"
+cat <<XSTARTUP > "$VNC_DIR/xstartup"
 #!/bin/bash
+export USER=$USER_NAME
+export HOME=$USER_HOME
 export DISPLAY=:1
 export XDG_SESSION_DESKTOP=XFCE
 export XDG_CURRENT_DESKTOP=XFCE
-export XDG_RUNTIME_DIR=/tmp/runtime-$USER
-mkdir -p $XDG_RUNTIME_DIR
-chmod 700 $XDG_RUNTIME_DIR
-startxfce4 &
+export XDG_SESSION_TYPE=x11
+export XDG_RUNTIME_DIR=/tmp/runtime-$USER_NAME
+mkdir -p \$XDG_RUNTIME_DIR
+chmod 700 \$XDG_RUNTIME_DIR
+dbus-launch --exit-with-session startxfce4 &
 XSTARTUP
 
 chmod +x "$VNC_DIR/xstartup"
