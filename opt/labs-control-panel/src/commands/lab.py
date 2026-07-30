@@ -605,6 +605,8 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
         services = ""
 
         for svc_name, svc_spec in services_spec.items():
+            if svc_name == "web":
+                continue
             port = svc_spec["port"]
             domain = f"{svc_name}-{instance_id}.{base_domain}"
 
