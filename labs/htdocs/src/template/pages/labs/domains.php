@@ -129,65 +129,67 @@
                     $isProxy = false;
                     $portStr = '';
                     $usageLabel = 'Port 80 Public';
-                    $headerBg = '#22c55e'; // Green
-                    $headerIcon = 'bx-globe';
-                    $borderColor = 'rgba(34, 197, 94, 0.3)';
+                    $headerClass = 'bg-success-gradient';
+                    $svgIcon = 'cil-globe-alt';
 
                     if (strpos($usageStr, 'HTTP Proxy') !== false) {
                         $isProxy = true;
                         $usageLabel = 'Your Proxy';
-                        $headerBg = '#3b82f6'; // Blue
-                        $headerIcon = 'bx-share';
-                        $borderColor = 'rgba(59, 130, 246, 0.3)';
+                        $headerClass = 'bg-primary-gradient';
+                        $svgIcon = 'cil-share';
                         if (preg_match('/Port\s+(\d+)/', $usageStr, $matches)) {
                             $portStr = $matches[1];
                         }
                     } elseif (strpos($usageStr, 'VS Code Web') !== false) {
                         $usageLabel = 'VS Code Editor';
-                        $headerBg = '#a855f7'; // Purple
-                        $headerIcon = 'bx-code-alt';
-                        $borderColor = 'rgba(168, 85, 247, 0.3)';
+                        $headerClass = 'bg-info-gradient';
+                        $svgIcon = 'cil-code';
                     } elseif (strpos($usageStr, 'MinIO') !== false || strpos($usageStr, 'S3 API') !== false) {
                         $usageLabel = $usageStr;
-                        $headerBg = '#eab308'; // Yellow
-                        $headerIcon = 'bx-hdd';
-                        $borderColor = 'rgba(234, 179, 8, 0.3)';
+                        $headerClass = 'bg-warning-gradient';
+                        $svgIcon = 'cil-hdd';
                     }
                     
-                    // Determine if custom domain (simple check: does it not contain tomweb.fun or selfmade?)
                     $isCustom = (strpos($dom, 'tomweb') === false && strpos($dom, 'selfmade') === false && strpos($dom, 'zeal') === false);
-                    $domainBadge = $isCustom ? 'custom' : 'selfmade';
-                    $domainBadgeBg = $isCustom ? '#f59e0b' : '#22c55e';
+                    $domainBadgeClass = $isCustom ? 'bg-warning' : 'bg-primary';
+                    $domainBadgeLabel = $isCustom ? 'custom' : 'selfmade';
                 ?>
                 <div class="col">
-                    <div class="card border-0 rounded-4 position-relative overflow-hidden blur shadow-sm lab-domain-item-card" style="border: 1px solid <?= $borderColor ?> !important;">
-                        <div class="px-3 py-2 d-flex align-items-center gap-2" style="background: <?= $headerBg ?>;">
-                            <i class="bx <?= $headerIcon ?> text-white fs-6"></i>
-                            <span class="text-white fw-bold small"><?= htmlspecialchars($usageLabel) ?></span>
-                        </div>
-                        
-                        <div class="card-body p-3 d-flex flex-column">
-                            <h6 class="fw-bold mb-2 text-break">
-                                <a href="https://<?= htmlspecialchars($dom) ?>" target="_blank" class="text-decoration-none lab-domain-link">
-                                    <?= htmlspecialchars($dom) ?>
-                                </a>
-                            </h6>   
-                            
-                            <div class="d-flex flex-wrap gap-2 mb-2">
-                                <span class="badge rounded-pill badge-domain-pill" style="background: <?= $domainBadgeBg ?>; color: <?= $isCustom ? '#000' : '#fff' ?>;"><?= $domainBadge ?></span>
-                                <span class="badge rounded-pill badge-cyan-pill">verified</span>
-                                <span class="badge rounded-pill badge-teal-pill">active</span>
+                    <div class="card blur h-100">
+                        <div class="card-header <?= $headerClass ?>">
+                            <div class="d-flex flex-row align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <svg class="icon me-2">
+                                        <use xlink:href="/assets/icons/free.svg#<?= $svgIcon ?>"></use>
+                                    </svg>
+                                    <strong><?= htmlspecialchars($usageLabel) ?></strong>
+                                </div>
                             </div>
-
-                            <div class="mt-auto">
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-2">
+                                <h5 class="card-title mb-2">
+                                    <a style="text-decoration: none; word-break: break-all;" target="_blank" href="https://<?= htmlspecialchars($dom) ?>">
+                                        <?= htmlspecialchars($dom) ?>
+                                    </a>
+                                </h5>
+                                <div class="d-flex flex-wrap gap-1 mb-2">
+                                    <span class="badge <?= $domainBadgeClass ?>"><?= $domainBadgeLabel ?></span>
+                                    <span class="badge bg-success">verified</span>
+                                    <span class="badge bg-success">active</span>
+                                </div>
+                            </div>
+                            <div class="small text-muted">
                                 <div class="mb-1">
-                                    <span class="small text-secondary fw-bold d-block stat-label-mini">Service:</span>
-                                    <span class="small fw-bold stat-val-cyan">TomCloudLab</span>
+                                    <strong>Service:</strong>
+                                    <br>
+                                    <code>TomCloudLab</code>
                                 </div>
                                 <?php if ($isProxy && !empty($portStr)): ?>
-                                <div>
-                                    <span class="small text-secondary fw-bold d-block stat-label-mini">Port:</span>
-                                    <span class="small fw-bold stat-val-cyan"><?= htmlspecialchars($portStr) ?></span>
+                                <div class="mb-1">
+                                    <strong>Port:</strong>
+                                    <br>
+                                    <code><?= htmlspecialchars($portStr) ?></code>
                                 </div>
                                 <?php endif; ?>
                             </div>
@@ -203,7 +205,7 @@
                 <div class="card blur">
                     <div class="card-header">
                         <svg class="icon me-2">
-                            <use xlink:href="/assets/icons/duotone.svg#cid-info"></use>
+                            <use xlink:href="/assets/icons/free.svg#cil-info"></use>
                         </svg>
                         <strong>Domain Information</strong>
                     </div>
