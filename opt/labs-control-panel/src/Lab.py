@@ -516,7 +516,7 @@ class Lab(BaseOrchestrator):
             # Sanitize inputs
             if custom_n8n and (custom_n8n == 'default_n8n' or 'default' in custom_n8n):
                 custom_n8n = None
-        base_domain = self.cfg.code_domain
+            base_domain = self.cfg.code_domain
             selected_n8n_domain = custom_n8n if custom_n8n else f"n8n-{instance_id}.{base_domain}"
 
         # Pass email to linkuser.sh (8th argument)

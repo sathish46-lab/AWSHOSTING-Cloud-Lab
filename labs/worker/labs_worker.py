@@ -124,6 +124,14 @@ def _save_deploy_logs(instance_hash, logs, error_msg, is_build=False, action='de
             set_fields['deploy.status'] = status_val
 
         db.instances.update_one({'instance_hash': instance_hash}, {'$set': set_fields})
+
+        # Also update machine_labs so the UI reflects the status
+        labs_db = _get_mongo_client('tom_labs_db')
+        if labs_db:
+            labs_db.machine_labs.update_one(
+                {'deploy.instance_hash': instance_hash},
+                {'$set': set_fields}
+            )
     except Exception as e:
         print(f" [_save_deploy_logs] FAILED: {e}")
 

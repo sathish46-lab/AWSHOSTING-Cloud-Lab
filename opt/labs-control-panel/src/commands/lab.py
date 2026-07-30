@@ -550,7 +550,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
 
         # Phase: TRAEFIK
         self.log("Finalizing Traefik routing...")
-        traefik_yaml = self._gen_traefik(instance_id, docker_ip, lab_spec, lab_data)
+        traefik_yaml = self._gen_traefik(instance_id, docker_ip, lab_spec, lab_data, args)
         self.write_traefik(instance_id, traefik_yaml)
         self.log("Traefik configuration written.", "success")
 
@@ -597,7 +597,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
         self.log(f"VPN Access: ssh {username}@{tunnel_ip}")
         self.log("[*] reload")
 
-    def _gen_traefik(self, instance_id, docker_ip, lab_spec, lab_data):
+    def _gen_traefik(self, instance_id, docker_ip, lab_spec, lab_data, args=None):
         """Generate Traefik YAML config."""
         services_spec = lab_spec.get("services", {})
         base_domain = self.cfg.code_domain
@@ -608,7 +608,12 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
             if svc_name == "web":
                 continue
             port = svc_spec["port"]
-            domain = f"{svc_name}-{instance_id}.{base_domain}"
+
+            if svc_name == "code":
+                db_domain = lab_data.get("code_domain")
+                domain = (args.flag("vsc_domain") if args else None) or db_domain or f"code-{instance_id}.{base_domain}"
+            else:
+                domain = f"{svc_name}-{instance_id}.{base_domain}"
 
             router_key = f"router-{instance_id}-{svc_name}"
             service_key = f"service-{instance_id}-{svc_name}"
