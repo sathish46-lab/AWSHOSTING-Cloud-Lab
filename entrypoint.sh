@@ -1,4 +1,5 @@
 #!/bin/bash
+set -u
 
 # Configuration settings (Defaults or from ENV)
 export MAIN_DOMAIN=${MAIN_DOMAIN:-tomweb.in}
@@ -132,7 +133,7 @@ export WG_ENDPOINT
 # 2. Generate Apache Configuration Files
 echo "[INFO] Generating Apache VirtualHosts..."
 cat <<EOF > /etc/apache2/sites-available/labs.conf
-<VirtualHost *:8081>
+<VirtualHost *:80>
     ServerAdmin $SSL_EMAIL
     DocumentRoot "/var/www/labs/htdocs"
     ServerName $MAIN_DOMAIN
@@ -149,7 +150,7 @@ cat <<EOF > /etc/apache2/sites-available/labs.conf
 EOF
 
 cat <<EOF > /etc/apache2/sites-available/mqs.conf
-<VirtualHost *:8081>
+<VirtualHost *:80>
     ServerName $MQS_DOMAIN
 
     ProxyRequests Off
@@ -172,7 +173,7 @@ cat <<EOF > /etc/apache2/sites-available/mqs.conf
 EOF
 
 cat <<EOF > /etc/apache2/sites-available/wg-api.conf
-<VirtualHost *:8082>
+<VirtualHost *:80>
     ServerAdmin $SSL_EMAIL
     DocumentRoot "/var/www/vpn-api"
     ServerName $VPN_DOMAIN
@@ -193,7 +194,7 @@ RewriteMap code_map "txt:/etc/apache2/code_server_map.txt"
 ProxyTimeout 600
 ProxyBadHeader Ignore
 
-<VirtualHost *:8081>
+<VirtualHost *:80>
     ServerName $CODE_DOMAIN
     ServerAlias *.$CODE_DOMAIN
     
@@ -222,7 +223,7 @@ ProxyBadHeader Ignore
 EOF
 
 cat <<EOF > /etc/apache2/sites-available/work.conf
-<VirtualHost *:8081>
+<VirtualHost *:80>
     ServerAdmin $SSL_EMAIL
     DocumentRoot "/var/www/work"
     ServerName $WORK_DOMAIN
@@ -244,8 +245,6 @@ echo "[INFO] Generating Traefik Configuration..."
 # Generate static Traefik config with certResolver
 cat <<EOF > /etc/traefik/traefik.yml
 entryPoints:
-  web:
-    address: ":80"
   websecure:
     address: ":443"
 
@@ -254,8 +253,7 @@ certificatesResolvers:
     acme:
       email: $SSL_EMAIL
       storage: /etc/traefik/acme.json
-      httpChallenge:
-        entryPoint: web
+      tlsChallenge: {}
 
 providers:
   file:
@@ -280,27 +278,18 @@ http:
         accessControlAllowOriginList: ["*"]
 
   routers:
-    labs-router:
-      rule: "Host(\`$MAIN_DOMAIN\`)"
-      service: apache-service
-      entryPoints:
-        - web
-        - websecure
-
     vpns-router:
       rule: "Host(\`$VPN_DOMAIN\`)"
       service: vpn-api-service
       middlewares:
         - vpn-headers
       entryPoints:
-        - web
         - websecure
 
     mqs-router:
       rule: "Host(\`$MQS_DOMAIN\`)"
       service: mqs-service
       entryPoints:
-        - web
         - websecure
 
     code-server-router:
@@ -309,25 +298,19 @@ http:
       middlewares:
         - code-headers
       entryPoints:
-        - web
         - websecure
 
     work-router:
       rule: "Host(\`$WORK_DOMAIN\`)"
       service: apache-service
       entryPoints:
-        - web
         - websecure
 
   services:
-    apache-service:
-      loadBalancer:
-        servers:
-          - url: "http://127.0.0.1:8081"
     mqs-service:
       loadBalancer:
         servers:
-          - url: "http://127.0.0.1:8081"
+          - url: "http://127.0.0.1:15672"
     vpn-api-service:
       loadBalancer:
         servers:
@@ -335,7 +318,11 @@ http:
     code-server-service:
       loadBalancer:
         servers:
-          - url: "http://127.0.0.1:8081"
+          - url: "http://127.0.0.1:8080"
+    apache-service:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:80"
 EOF
 
 # 4. Configure env.json
@@ -359,8 +346,8 @@ if [ ! -f "/var/www/env.json" ]; then
     "rabbitmq": {
         "host": "127.0.0.1",
         "port": 5672,
-        "user": "admin",
-        "password": "RootTom@46"
+        "user": "${RABBITMQ_USER:-admin}",
+        "password": "${RABBITMQ_PASS}"
     }
 }
 EOF
@@ -476,6 +463,35 @@ StandardError=append:/var/log/stats-worker.log
 WantedBy=multi-user.target
 EOF
 systemctl enable stats-worker.service || true
+
+# 10. Ensure RabbitMQ admin user exists
+echo "[INFO] Ensuring RabbitMQ admin user exists..."
+cat <<'SCRIPT' > /usr/local/bin/rabbitmq-create-user.sh
+#!/bin/bash
+until rabbitmqctl await_online_nodes 1 2>/dev/null; do sleep 1; done
+MQ_USER=$(python3 -c "import json; print(json.load(open('/var/www/env.json'))['amqp_user'])" 2>/dev/null || echo 'admin')
+MQ_PASS=$(python3 -c "import json; print(json.load(open('/var/www/env.json'))['amqp_pass'])" 2>/dev/null || echo '')
+rabbitmqctl add_user "$MQ_USER" "$MQ_PASS" 2>/dev/null || true
+rabbitmqctl set_user_tags "$MQ_USER" administrator 2>/dev/null
+rabbitmqctl set_permissions -p / "$MQ_USER" ".*" ".*" ".*" 2>/dev/null
+SCRIPT
+chmod +x /usr/local/bin/rabbitmq-create-user.sh
+
+cat <<EOF > /etc/systemd/system/rabbitmq-init.service
+[Unit]
+Description=Create RabbitMQ admin user
+After=rabbitmq-server.service
+Requires=rabbitmq-server.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/rabbitmq-create-user.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable rabbitmq-init.service || true
 
 echo "[INFO] Handing over control to systemd!"
 exec /lib/systemd/systemd

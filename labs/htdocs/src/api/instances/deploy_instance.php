@@ -50,14 +50,14 @@ try {
             ['$set' => [
                 'deploy' => [
                     'internal_ip'   => $internalIp,
-                    'storage_path'  => "labs_storage_" . $hash,
+                    'storage_path'  => "/var/labsstorage/" . $user->getUsername(),
                     'lab_type'      => $instance['template'] ?? 'essentials',
                     'domains'       => $domains,
                     'code_domain'   => $code_domain,
                     'expose_web'    => $expose_web,
                     'status'        => 'deploying',
                     'created_at'    => time(),
-                    'credentials'   => $existingDeploy['credentials'] ?? [],
+                    'credentials'   => $existingDeploy['credentials'] ?? (object)[],
                     'init_script'   => $existingDeploy['init_script'] ?? '',
                     'http_proxies'  => $existingDeploy['http_proxies'] ?? [],
                     'always_on'     => $existingDeploy['always_on'] ?? false,

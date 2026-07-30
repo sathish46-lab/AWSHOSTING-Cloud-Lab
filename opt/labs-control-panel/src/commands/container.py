@@ -1,4 +1,5 @@
 import json
+import shlex
 from src.router import Command
 
 
@@ -84,7 +85,12 @@ class ContainerCmd(Command):
         if not instance_id or not cmd:
             self.log("Usage: labsctl container exec --hash=HASH --cmd='command'", "error")
             return
-        self.run(f"docker exec {instance_id} {cmd}")
+        # Validate inputs to prevent command injection
+        if not instance_id or not shlex.quote(instance_id).strip("'"):
+            self.log("Invalid container hash", "error")
+            return
+        # Note: --cmd is intentionally unrestricted for admin CLI use
+        self.run(f"docker exec {shlex.quote(instance_id)} {cmd}")
 
     def _prune(self, args):
         self.log("Stopping all stopped lab containers...")

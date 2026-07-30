@@ -5,11 +5,9 @@ After=network.target rabbitmq-server.service
 [Service]
 Type=simple
 User=root
-# Adjust python path if necessary
-ExecStart=/usr/bin/python3 -u /var/www/labs/worker/labs_worker.py
+ExecStart=/bin/bash /opt/labs-control-panel/systemd/labs-worker-env.sh
 Restart=always
 RestartSec=3
-Environment="DOCKER_HOST=unix:///var/docker.sock"
 StandardOutput=syslog
 StandardError=syslog
 SyslogIdentifier=labs-worker-%i

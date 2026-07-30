@@ -516,9 +516,6 @@ const Dashboard = {
       if (el) el.style.width = "0%";
     });
 
-    const memInfo = document.getElementById("stat-mem-info");
-    if (memInfo) memInfo.innerText = "Lab Offline";
-
     const badgeArea = document.getElementById("badge-area");
     if (badgeArea) {
       badgeArea.innerHTML = `<span class="badge text-bg-danger border-0 px-2 py-1 small">Offline</span>`;
@@ -559,7 +556,7 @@ const Dashboard = {
     const user = window.LAB_USER || "tom";
     const host = "Tomlabs";
     const div = document.createElement("div");
-    div.className = "log-entry py-1";
+    div.className = "log-entry";
     div.innerHTML = `<span class="term-user">${Dashboard.escapeHtml(user)}</span>@<span class="term-host" style="color:#FFA500;">${Dashboard.escapeHtml(host)}</span> <span class="term-symbol">$</span> <span class="text-white">${Dashboard.escapeHtml(cmd)}</span>`;
     container.appendChild(div);
   },
@@ -582,7 +579,7 @@ const Dashboard = {
 
     // Create log entry
     const div = document.createElement("div");
-    div.className = "log-entry py-1";
+    div.className = "log-entry";
 
     // Color coding
     if (msg.startsWith("[✓]")) div.style.color = "#a6e3a1";

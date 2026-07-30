@@ -30,31 +30,33 @@ function timeAgo($timestamp) {
 ?>
 <div id="domains-banner" class="blur banner mb-3 rounded-0">
     <div class="container-fluid px-4">
-        <div class="row">
+        <div class="row align-items-center py-3">
             <div class="col-lg-8 col-auto me-auto">
                 <div class="p-3">
-                    <h3 class="domains-header-title">Domains</h3>
-                    My Domains is a section where you can reserve stylish Tom Lab Domains or register 3rd party domains to access your lab over Internet.
-                    In case of 3rd party domains, you will have to manually modify the DNS records of your domain to point to your lab. Domains are used to
-                    show your work to the WWW over SSL seemlessly. Your online presence makes you powerful 🔥
+                    <h3 class="domains-header-title"><strong>Domains</strong></h3>
+                    <p class="domains-header-desc">
+                        My Domains is a section where you can reserve stylish Tom Lab Domains or register 3rd party domains to access your lab over Internet.
+                        In case of 3rd party domains, you will have to manually modify the DNS records of your domain to point to your lab. Domains are used to
+                        show your work to the WWW over SSL seemlessly. Your online presence makes you powerful 🔥
+                    </p>
                 </div>
             </div>
             <div class="col-auto m-auto">
-                <div class="col-auto mt-3 d-flex justify-content-center">
-                    <div class="btn-group">
-                        <button class="btn btn-success btn-add-domain rounded-start-pill" data-coreui-toggle="modal" data-coreui-target="#addDomainModal">
-                            Add New Domain
-                        </button>
-                        <button class="btn btn-info btn-help-domain rounded-end-pill px-3" data-coreui-toggle="tooltip" data-coreui-placement="top" title="How to use domains?">
-                            <i class='bx bx-info-circle'></i>
-                        </button>
+                <div class="row">
+                    <div class="col-auto">
+                        <div class="btn-group">
+                            <a class="btn btn-add-domain" data-coreui-toggle="modal" data-coreui-target="#addDomainModal">Add New Domain</a>
+                            <button class="btn btn-info btn-help-domain rounded-end-pill px-3" data-coreui-toggle="tooltip" data-coreui-placement="top" title="How to use domains?">
+                                <i class='bx bx-info-circle'></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
-                <div class="row mt-2 text-white domains-limit-text text-center small">
-                    <p class="mb-0">
-                        Limit for Tom Domains: <?= $tomDomainCount ?>/<?= $tomDomainLimit ?> <br>
-                        Limit for Custom Domains: Unlimited 🎰
-                    </p>
+                <div class="row mt-2">
+                    <div class="domains-limit-text text-center">
+                        Limit for Tom Domains: <?= $tomDomainCount ?>/<?= $tomDomainLimit ?><br>
+                        Limit for Custom Domains: Unlimited
+                    </div>
                 </div>
             </div>
         </div>

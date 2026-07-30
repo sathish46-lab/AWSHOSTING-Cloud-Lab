@@ -1,0 +1,242 @@
+// ===========================
+// FORMS & INPUTS
+// Consolidated form styles
+// ===========================
+
+// --- Config input (dark theme) ---
+.config-input {
+  background-color: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 12px;
+  padding: 10px 16px;
+
+  &:focus {
+    background-color: #222;
+    border-color: var(--cui-primary);
+    box-shadow: none;
+    color: white;
+  }
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+  }
+}
+
+// --- Instance config input ---
+.instance-config-input {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+
+  &:focus {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+    color: white;
+  }
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+  }
+}
+
+// --- Domain input field ---
+.domain-input-field {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 8px;
+  padding: 8px 12px;
+
+  &:focus {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+  }
+}
+
+// --- Pref script editor ---
+.pref-script-editor {
+  background-color: #1e1e1e;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #d4d4d4;
+  border-radius: 8px;
+  padding: 12px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  min-height: 120px;
+  resize: vertical;
+
+  &:focus {
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+  }
+}
+
+// --- User text input ---
+.user-text-input {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 12px;
+  padding: 12px 16px;
+  width: 100%;
+  transition: all 0.2s;
+
+  &:focus {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow: none;
+    outline: none;
+  }
+
+  &::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+  }
+}
+
+// --- Account OTP input ---
+.account-otp-input {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 1.5rem;
+  text-align: center;
+  letter-spacing: 8px;
+  width: 60px;
+  height: 60px;
+
+  &:focus {
+    border-color: var(--cui-primary);
+    box-shadow: 0 0 0 3px rgba(var(--cui-primary-rgb), 0.2);
+  }
+}
+
+// --- Custom search dropdown ---
+.custom-search-dropdown {
+  .form-check-input {
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+
+    &:checked {
+      background-color: var(--cui-primary);
+      border-color: var(--cui-primary);
+    }
+  }
+}
+
+// --- Form select dark ---
+.form-select {
+  &.border-secondary {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: white;
+
+    &:focus {
+      border-color: var(--cui-primary);
+      box-shadow: 0 0 0 3px rgba(var(--cui-primary-rgb), 0.2);
+    }
+  }
+}
+
+// --- Form control dark ---
+.form-control {
+  &.border-secondary {
+    background-color: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: white;
+
+    &:focus {
+      border-color: var(--cui-primary);
+      box-shadow: 0 0 0 3px rgba(var(--cui-primary-rgb), 0.2);
+      color: white;
+    }
+
+    &::placeholder {
+      color: rgba(255, 255, 255, 0.3);
+    }
+  }
+}
+
+// --- Inline input with character count ---
+.inline-input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .char-count {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.5);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+  }
+}
+
+// --- Config label ---
+.config-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 10px;
+  margin-top: 25px;
+}
+
+// --- Form label ---
+.form-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+// --- Form text ---
+.form-text {
+  font-size: 0.75rem;
+}
+
+// ===========================
+// LIGHT THEME FORM OVERRIDES
+// ===========================
+[data-coreui-theme=light] {
+  .config-input,
+  .instance-config-input,
+  .domain-input-field,
+  .user-text-input {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    color: #333;
+
+    &:focus {
+      background-color: #fff;
+      border-color: var(--cui-primary);
+    }
+
+    &::placeholder {
+      color: #6c757d;
+    }
+  }
+
+  .form-select.border-secondary,
+  .form-control.border-secondary {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+    color: #333;
+
+    &:focus {
+      color: #333;
+    }
+
+    &::placeholder {
+      color: #6c757d;
+    }
+  }
+}

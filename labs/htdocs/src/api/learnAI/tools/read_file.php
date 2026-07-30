@@ -31,10 +31,11 @@ if (empty($userId) || empty($filePath)) {
 
 try {
     $db = DatabaseConnection::getDefaultDatabase();
-    $labDoc = $db->deployed_labs->findOne([
-        'user_id' => (int)$userId,
-        'status' => 'running'
+    $inst = $db->machine_labs->findOne([
+        'deploy.user_id' => (int)$userId,
+        'deploy.status' => 'running'
     ]);
+    $labDoc = $inst ? ($inst['deploy'] ?? []) : null;
 
     if (!$labDoc || empty($labDoc['instance_hash'])) {
         http_response_code(400);
@@ -60,7 +61,8 @@ foreach ($blockedPaths as $blocked) {
 
 try {
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-    $labData = $db->deployed_labs->findOne(['instance_hash' => $instanceHash]);
+    $inst = $db->machine_labs->findOne(['deploy.instance_hash' => $instanceHash]);
+    $labData = $inst ? ($inst['deploy'] ?? []) : null;
 
     if (!$labData || ($labData['status'] ?? 'offline') !== 'running') {
         throw new Exception('Lab not found or not running');

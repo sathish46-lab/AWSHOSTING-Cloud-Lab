@@ -68,9 +68,9 @@
 
                     <!-- Badges -->
                     <div class="d-flex flex-wrap align-items-center gap-2">
-                        <span class="badge badge-neon badge-neon-primary rounded-pill px-3 py-1">beta</span>
-                        <span class="badge badge-neon badge-neon-warning rounded-pill px-3 py-1">public</span>
-                        <span class="badge badge-neon badge-neon-<?= $isRunning ? 'success' : 'danger' ?> rounded-pill px-3 py-1"><?= strtoupper($status) ?></span>
+                        <span class="badge bg-primary rounded-pill px-3 py-1">beta</span>
+                        <span class="badge bg-warning rounded-pill px-3 py-1">public</span>
+                        <span class="badge <?= $isRunning ? 'bg-success' : 'bg-danger' ?> rounded-pill px-3 py-1"><?= strtoupper($status) ?></span>
                     </div>
                 </div>
             </div>

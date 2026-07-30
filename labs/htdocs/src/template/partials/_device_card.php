@@ -3,7 +3,7 @@
     $displayStatus = ucfirst(strtolower($device['status'] ?? 'offline')); 
 ?>
 <div class="col-12 col-md-4 device-row card-entrance" id="device-card-<?= $dbId ?>" data-pubkey="<?= $device['public_key'] ?>">
-    <div class="card shadow-lg rounded-4 overflow-hidden border-0 blur h-100">
+    <div class="card rounded-4 overflow-hidden border-0 blur h-100">
         <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-start">
                 <h5 class="fw-bold m-0 text-truncate device-card-title">
@@ -33,13 +33,13 @@
                     $typeClass = 'bg-primary';
                     $typeIcon = 'bx-mobile-alt';
                     
-                    if ($type === 'laptop') { $typeClass = 'bg-info text-dark'; $typeIcon = 'bx-laptop'; }
+                    if ($type === 'laptop') { $typeClass = 'bg-info'; $typeIcon = 'bx-laptop'; }
                     elseif ($type === 'desktop') { $typeClass = 'bg-success'; $typeIcon = 'bx-desktop'; }
-                    elseif ($type === 'tablet') { $typeClass = 'bg-warning text-dark'; $typeIcon = 'bx-tab'; }
-                    elseif ($type === 'server') { $typeClass = 'bg-dark border border-secondary'; $typeIcon = 'bx-server'; }
+                    elseif ($type === 'tablet') { $typeClass = 'bg-warning'; $typeIcon = 'bx-tab'; }
+                    elseif ($type === 'server') { $typeClass = 'bg-dark'; $typeIcon = 'bx-server'; }
                     elseif ($type === 'iot') { $typeClass = 'bg-danger'; $typeIcon = 'bx-chip'; }
                 ?>
-                <span class="badge rounded-pill <?= $typeClass ?> fw-bold" >
+                <span class="badge <?= $typeClass ?> fw-bold" >
                     <i class='bx <?= $typeIcon ?> me-1'></i> <?= $type ?>
                 </span>
                 <?php 
@@ -47,7 +47,7 @@
                     $statusClass = ($status === 'online') ? 'bg-success' : 'bg-danger';
                     $statusIcon = ($status === 'online') ? 'bx-wifi' : 'bx-wifi-off';
                 ?>
-                <span class="badge rounded-pill status-pill <?= $statusClass ?> fw-bold" >
+                <span class="badge <?= $statusClass ?> fw-bold" >
                     <i class='bx <?= $statusIcon ?> me-1'></i> <?= $status ?>
                 </span>
             </div>

@@ -6,51 +6,69 @@ Output: private_key|public_key
 """
 
 import subprocess
-import os
 import sys
+import re
+
+IP_RE = re.compile(r'^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
+
+
+def validate_ip(ip):
+    if not IP_RE.match(ip):
+        print(f"Invalid IP: {ip!r}", file=sys.stderr)
+        sys.exit(1)
+    return ip
+
 
 def generate_keys():
     """Generate WireGuard keypair"""
-    priv_key = subprocess.check_output("wg genkey", shell=True).decode().strip()
-    pub_key = subprocess.check_output(f"echo '{priv_key}' | wg pubkey", shell=True).decode().strip()
+    priv_key = subprocess.check_output(
+        ["wg", "genkey"], text=True
+    ).strip()
+    pub_key = subprocess.check_output(
+        ["bash", "-c", f"echo '{priv_key}' | wg pubkey"], text=True
+    ).strip()
     return priv_key, pub_key
+
 
 def remove_stale_peer(ip):
     """Remove any existing peer using this IP"""
     try:
-        # Find existing peer with this IP
-        result = os.popen(f"wg show wg0 allowed-ips | grep '{ip}/32'").read().strip()
-        if result:
-            old_peer_key = result.split()[0]
-            os.system(f"wg set wg0 peer {old_peer_key} remove")
-            print(f"[*] Removed stale peer for {ip}", file=sys.stderr)
-    except:
+        result = subprocess.check_output(
+            ["wg", "show", "wg0", "allowed-ips"], text=True
+        ).strip()
+        for line in result.splitlines():
+            if f"{ip}/32" in line:
+                old_peer_key = line.split()[0]
+                subprocess.run(
+                    ["wg", "set", "wg0", "peer", old_peer_key, "remove"],
+                    check=False
+                )
+                print(f"[*] Removed stale peer for {ip}", file=sys.stderr)
+                break
+    except Exception:
         pass
+
 
 def register_peer(pub_key, ip):
     """Register new peer on host WireGuard"""
-    # Clean up old peer
     remove_stale_peer(ip)
-    
-    # Add new peer
-    result = os.system(f"wg set wg0 peer {pub_key} allowed-ips {ip}/32")
-    if result == 0:
+    result = subprocess.run(
+        ["wg", "set", "wg0", "peer", pub_key, "allowed-ips", f"{ip}/32"],
+        check=False
+    )
+    if result.returncode == 0:
         print(f"[✓] Registered peer: {ip}", file=sys.stderr)
     else:
         print(f"[!] Failed to register peer for {ip}", file=sys.stderr)
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python3 wgconfig.py <tunnel_ip>", file=sys.stderr)
         sys.exit(1)
-    
-    tunnel_ip = sys.argv[1]
-    
-    # Generate keys
+
+    tunnel_ip = validate_ip(sys.argv[1])
+
     priv_key, pub_key = generate_keys()
-    
-    # Register peer on host
     register_peer(pub_key, tunnel_ip)
-    
-    # Output keys for Lab.py to capture
     print(f"{priv_key}|{pub_key}")

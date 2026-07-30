@@ -32,9 +32,12 @@ $isChallenge = !empty($taskData['is_challenge']);
 if ($isChallenge) {
     $challengeId = $taskData['challenge_id'] ?? 'unknown';
     $cmd = "sudo $python $script challenge $action --user=$username --hash=$instanceHash --challenge=$challengeId";
+} elseif ($taskData['lab'] === 'instance') {
+    // New format: labsctl instance deploy --hash=HASH --user=USER
+    $cmd = "sudo $python $script instance $action --user=$username --hash=$instanceHash";
 } else {
-    $labImage = ($taskData['lab'] ?? 'essentials') . ":lab";
-    $cmd = "sudo $python $script $action $labImage --user=$username --hash=$instanceHash";
+    // New format: labsctl lab deploy --hash=HASH --user=USER
+    $cmd = "sudo $python $script lab $action --user=$username --hash=$instanceHash";
 
     // Append MinIO flags if present
     if (!empty($taskData['minio_console_domain'])) {
@@ -53,6 +56,12 @@ if ($isChallenge) {
 // Redirect stderr to stdout
 $cmd .= " 2>&1";
 
+$logDir = '/var/log/labsctl';
+if (!is_dir($logDir)) mkdir($logDir, 0777, true);
+$logFile = $logDir . '/labsctl.log';
+$logHandle = fopen($logFile, 'a');
+fwrite($logHandle, "\n=== " . date('Y-m-d H:i:s') . " | Action: $action | Hash: $instanceHash ===\n");
+
 $handle = popen($cmd, 'r');
 $success = false;
 
@@ -61,6 +70,8 @@ if (is_resource($handle)) {
         $line = fgets($handle); 
         if ($line) {
             $trimmed = trim($line);
+            fwrite($logHandle, $trimmed . "\n");
+            fflush($logHandle);
             
             // Attempt to parse as JSON from our structured logger
             $decoded = json_decode($trimmed, true);
@@ -92,6 +103,7 @@ if (is_resource($handle)) {
         }
     }
     pclose($handle);
+    fclose($logHandle);
 }
 
 if (!$success && $action === 'deploy') {

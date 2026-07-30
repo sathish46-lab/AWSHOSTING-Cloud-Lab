@@ -38,9 +38,9 @@ try {
     $db = DatabaseConnection::getDefaultDatabase();
     
     // Find all running labs for this user
-    $runningDocs = $db->deployed_labs->find([
-        'user_id' => (int)$userId,
-        'status' => 'running'
+    $runningDocs = $db->machine_labs->find([
+        'deploy.user_id' => (int)$userId,
+        'deploy.status' => 'running'
     ]);
 
     $labNames = [
@@ -52,13 +52,14 @@ try {
 
     $runningLabs = [];
     foreach ($runningDocs as $doc) {
-        $labType = $doc['lab_type'] ?? 'unknown';
+        $deploy = $doc['deploy'] ?? [];
+        $labType = $deploy['lab_type'] ?? 'unknown';
         $runningLabs[] = [
             'id' => $labType,
             'name' => $labNames[$labType] ?? 'Unknown Lab',
-            'instance_id' => $doc['instance_hash'] ?? '',
+            'instance_id' => $deploy['instance_hash'] ?? '',
             'status' => 'running',
-            'ip' => $doc['internal_ip'] ?? 'Unknown'
+            'ip' => $deploy['internal_ip'] ?? 'Unknown'
         ];
     }
 

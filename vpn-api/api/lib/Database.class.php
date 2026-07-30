@@ -21,7 +21,9 @@ class Database {
                 self::$db = $mongoClient->selectDatabase($config['vpn_db']);
                 return self::$db;
             } catch (Exception $e) {
-                die("MongoDB Connection failed: " . $e->getMessage());
+                error_log("MongoDB Connection failed: " . $e->getMessage());
+                http_response_code(503);
+                die(json_encode(['error' => 'Database connection failed']));
             }
         }
     }

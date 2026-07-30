@@ -33,12 +33,13 @@ if (empty($userId) || empty($tools) || !is_array($tools)) {
 try {
     $db = DatabaseConnection::getDefaultDatabase();
     $query = [
-        'user_id' => (int)$userId,
-        'status' => 'running',
-        'lab_type' => 'essentials'
+        'deploy.user_id' => (int)$userId,
+        'deploy.status' => 'running',
+        'deploy.lab_type' => 'essentials'
     ];
     
-    $labDoc = $db->deployed_labs->findOne($query);
+    $inst = $db->machine_labs->findOne($query);
+    $labDoc = $inst ? ($inst['deploy'] ?? []) : null;
 
     if (!$labDoc || empty($labDoc['instance_hash'])) {
         http_response_code(400);
@@ -60,7 +61,8 @@ $allowedTools = ['python3', 'python', 'node', 'npm', 'php', 'java', 'javac', 'gc
 
 try {
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-    $labData = $db->deployed_labs->findOne(['instance_hash' => $instanceHash]);
+    $inst = $db->machine_labs->findOne(['deploy.instance_hash' => $instanceHash]);
+    $labData = $inst ? ($inst['deploy'] ?? []) : null;
 
     if (!$labData || ($labData['status'] ?? 'offline') !== 'running') {
         throw new Exception('Lab not found or not running');

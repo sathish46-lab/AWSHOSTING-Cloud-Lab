@@ -6,6 +6,15 @@ $dbInstances = DatabaseConnection::getClient()->selectDatabase('tom_labs_instanc
 $instances = iterator_to_array($dbInstances->instances->find(['user_id' => $userId]));
 $trashedInstances = iterator_to_array($dbInstances->instance_trash->find(['user_id' => $userId]));
 
+// Also include base lab templates as forkable sources
+$baseLabs = [
+    ['instance_hash' => 'base:essentials', 'name' => 'Essentials Lab', 'template' => 'essentials', 'icon' => 'bxl-tux', 'color' => '#e95420'],
+    ['instance_hash' => 'base:minio',      'name' => 'MinIO S3 Storage', 'template' => 'minio',      'icon' => 'bx-cube', 'color' => '#00a6e0'],
+    ['instance_hash' => 'base:n8n',        'name' => 'n8n Workflow',     'template' => 'n8n',        'icon' => 'bx-git-repo-forked', 'color' => '#ea4b71'],
+    ['instance_hash' => 'base:docker_lab', 'name' => 'Docker Lab',       'template' => 'docker_lab', 'icon' => 'bxl-docker', 'color' => '#2496ed'],
+];
+$forkableLabs = array_merge($baseLabs, $instances);
+
 $activeTab = 'templates';
 if (strpos($_SERVER['REQUEST_URI'] ?? '', '/instances/trash') !== false) {
     $activeTab = 'trash';
@@ -44,12 +53,12 @@ if (strpos($_SERVER['REQUEST_URI'] ?? '', '/instances/trash') !== false) {
         <ul class="nav nav-tabs lab-nav-tabs border-0 m-0" role="tablist">
             <li class="nav-item">
                 <button class="nav-link d-flex align-items-center gap-2 instance-dashboard-tab <?= $activeTab === 'templates' ? 'active' : '' ?>" data-tab="templates" type="button">
-                    <i class='bx bx-cube'></i> Your templates <span class="badge bg-success text-white rounded-pill fw-bold ms-1" id="templatesCount"><?= count($instances) ?></span>
+                    <i class='bx bx-cube'></i> Your templates <span class="badge bg-success rounded-pill px-2 py-1 fw-bold ms-1" id="templatesCount"><?= count($instances) ?></span>
                 </button>
             </li>
             <li class="nav-item">
                 <button class="nav-link d-flex align-items-center gap-2 instance-dashboard-tab <?= $activeTab === 'trash' ? 'active' : '' ?>" data-tab="trash" type="button">
-                    <i class='bx bx-trash'></i> Trash <span class="badge bg-danger text-white rounded-pill fw-bold ms-1" id="trashCount"><?= count($trashedInstances) ?></span>
+                    <i class='bx bx-trash'></i> Trash <span class="badge bg-danger rounded-pill px-2 py-1 fw-bold ms-1" id="trashCount"><?= count($trashedInstances) ?></span>
                 </button>
             </li>
         </ul>
@@ -64,7 +73,7 @@ if (strpos($_SERVER['REQUEST_URI'] ?? '', '/instances/trash') !== false) {
         </div>
     </div>
 
-    <div class="row g-4 mt-4">
+    <!-- <div class="row g-4 mt-4">
         <div class="col-12 col-md-6">
             <div class="card blur border-0 shadow-sm rounded-4 p-4 d-flex flex-row align-items-center justify-content-between cursor-pointer">
                 <div class="d-flex align-items-center gap-3">
@@ -93,7 +102,7 @@ if (strpos($_SERVER['REQUEST_URI'] ?? '', '/instances/trash') !== false) {
                 <i class='bx bx-right-arrow-alt text-secondary fs-4'></i>
             </div>
         </div>
-    </div>
+    </div> -->
 </div>
 
 <!-- Fork Lab Modal -->
@@ -107,8 +116,8 @@ if (strpos($_SERVER['REQUEST_URI'] ?? '', '/instances/trash') !== false) {
                 <div class="mb-4">
                     <label class="form-label text-secondary small fw-bold mb-2">Lab to fork</label>
                     <select name="source_id" class="form-select border-secondary border-opacity-50 text-white rounded-pill px-3 py-2 shadow-none focus-border-primary" style="background-image: url('data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 16 16\'%3e%3cpath fill=\'none\' stroke=\'%236c757d\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M2 5l6 6 6-6\'/%3e%3c/svg%3e');" required>
-                        <?php if(!empty($instances)): foreach($instances as $lab): ?>
-                            <option value="<?= htmlspecialchars($lab['instance_hash']) ?>"><?= htmlspecialchars(ucfirst($lab['name'] ?? $lab['template'] ?? 'lab')) ?> (<?= htmlspecialchars(substr($lab['instance_hash'], 0, 8)) ?>)</option>
+                        <?php if(!empty($forkableLabs)): foreach($forkableLabs as $lab): ?>
+                            <option value="<?= htmlspecialchars($lab['instance_hash']) ?>"><?= htmlspecialchars(ucfirst($lab['name'] ?? $lab['template'] ?? 'lab')) ?> (<?= htmlspecialchars(substr($lab['instance_hash'], 0, 16)) ?>)</option>
                         <?php endforeach; else: ?>
                             <option value="">No labs available to fork</option>
                         <?php endif; ?>
@@ -176,7 +185,6 @@ if (strpos($_SERVER['REQUEST_URI'] ?? '', '/instances/trash') !== false) {
 <div class="modal fade" id="trashConfirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 rounded-4 overflow-hidden shadow-lg glass-modal-content">
-            <div style="height: 4px; background: linear-gradient(90deg, #ff6b6b 0%, #ff4b2b 100%); width: 100%;"></div>
             <div class="modal-header border-0 pb-0 pt-4 px-4">
                 <h5 class="modal-title fw-bold text-white d-flex align-items-center gap-2">
                     <i class='bx bx-trash text-danger'></i> <span id="trashModalTitle">Move to Trash?</span>

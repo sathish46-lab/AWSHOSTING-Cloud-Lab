@@ -144,7 +144,7 @@
                         <div class="d-flex align-items-center mb-2">
                             <span class="small text-secondary me-2">Vpn Status:</span>
                             <span
-                                class="badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"
+                                class="badge rounded-pill bg-danger"
                                 style="font-size: 0.5rem;">
                                 Not Connected
                             </span>

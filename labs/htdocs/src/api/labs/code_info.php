@@ -18,7 +18,8 @@ if (empty($hash)) {
 
 try {
     $db = DatabaseConnection::getDefaultDatabase();
-    $labData = $db->deployed_labs->findOne(['instance_hash' => $hash]);
+    $inst = $db->instances->findOne(['instance_hash' => $hash]);
+    $labData = $inst ? ($inst['deploy'] ?? []) : null;
 
     if (!$labData) throw new Exception('Lab not found');
     if ($labData['user_id'] !== $user->getUserId()) throw new Exception('Unauthorized');

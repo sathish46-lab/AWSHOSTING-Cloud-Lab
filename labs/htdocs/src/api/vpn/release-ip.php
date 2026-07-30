@@ -27,9 +27,9 @@ if ($type === 'essential_lab') {
     $ipManager->release($ipAddr, $user->getEmail());
     
     // 2. Remove the Lab Metadata entirely so it disappears from Dashboard
-    $db->deployed_labs->deleteMany([
-        'internal_ip' => $ipAddr, 
-        'email' => $user->getEmail()
+    $db->machine_labs->deleteMany([
+        'deploy.internal_ip' => $ipAddr, 
+        'deploy.email' => $user->getEmail()
     ]);
 
     echo json_encode(['success' => true]);

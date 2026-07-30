@@ -252,9 +252,10 @@ class DomainManager {
     public function getDomainUsageMap($user_id) {
         $usageMap = [];
         // CRITICAL: Cast to integer for MongoDB query (DB stores as int, Session returns string)
-        $allUserLabs = $this->db->deployed_labs->find(['user_id' => (int)$user_id]);
+        $allUserLabs = $this->db->machine_labs->find(['user_id' => (int)$user_id]);
         
-        foreach($allUserLabs as $lab) {
+        foreach($allUserLabs as $inst) {
+            $lab = $inst['deploy'] ?? [];
             $status = $lab['status'] ?? 'offline';
 
             $labType = $lab['lab_type'] ?? 'unknown';

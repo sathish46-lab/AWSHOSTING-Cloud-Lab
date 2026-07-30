@@ -19,7 +19,8 @@ html.mode-plain {
       -webkit-backdrop-filter: none !important;
       border: 1px solid rgba(0, 0, 0, 0.06) !important;
       box-shadow: rgba(0, 0, 0, 0.08) 0px 8px 24px,
-        rgba(0, 0, 0, 0.04) 0px 2px 4px !important;
+        rgba(0, 0, 0, 0.04) 0px 2px 4px,
+        rgba(var(--cui-primary-rgb), 0.15) 0 0 32px -4px !important;
       color: #1a1a2e;
     }
 
@@ -98,7 +99,7 @@ html.mode-plain {
     body.hwa-enabled .card.blur {
       background: var(--cui-card-bg-solid, rgba(42, 32, 24, 0.94)) !important;
       border: 1px solid rgba(255, 255, 255, 0.12) !important;
-      box-shadow: rgba(0, 0, 0, 0.4) 0px 12px 28px, rgba(255, 255, 255, 0.03) 0px 0px 16px !important;
+      box-shadow: rgba(0, 0, 0, 0.4) 0px 12px 28px, rgba(0, 0, 0, 0.25) 0 2px 4px 0, rgba(var(--cui-primary-rgb), 0.25) 0 0 32px -4px, rgba(255, 255, 255, 0.12) 0 0 0 1px inset, rgba(255, 255, 255, 0.18) 0 1px 0 0 inset !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }
@@ -109,7 +110,7 @@ html.mode-plain {
     body.hwa-disabled .card.blur {
       background: var(--cui-card-bg-solid, #0d121b) !important;
       border: 1px solid rgba(255, 255, 255, 0.08) !important;
-      box-shadow: rgba(0, 0, 0, 0.45) 0px 12px 28px, inset 0 0 0 1px rgba(255, 255, 255, 0.04) !important;
+      box-shadow: rgba(0, 0, 0, 0.45) 0px 12px 28px, rgba(0, 0, 0, 0.25) 0 2px 4px 0, rgba(var(--cui-primary-rgb), 0.25) 0 0 32px -4px, rgba(255, 255, 255, 0.12) 0 0 0 1px inset, rgba(255, 255, 255, 0.18) 0 1px 0 0 inset !important;
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }
@@ -119,7 +120,7 @@ html.mode-plain {
     }
 
     .header {
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      border-bottom: none !important;
     }
   }
 }

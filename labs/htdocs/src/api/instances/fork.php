@@ -23,24 +23,33 @@ if (empty($source_id)) {
     exit;
 }
 
-// Find source lab in instances
-$source = $dbInstances->instances->findOne(['instance_hash' => $source_id]);
-if (!$source) {
-    try {
-        $source = $dbInstances->instances->findOne(['_id' => new MongoDB\BSON\ObjectId($source_id)]);
-    } catch (Exception $e) {
-        $source = $dbInstances->instances->findOne(['slug' => $source_id]);
+// Handle base template forking (base:essentials, base:minio, etc.)
+$isBaseTemplate = (strpos($source_id, 'base:') === 0);
+
+if ($isBaseTemplate) {
+    $labType = substr($source_id, 5);
+    $template = $labType;
+    $source = ['name' => ucfirst($labType) . ' Lab', 'type' => 'machine', 'image' => 'ubuntu:24.04'];
+} else {
+    // Find source lab in instances
+    $source = $dbInstances->instances->findOne(['instance_hash' => $source_id]);
+    if (!$source) {
+        try {
+            $source = $dbInstances->instances->findOne(['_id' => new MongoDB\BSON\ObjectId($source_id)]);
+        } catch (Exception $e) {
+            $source = $dbInstances->instances->findOne(['slug' => $source_id]);
+        }
     }
-}
 
-if (!$source) {
-    http_response_code(404);
-    echo 'Source lab not found';
-    exit;
-}
+    if (!$source) {
+        http_response_code(404);
+        echo 'Source lab not found';
+        exit;
+    }
 
-$labType = $source['lab_type'] ?? ($source['type'] ?? 'machine');
-$template = $source['template'] ?? $labType;
+    $labType = $source['lab_type'] ?? ($source['type'] ?? 'machine');
+    $template = $source['template'] ?? $labType;
+}
 $bgMap = ['essentials' => '#e95420', 'minio' => '#2f3542', 'n8n' => '#ff6b81', 'docker_lab' => '#2496ed'];
 $typeIconMap = ['essentials' => 'bxl-tux', 'minio' => 'bx-cube', 'n8n' => 'bx-git-repo-forked', 'docker_lab' => 'bxl-docker'];
 

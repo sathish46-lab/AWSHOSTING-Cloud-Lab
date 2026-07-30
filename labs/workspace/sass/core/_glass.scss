@@ -1,0 +1,153 @@
+// ===========================
+// GLASS / GLASSMORPHISM
+// Consolidated backdrop-filter patterns
+// ===========================
+
+// --- Base glass effect ---
+.glass {
+  backdrop-filter: saturate(200%) blur(18px);
+  -webkit-backdrop-filter: saturate(200%) blur(18px);
+}
+
+// --- Blur panel (sidebar, cards, modals) ---
+.blur {
+  background-color: var(--glass-bg) !important;
+  backdrop-filter: saturate(200%) blur(18px) !important;
+  -webkit-backdrop-filter: saturate(200%) blur(18px) !important;
+  border: 1px solid var(--cui-card-border-color, rgba(255, 255, 255, 0.08));
+}
+
+html[data-coreui-theme="light"] body .blur,
+html[data-coreui-theme="light"] .blur {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+body.hwa-enabled .blur {
+  backdrop-filter: saturate(200%) blur(18px);
+  -webkit-backdrop-filter: saturate(200%) blur(18px);
+}
+
+// --- Liquid rim (card hover effect) ---
+.liquid-rim {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+// --- Glass modal content ---
+.glass-modal-content {
+  background: var(--glass-bg, rgba(20, 20, 20, 0.92)) !important;
+  backdrop-filter: saturate(180%) blur(20px) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 1rem;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+}
+
+// --- Glass effect premium (quiz, cards) ---
+.glass-effect-premium {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  }
+}
+
+// --- Liquid glass card ---
+.liquid-glass-card {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+}
+
+// --- Server logs panel (sticky bottom) ---
+.server-logs-panel {
+  position: sticky !important;
+  bottom: 0 !important;
+  z-index: 1000;
+  margin-top: auto;
+  background-color: var(--glass-bg) !important;
+  border-top: 1px solid var(--cui-card-border-color);
+  margin-left: -24px !important;
+  margin-right: -24px !important;
+  overflow: visible !important;
+  transition: background-color 0.5s ease;
+  backdrop-filter: saturate(200%) blur(18px) !important;
+  -webkit-backdrop-filter: saturate(200%) blur(18px) !important;
+}
+
+.server-logs-panel:not(.logs-panel-minimized) {
+  margin-top: auto;
+}
+
+body.hwa-enabled .server-logs-panel {
+  backdrop-filter: saturate(200%) blur(18px);
+  -webkit-backdrop-filter: saturate(200%) blur(18px);
+}
+
+// --- Logs body ---
+.logs-body {
+  background-color: rgba(0, 0, 0, 0.4) !important;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  padding: 10px;
+  height: 138px;
+  min-height: 90px;
+  overflow-y: auto;
+  transition: height 0.3s ease;
+
+  &.logs-minimized {
+    height: 44px;
+    min-height: 44px;
+    overflow: hidden;
+  }
+}
+
+// --- Logs header ---
+.logs-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 10px;
+  background-color: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  overflow: visible;
+}
+
+.logs-header-clickable {
+  cursor: pointer !important;
+}
+
+// --- Status dot with glow ---
+#mq-status-dot.dot-connected {
+  color: rgb(14, 181, 0) !important;
+  filter: drop-shadow(0 0 3px #0a4c04);
+}
+
+// --- Icon sizing inside panels ---
+.server-logs-panel {
+  #mq-status-dot {
+    font-size: 8px !important;
+  }
+
+  .terminal-info-wrapper i {
+    font-size: 14px !important;
+  }
+
+  .server-logs-chevron {
+    font-size: 18px !important;
+  }
+
+  .logs-body {
+    overflow-y: auto !important;
+    transition: height 0.3s ease !important;
+  }
+}

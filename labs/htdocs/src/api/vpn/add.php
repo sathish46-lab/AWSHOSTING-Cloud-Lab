@@ -15,7 +15,7 @@ $publicKey = $_POST['public_key'] ?? null;
 $privateKey = $_POST['private_key'] ?? '';
 $deviceName = $_POST['device_name'] ?? 'Unnamed Device';
 $deviceType = $_POST['device_type'] ?? 'Mobile';
-$selectedIp = $_POST['reallocate_ip'] ?? null;
+$selectedIp = $_POST['ip'] ?? null;
 
 if (empty($publicKey)) {
     http_response_code(400);

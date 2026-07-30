@@ -38,10 +38,48 @@ class DatabaseConnection {
         }
         return self::$db;
     }
+    /**
+     * Returns the machine_labs collection (replaces old deployed_labs)
+     * All deploy data lives inside machine_labs.deploy subdocument
+     */
+    public static function getInstancesCollection() {
+        return self::getDefaultDatabase()->selectCollection('machine_labs');
+    }
+
+    /**
+     * Convenience: find a single instance by deploy.instance_hash
+     * Returns the flattened deploy data with lab_type merged in
+     */
+    public static function findInstanceByHash(string $hash): ?array {
+        $inst = self::getInstancesCollection()->findOne(
+            ['deploy.instance_hash' => $hash],
+            ['projection' => ['deploy' => 1, 'lab_type' => 1, 'lab_name' => 1, 'user_id' => 1, 'email' => 1]]
+        );
+        if (!$inst) return null;
+        $data = $inst['deploy'] ?? [];
+        $data['lab_type'] = $inst['lab_type'] ?? $data['lab_type'] ?? 'essentials';
+        $data['lab_name'] = $inst['lab_name'] ?? $data['lab_name'] ?? '';
+        $data['user_id'] = $inst['user_id'] ?? $data['user_id'] ?? null;
+        $data['email'] = $inst['email'] ?? $data['email'] ?? null;
+        return $data;
+    }
+
+    /**
+     * Convenience: find instance document by deploy.instance_hash
+     * Returns the full machine_labs document (not flattened)
+     */
+    public static function findInstanceDocByHash(string $hash): ?array {
+        return self::getInstancesCollection()->findOne(
+            ['deploy.instance_hash' => $hash],
+            ['projection' => ['deploy' => 1, 'lab_type' => 1, 'lab_name' => 1, 'user_id' => 1, 'email' => 1]]
+        );
+    }
+
+    /**
+     * @deprecated Use getInstancesCollection() instead
+     */
     public static function getDeploymentsCollection() {
-        // CRITICAL: Must use 'labs' database to match labctl.py expectations
-        // labctl.py hardcodes: self.db = self.mongo_client.labs
-        return self::getClient()->selectDatabase('labs')->selectCollection('deployed_labs');
+        return self::getInstancesCollection();
     }
     public static function getStatsDatabase() {
         return self::getClient()->selectDatabase('tom_labs_stats_db');
@@ -50,7 +88,7 @@ class DatabaseConnection {
         return self::getClient()->selectDatabase('tom_labs_passive_db');
     }
     public static function getFilesDatabase() {
-        return self::getClient()->selectDatabase('tom_labs_files_db');
+        return self::getClient()->selectDatabase('tom_labs_instances_db');
     }
     public static function getNextSequence($name) {
     $db = self::getDefaultDatabase();

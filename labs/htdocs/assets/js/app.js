@@ -18883,7 +18883,10 @@ document.addEventListener('show.coreui.modal', function(e) {
     const text = cm.getValue();
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     statusEl.innerHTML =
-      "Ln " + line + ", Col " + col + " &nbsp;·&nbsp; " + words + " words &nbsp;·&nbsp; UTF-8";
+      '<span class="text-info">Ln ' + line + '</span>, ' +
+      '<span class="text-warning">Col ' + col + '</span> &nbsp;·&nbsp; ' +
+      '<span class="text-success">' + words + ' words</span> &nbsp;·&nbsp; ' +
+      '<span class="text-primary">UTF-8</span>';
   }
 
   cm.on("cursorActivity", updateStatus);
@@ -19072,7 +19075,7 @@ document.addEventListener('show.coreui.modal', function(e) {
         if (deleteBtn) deleteBtn.disabled = false;
         activeFile = { path, name, modified: data.modified };
         metaEl.innerHTML =
-          '<span class="badge bg-secondary bg-opacity-25 text-secondary">Binary file</span>' +
+          '<span class="badge bg-primary rounded-pill px-2 py-1">Binary file</span>' +
           ' <span class="small text-secondary">' + humanSize(data.size || 0) + "</span>";
         showOverlay("Binary file — manage via MinIO.", "bx bx-file-blank");
         updateStatus();
@@ -19088,8 +19091,8 @@ document.addEventListener('show.coreui.modal', function(e) {
       activeFile = { path, name, modified: data.modified };
       if (modifiedEl) modifiedEl.classList.toggle("d-none", !data.modified);
       metaEl.innerHTML = data.modified
-        ? '<span class="badge bg-warning bg-opacity-25 text-warning">Modified by you</span>'
-        : '<span class="badge bg-info bg-opacity-25 text-info">Base template</span>';
+        ? '<span class="badge bg-warning rounded-pill px-2 py-1">Modified by you</span>'
+        : '<span class="badge bg-info rounded-pill px-2 py-1">Base template</span>';
       cm.focus();
       updateStatus();
     } catch (e) {
@@ -19117,7 +19120,7 @@ document.addEventListener('show.coreui.modal', function(e) {
         activeFile.modified = true;
         if (modifiedEl) modifiedEl.classList.remove("d-none");
         metaEl.innerHTML =
-          '<span class="badge bg-warning bg-opacity-25 text-warning">Modified by you</span>';
+          '<span class="badge bg-warning rounded-pill px-2 py-1">Modified by you</span>';
         showToast("Saved.", "success");
       } else {
         showToast("Save failed: " + (data.error || "unknown"), "danger");
@@ -20292,9 +20295,6 @@ const Dashboard = {
       if (el) el.style.width = "0%";
     });
 
-    const memInfo = document.getElementById("stat-mem-info");
-    if (memInfo) memInfo.innerText = "Lab Offline";
-
     const badgeArea = document.getElementById("badge-area");
     if (badgeArea) {
       badgeArea.innerHTML = `<span class="badge text-bg-danger border-0 px-2 py-1 small">Offline</span>`;
@@ -20335,7 +20335,7 @@ const Dashboard = {
     const user = window.LAB_USER || "tom";
     const host = "Tomlabs";
     const div = document.createElement("div");
-    div.className = "log-entry py-1";
+    div.className = "log-entry";
     div.innerHTML = `<span class="term-user">${Dashboard.escapeHtml(user)}</span>@<span class="term-host" style="color:#FFA500;">${Dashboard.escapeHtml(host)}</span> <span class="term-symbol">$</span> <span class="text-white">${Dashboard.escapeHtml(cmd)}</span>`;
     container.appendChild(div);
   },
@@ -20358,7 +20358,7 @@ const Dashboard = {
 
     // Create log entry
     const div = document.createElement("div");
-    div.className = "log-entry py-1";
+    div.className = "log-entry";
 
     // Color coding
     if (msg.startsWith("[✓]")) div.style.color = "#a6e3a1";
@@ -24792,6 +24792,9 @@ function initInstanceTabs() {
     const contentContainer = document.getElementById('instanceTabsContent');
     if (tabs.length === 0 || !contentContainer) return;
 
+    // Prevent re-init loop: skip if same tab is already loaded
+    if (window.__currentTab === window.location.pathname) return;
+
     // Determine current slug from URL path (e.g., /instances/my-lab)
     const pathParts = window.location.pathname.split('/').filter(Boolean);
     const slug = pathParts.length >= 2 && pathParts[0] === 'instances' ? pathParts[1] : null;
@@ -24813,6 +24816,7 @@ function initInstanceTabs() {
         // Update browser URL cleanly (no page reload)
         const newUrl = `/instances/${slug}/${tabName}`;
         window.history.pushState(null, '', newUrl);
+        window.__currentTab = newUrl;
 
         try {
             const response = await fetch(newUrl, {
@@ -24821,6 +24825,7 @@ function initInstanceTabs() {
 
             if (response.ok) {
                 contentContainer.innerHTML = await response.text();
+
                 // Re-execute <script> tags injected via innerHTML
                 contentContainer.querySelectorAll('script').forEach(old => {
                     const s = document.createElement('script');
@@ -24828,6 +24833,7 @@ function initInstanceTabs() {
                     else s.textContent = old.textContent;
                     old.replaceWith(s);
                 });
+
                 // Fire event so tab scripts can initialize
                 document.dispatchEvent(new CustomEvent('instanceTabLoaded', { detail: { tab: tabName } }));
             } else {
@@ -24862,18 +24868,21 @@ function initInstanceTabs() {
 
     // Auto-load the tab from the URL on a fresh page load (deep links like
     // /instances/tech/files must open the Files tab, not just configuration).
+    // Skip if the tab content is already rendered server-side (prevents flicker).
     const urlParts = window.location.pathname.split('/').filter(Boolean);
     const urlTab = urlParts.length >= 3 && urlParts[0] === 'instances' ? urlParts[2] : '';
     const validTabs = ['deployments', 'files', 'configuration', 'build', 'sharing', 'versions'];
+
     if (validTabs.includes(urlTab)) {
-        // Sync the nav active state immediately, then load content.
+        // Content is already rendered by PHP. Just sync nav active state.
         tabs.forEach(t => t.classList.remove('active'));
         const activeBtn = document.querySelector(`.manage-tab-btn[data-tab="${urlTab}"]`);
         if (activeBtn) activeBtn.classList.add('active');
-        loadTab(urlTab);
     } else {
-        // Bare /instances/{slug}: default to configuration.
-        loadTab('configuration');
+        // Bare /instances/{slug}: PHP defaults to configuration, just sync nav.
+        tabs.forEach(t => t.classList.remove('active'));
+        const configBtn = document.querySelector(`.manage-tab-btn[data-tab="configuration"]`);
+        if (configBtn) configBtn.classList.add('active');
     }
 }
 
@@ -24943,6 +24952,7 @@ async function saveInstanceConfig() {
     document.querySelectorAll('#instanceTabsContent [data-field]').forEach(el => {
         const field = el.dataset.field;
         if (field.startsWith('users.') || field.startsWith('bind_mounts.')) return;
+
         if (el.type === 'checkbox') {
             data[field] = el.checked;
         } else if (field === 'ports') {
@@ -24991,9 +25001,12 @@ async function saveInstanceConfig() {
             body: JSON.stringify({ slug: slug, config: data })
         });
         const result = await res.json();
+
         if (result.status === 'success') {
             saveBtn.innerHTML = '<i class="bx bx-check me-1"></i> Saved!';
-            setTimeout(() => { saveBtn.innerHTML = '<i class="bx bx-save me-1"></i> Save configuration'; }, 2000);
+            setTimeout(() => {
+                saveBtn.innerHTML = '<i class="bx bx-save me-1"></i> Save configuration';
+            }, 2000);
         } else {
             alert('Error: ' + (result.error || 'Failed to save'));
             saveBtn.innerHTML = '<i class="bx bx-save me-1"></i> Save configuration';
@@ -25009,10 +25022,13 @@ async function saveInstanceConfig() {
 function addConfigUser() {
     const usersList = document.getElementById('configUsersList');
     if (!usersList) return;
+
     const idx = usersList.querySelectorAll('[data-user-index]').length;
     const html = `
         <div class="d-flex align-items-center gap-2 mb-2 p-2 rounded-3 border border-secondary border-opacity-25 bg-black bg-opacity-50" data-user-index="${idx}">
-            <div class="bg-secondary bg-opacity-25 p-1 rounded d-flex"><i class='bx bx-user text-secondary'></i></div>
+            <div class="bg-secondary bg-opacity-25 p-1 rounded d-flex">
+                <i class='bx bx-user text-secondary'></i>
+            </div>
             <input type="text" class="form-control form-control-sm config-input bg-transparent border-0 text-white fw-bold" style="max-width:120px;" placeholder="username" data-field="users.${idx}.username">
             <select class="form-select form-select-sm config-input bg-transparent border-0 text-secondary" style="max-width:120px;" data-field="users.${idx}.shell">
                 <option value="/bin/bash">/bin/bash</option>
@@ -25027,21 +25043,25 @@ function addConfigUser() {
                 <i class='bx bx-trash text-danger pointer small remove-user' data-user-index="${idx}"></i>
             </div>
         </div>`;
+
     usersList.insertAdjacentHTML('beforeend', html);
 }
 
 function addBindMount() {
     const mountsList = document.getElementById('configBindMountsList');
     if (!mountsList) return;
+
     // Remove "no mounts" placeholder if present
     const placeholder = mountsList.querySelector('.opacity-50');
     if (placeholder) placeholder.remove();
+
     const idx = mountsList.querySelectorAll('[data-mount-index]').length;
     const html = `
         <div class="d-flex align-items-center gap-2 mb-2" data-mount-index="${idx}">
             <input type="text" class="form-control form-control-sm config-input" placeholder="{labstorage}/home:/home" data-field="bind_mounts.${idx}" style="font-size: 0.8rem;">
             <i class='bx bx-trash text-danger pointer small remove-mount' data-mount-index="${idx}"></i>
         </div>`;
+
     mountsList.insertAdjacentHTML('beforeend', html);
 }
 
@@ -25049,13 +25069,14 @@ function addBindMount() {
 function initManagePage() {
     initInstanceTabs();
 }
+
 if (document.readyState !== 'loading') {
     initManagePage();
 }
+
 document.addEventListener('DOMContentLoaded', initManagePage);
 document.addEventListener('htmx:afterSettle', initManagePage);
 document.addEventListener('htmx:load', initManagePage);
-
 /**
  * Wrapped with IIFE Error Boundary
  */

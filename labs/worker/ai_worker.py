@@ -37,7 +37,7 @@ config = load_config()
 AMQP_HOST = config.get('amqp_host', '127.0.0.1')
 AMQP_PORT = config.get('amqp_port', 5672)
 AMQP_USER = config.get('amqp_user', 'admin')
-AMQP_PASS = config.get('amqp_pass', 'RootTom@46')
+AMQP_PASS = config.get('amqp_pass') or os.environ.get('RABBITMQ_PASS', '')
 QUEUE_NAME = 'ai_jobs'
 CONTENT_QUEUE_NAME = 'ai_content_jobs'
 

@@ -4,7 +4,13 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: Dev_lab
-    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - SYS_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    security_opt:
+      - apparmor:unconfined
     environment:
       - MAIN_DOMAIN=dev.tomweb.in
       - VPN_DOMAIN=vpn.dev.tomweb.in
@@ -14,6 +20,10 @@ services:
       - SSL_EMAIL=admin@example.com
       - DOCKER_HOST=unix:///var/docker.sock
       - WIREGUARD_MODE=docker
+      - RABBITMQ_USER=${RABBITMQ_USER:-admin}
+      - RABBITMQ_PASS=${RABBITMQ_PASS:?Set RABBITMQ_PASS in .env file}
+      - MONGO_USER=${MONGO_USER:-admin}
+      - MONGO_PASS=${MONGO_PASS:?Set MONGO_PASS in .env file}
     extra_hosts:
       - "dev.tomweb.in:127.0.0.1"
       - "vpn.dev.tomweb.in:127.0.0.1"
@@ -31,6 +41,7 @@ services:
       - ./wireguard-conf:/etc/wireguard
       - ./apache-logs:/var/log/apache2
       - ./traefik-conf:/etc/traefik
+      - labsstorage:/var/labsstorage
     networks:
       tomlabs_dev_net: {}
       dev_lab_frontend:
@@ -44,22 +55,23 @@ services:
           - work.tomweb.in
           - labs.tomweb.in
     ports:
-      - "8080:80"
-      - "8443:443"
+      - "80:80"
+      - "443:443"
       - "9081:8081"
       - "9082:8082"
       - "5673:5672"
       - "15673:15672"
       - "15674:15674"
       - "51821:51820/udp"
+      - "2222:22"
     stop_signal: SIGRTMIN+3
 
   mongodb:
     image: mongo:8.0
     container_name: TomCloudLab_mongodb
     environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: Tombootroot
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-${MONGO_PASS:?Set MONGO_PASS in .env}}
     volumes:
       - ./mongo-data:/data/db
     networks:
@@ -102,3 +114,8 @@ networks:
       config:
         - subnet: 10.20.160.0/20
           gateway: 10.20.160.1
+
+volumes:
+  labsstorage:
+    name: labsstorage
+    external: true

@@ -2,13 +2,18 @@
 
 class RabbitMqManager
 {
-    private string $adminUser = 'admin';
-    private string $adminPassword = 'RootTom@46';
+    private string $adminUser = '';
+    private string $adminPassword = '';
     private string $host;
 
     public function __construct()
     {
         $this->host = gethostname();
+        $this->adminUser = get_config('amqp_user') ?: 'admin';
+        $this->adminPassword = get_config('amqp_pass') ?: '';
+        if (empty($this->adminPassword)) {
+            throw new \RuntimeException("amqp_pass missing in env.json");
+        }
     }
     
     public function createUser(string $userName, string $password): bool

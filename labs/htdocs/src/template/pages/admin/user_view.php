@@ -15,7 +15,7 @@ $gravatarHash = md5(strtolower(trim($email)));
 $avatar = $userData['avatar'] ?? "https://www.gravatar.com/avatar/{$gravatarHash}?d=identicon&s=200";
 
 // Get user labs and domains
-$deployedLabs = iterator_to_array($db->deployed_labs->find(['email' => $email]));
+$deployedLabs = iterator_to_array($db->machine_labs->find(['email' => $email]));
 $domains = iterator_to_array($db->domains->find(['email' => $email]));
 $quizzes = $userData['quizzes_completed'] ?? [];
 

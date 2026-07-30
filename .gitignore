@@ -98,8 +98,6 @@ wireguard-conf/
 # opt/
 work/
 opt/labs-control-panel/config.json
-labs/htdocs/assets/sna_css/
-labs/htdocs/assets/sna_js/
 __pycache__/
 **/ssh_host_keys/*
 !**/ssh_host_keys/.gitkeep

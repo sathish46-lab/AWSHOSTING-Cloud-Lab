@@ -1,0 +1,399 @@
+// ===========================
+// BUTTONS
+// Consolidated button styles
+// ===========================
+
+// --- Segmented button group ---
+.btn-instance-group {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.btn-instance-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  position: relative;
+  text-decoration: none;
+
+  &:last-child {
+    border-right: none;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  i {
+    font-size: 0.9rem;
+  }
+}
+
+// Segment color variants
+.btn-seg-code {
+  background: linear-gradient(135deg, #e8533d 0%, #ff6b4b 100%);
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ff6b4b 0%, #e8533d 100%);
+  }
+}
+
+.btn-seg-redeploy {
+  background: linear-gradient(135deg, #b8c94c 0%, #d4e85c 100%);
+  color: #1a1a1a;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #d4e85c 0%, #b8c94c 100%);
+  }
+}
+
+.btn-seg-pause {
+  background: linear-gradient(135deg, #5a6a7a 0%, #7a8a9a 100%);
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #7a8a9a 0%, #5a6a7a 100%);
+  }
+}
+
+.btn-seg-stop {
+  background: linear-gradient(135deg, #cc3366 0%, #ff4488 100%);
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ff4488 0%, #cc3366 100%);
+  }
+}
+
+.btn-seg-deploy {
+  background: linear-gradient(135deg, #e8533d 0%, #ff6b4b 100%);
+  color: white;
+  border-radius: 9999px;
+  padding: 0.5rem 1.5rem;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ff6b4b 0%, #e8533d 100%);
+  }
+}
+
+// --- Lab action buttons ---
+.btn-lab-action {
+  border-radius: 12px;
+  font-weight: 600;
+  padding: 8px 16px;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.btn-lab-dashboard {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.btn-lab-code {
+  background: rgba(255, 165, 0, 0.15);
+  border: 1px solid rgba(255, 165, 0, 0.3);
+  color: #ffa502;
+
+  &:hover {
+    background: rgba(255, 165, 0, 0.25);
+  }
+}
+
+.btn-lab-info {
+  background: rgba(82, 153, 224, 0.15);
+  border: 1px solid rgba(82, 153, 224, 0.3);
+  color: #5299E0;
+
+  &:hover {
+    background: rgba(82, 153, 224, 0.25);
+  }
+}
+
+// --- Modal buttons ---
+.btn-modal-green {
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+  border: none;
+  color: white;
+
+  &:hover {
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+  }
+}
+
+.btn-modal-gray {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.btn-modal-blue {
+  background: linear-gradient(135deg, #5299E0 0%, #3b82f6 100%);
+  border: none;
+  color: white;
+
+  &:hover {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  }
+}
+
+.btn-modal-cancel {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+.btn-modal-delete {
+  background: rgba(255, 107, 107, 0.15);
+  border: 1px solid rgba(255, 107, 107, 0.3);
+  color: #ff6b6b;
+
+  &:hover {
+    background: rgba(255, 107, 107, 0.25);
+  }
+}
+
+// --- Pref buttons ---
+.btn-pref-run {
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+  border: none;
+  color: white;
+
+  &:hover {
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+  }
+}
+
+.btn-pref-save {
+  background: linear-gradient(135deg, #5299E0 0%, #3b82f6 100%);
+  border: none;
+  color: white;
+
+  &:hover {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  }
+}
+
+.btn-pref-apply {
+  background: linear-gradient(135deg, #f39c12 0%, #f59e0b 100%);
+  border: none;
+  color: white;
+
+  &:hover {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  }
+}
+
+// --- Device/Domain add buttons ---
+.btn-add-device,
+.btn-add-domain {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  padding: 12px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
+  }
+}
+
+// --- Enhance button ---
+.enhance-btn {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+  border: none;
+  color: white;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+
+  &:hover {
+    background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+  }
+}
+
+// --- Sign in / Home buttons ---
+.btn-signin {
+  background: linear-gradient(135deg, #ff4b2b 0%, #ff6b4b 100%);
+  border: none;
+  color: white;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-weight: 600;
+
+  &:hover {
+    background: linear-gradient(135deg, #ff6b4b 0%, #ff4b2b 100%);
+  }
+}
+
+.btn-home {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-weight: 600;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.15);
+  }
+}
+
+// --- Copy code button ---
+.btn-copy-code {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #a6e3a1;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+}
+
+// --- Send button ---
+.send-button {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+  border: none;
+  color: white;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+
+  &:hover {
+    background: linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%);
+  }
+}
+
+// --- Mode/Theme selector buttons ---
+.mode-btn,
+.diff-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+  }
+
+  &.active {
+    background: rgba(139, 92, 246, 0.2);
+    border-color: rgba(139, 92, 246, 0.5);
+    color: #a78bfa;
+  }
+}
+
+// --- Quiz option button ---
+.quiz-option-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: white;
+  border-radius: 12px;
+  padding: 12px 16px;
+  text-align: left;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  &.selected {
+    background: rgba(139, 92, 246, 0.15);
+    border-color: rgba(139, 92, 246, 0.4);
+  }
+}
+
+// --- Pill active/outline buttons ---
+.btn-pill-active {
+  background: linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%);
+  border: none;
+  color: white;
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.btn-pill-outline {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
+  }
+}
+
+// --- Success gradient button ---
+.btn-success-gradient {
+  background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+  border: none;
+  color: white;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 600;
+
+  &:hover {
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+  }
+}
+
+// --- XS button ---
+.btn-xs {
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+}

@@ -1,15 +1,22 @@
 <div class="col card-entrance" id="instance-card-<?= htmlspecialchars($slug) ?>" data-deploy-status="<?= htmlspecialchars($instance['deploy']['status'] ?? 'none') ?>" data-instance-hash="<?= htmlspecialchars($instanceHash) ?>">
-    <div class="card border-0 shadow-sm instance-template-card" style="overflow: visible;">
+    <div class="instance-template-card instance-card-<?= htmlspecialchars($tplKey) ?>">
         <div style="border-radius: 1rem; overflow: hidden; position: relative; min-height: 200px;">
-            <div class="instance-template-card-bg" style="background-image: url('<?= htmlspecialchars($cover) ?>'), linear-gradient(135deg, <?= htmlspecialchars($bgColor) ?> 0%, rgba(0,0,0,0.35) 100%);"></div>
-            <div class="instance-template-card-overlay"></div>
+            <div class="instance-template-card-bg"></div>
 
+            <div class="position-absolute end-0 bottom-0 pe-3 pb-3 lab-card-bg-icon" style="z-index: 1;">
+                <i class="bx <?= htmlspecialchars($cardIcon) ?> lab-card-icon-lg"></i>
+            </div>
             <div class="position-relative d-flex flex-column justify-content-end p-3 h-100" style="z-index: 2;">
                 <div class="d-flex align-items-center justify-content-between mb-5">
                     <div class="d-flex align-items-center gap-2">
-                        <span class="badge instance-badge-tag <?= $visibility === 'public' ? 'badge-vis-public' : 'badge-vis-private' ?>"><?= htmlspecialchars($visibility) ?></span>
-                        <span class="badge instance-badge-tag badge-type-<?= htmlspecialchars($type) ?>"><?= htmlspecialchars($type) ?></span>
-                        <span class="badge instance-badge-tag badge-status-<?= htmlspecialchars($status) ?>"><?= htmlspecialchars($status) ?></span>
+                        <?php
+                            $visColor = ($visibility === 'public') ? 'info' : 'primary';
+                            $typeColor = ($type === 'machine') ? 'primary' : 'warning';
+                            $statusColor = ($status === 'running') ? 'success' : (($status === 'draft') ? 'warning' : 'danger');
+                        ?>
+                        <span class="badge bg-<?= $visColor ?> rounded-pill px-2 py-1"><?= htmlspecialchars($visibility) ?></span>
+                        <span class="badge bg-<?= $typeColor ?> rounded-pill px-2 py-1"><?= htmlspecialchars($type) ?></span>
+                        <span class="badge bg-<?= $statusColor ?> rounded-pill px-2 py-1"><?= htmlspecialchars($status) ?></span>
                     </div>
                     <div class="dropdown">
                         <button class="btn btn-link text-white p-0 border-0 bg-transparent" data-coreui-toggle="dropdown" aria-expanded="false" style="text-shadow: 0 1px 3px rgba(0,0,0,0.5);">

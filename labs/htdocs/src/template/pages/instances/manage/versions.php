@@ -28,7 +28,7 @@ $versions = $versionsCol->find(['instance_hash' => $hash], ['sort' => ['created_
     </div>
     <?php else: ?>
     <div class="d-flex align-items-center justify-content-between border-bottom border-secondary border-opacity-25 pb-2 mb-3">
-        <span class="text-secondary fw-bold small text-uppercase">VERSIONS <span class="badge bg-secondary text-white rounded-pill fw-bold ms-2"><?= count($versions) ?></span></span>
+        <span class="text-secondary fw-bold small text-uppercase">VERSIONS <span class="badge bg-primary rounded-pill px-2 py-1 fw-bold ms-2"><?= count($versions) ?></span></span>
     </div>
 
     <div class="table-responsive">
@@ -69,9 +69,6 @@ $versions = $versionsCol->find(['instance_hash' => $hash], ['sort' => ['created_
 
 <script>
 (function() {
-    function reloadTab() {
-        if (window.__loadInstanceTab) window.__loadInstanceTab('versions');
-    }
 
     document.addEventListener('click', async (e) => {
         const hash = document.getElementById('versionsTab')?.dataset.hash;
@@ -91,7 +88,7 @@ $versions = $versionsCol->find(['instance_hash' => $hash], ['sort' => ['created_
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    reloadTab();
+                    htmx.ajax('GET', location.href, '#main-content');
                 } else {
                     alert(data.error || 'Save failed');
                     btn.disabled = false;
@@ -118,7 +115,7 @@ $versions = $versionsCol->find(['instance_hash' => $hash], ['sort' => ['created_
                 });
                 const data = await res.json();
                 if (data.status === 'success') {
-                    reloadTab();
+                    htmx.ajax('GET', location.href, '#main-content');
                 } else {
                     alert(data.error || 'Restore failed');
                     btn.disabled = false;

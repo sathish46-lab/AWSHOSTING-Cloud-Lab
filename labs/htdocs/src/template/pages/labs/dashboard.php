@@ -1,8 +1,19 @@
 <?php
     $fullHash = Session::get('full_instance_hash');
     $db = DatabaseConnection::getDefaultDatabase();
-    $labData = $db->deployed_labs->findOne(['instance_hash' => $fullHash]);
-    
+
+    // Query instances collection — deploy data lives in instances.deploy subdocument
+    $inst = $db->machine_labs->findOne(
+        ['deploy.instance_hash' => $fullHash],
+        ['projection' => ['deploy' => 1, 'lab_type' => 1]]
+    );
+    if ($inst) {
+        $labData = $inst['deploy'] ?? [];
+        $labData['lab_type'] = $inst['lab_type'] ?? 'essentials';
+    } else {
+        $labData = null;
+    }
+
     // CRITICAL FIX: Define missing variables
     $user = Session::getUser();
     $currentUsername = $user->getUsername();
@@ -216,9 +227,9 @@
                         <h6 class="fw-bold mb-0">
                         Container Load
                         <?php if ($isRunning): ?>
-                            <span class="badge badge-neon badge-neon-success rounded-pill ms-2 pulse">Live</span>
+                            <span class="badge bg-success rounded-pill ms-2 pulse">Live</span>
                         <?php else: ?>
-                            <span class="badge badge-neon badge-neon-danger rounded-pill ms-2">Offline</span>
+                            <span class="badge bg-danger rounded-pill ms-2">Offline</span>
                         <?php endif; ?>
                     </h6>
 
@@ -248,7 +259,6 @@
                                     <div class="progress stat-progress-bar">
                                         <div class="progress-bar bg-warning" id="stat-mem-bar" style="width: 0%"></div>
                                     </div>
-                                    <div class="small text-muted mt-2 text-start" id="stat-mem-info"> </div>
                                 </div>
                             </div>
                         </div>

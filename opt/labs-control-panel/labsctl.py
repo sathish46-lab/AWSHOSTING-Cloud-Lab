@@ -48,7 +48,7 @@ def build_router():
 
             old_args = OldArgs([cmd_name] + args.argv)
             session_hash = args.hash
-            lab = Lab(old_args, session_hash)
+            lab = Lab(old_args, session_hash, is_instance=True)
 
             method = getattr(lab, cmd_name, None)
             if method:

@@ -14,14 +14,20 @@ class Wireguard{
     public $db;
 
     public $device;
+    private static $ALLOWED_DEVICES = ['wg0'];
+
     public function __construct($device){
+        if (!in_array($device, self::$ALLOWED_DEVICES)) {
+            throw new \InvalidArgumentException("Invalid WireGuard device: " . $device);
+        }
         $this->device = $device;
         $this->db = Database::getConnection();
     }
 
     //TODO: Need to check if the code presensts some data leak threats.
     public function getCIDR() {
-        $cmd = "sudo cat /etc/wireguard/$this->device.conf | head -n 3";
+        $device = escapeshellarg($this->device);
+        $cmd = "sudo cat /etc/wireguard/{$this->device}.conf | head -n 3";
         $line = trim(shell_exec($cmd));
         $lines = explode(PHP_EOL, $line);
         foreach ($lines as $line) {
@@ -34,7 +40,8 @@ class Wireguard{
     }
 
     public function getPeers() {
-        $cmd = "sudo wg show $this->device";
+        $device = escapeshellarg($this->device);
+        $cmd = "sudo wg show {$this->device}";
         $output = trim(shell_exec($cmd));
         $result = explode(PHP_EOL, $output);
         $interface_out = array_slice($result, 0, 4);
@@ -68,10 +75,12 @@ class Wireguard{
 
     public function removePeer($public, $reserved){
         $ipnet = new IPNetwork($this->getCIDR(), $this->device);
-        $cmd = "sudo wg set $this->device peer \"$public\" remove";
+        $escaped_public = escapeshellarg($public);
+        $escaped_device = escapeshellarg($this->device);
+        $cmd = "sudo wg set {$this->device} peer {$escaped_public} remove";
         $result = 0;
         system($cmd, $result);
-        system("sudo wg-quick save $this->device");
+        system("sudo wg-quick save {$this->device}");
         if($result == 0){
             return $ipnet->unallocateIP($public, $reserved);
         }
@@ -81,9 +90,11 @@ class Wireguard{
         if(!$this->hasPeer($public)){
             $ipnet = new IPNetwork($this->getCIDR(), $this->device);
             $next_ip = $ipnet->getNextIP($email, $ip);
-            $cmd = "sudo wg set $this->device peer \"$public\" allowed-ips \"$next_ip/32\"";
+            $escaped_public = escapeshellarg($public);
+            $escaped_next_ip = escapeshellarg("{$next_ip}/32");
+            $cmd = "sudo wg set {$this->device} peer {$escaped_public} allowed-ips {$escaped_next_ip}";
             system($cmd, $result);
-            system("sudo wg-quick save $this->device", $result1);
+            system("sudo wg-quick save {$this->device}", $result1);
             if($result == 0 and $result1 == 0){
                 return $ipnet->allocateIP($next_ip, $email, $public, boolval($reserved));
             } else {
@@ -99,7 +110,8 @@ class Wireguard{
     }
 
     public function getPeer($public){
-        $cmd = "sudo wg show $this->device | grep -A4 '$public'";
+        $escaped_public = escapeshellarg($public);
+        $cmd = "sudo wg show {$this->device} | grep -A4 {$escaped_public}";
         $output = trim(shell_exec($cmd));
         $result = explode(PHP_EOL, $output);
         $peer = array();

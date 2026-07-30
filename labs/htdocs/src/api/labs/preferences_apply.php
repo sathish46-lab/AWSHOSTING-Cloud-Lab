@@ -33,9 +33,10 @@ if ($instanceHash !== $input['hash']) {
 
 try {
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-    $col = $db->deployed_labs;
+    $col = $db->machine_labs;
 
-    $existing = $col->findOne(['instance_hash' => $instanceHash]);
+    $inst = $col->findOne(['deploy.instance_hash' => $instanceHash]);
+    $existing = $inst ? ($inst['deploy'] ?? []) : null;
     if (!$existing) {
         throw new Exception('Lab not found. Please deploy first.');
     }
@@ -74,22 +75,6 @@ try {
         $initScript = $existing['init_script'] ?? '#!/bin/bash';
     } else {
         $initScript = isset($input['init_script']) ? (string)$input['init_script'] : '#!/bin/bash';
-    }
-
-    $updateData = [
-        'http_proxies' => $httpProxies,
-        'always_on'    => $alwaysOn,
-        'init_script'  => $initScript,
-        'prefs_updated_at' => time()
-    ];
-
-    if (isset($input['su_pass'])) {
-        $updateData['staged_preferences.su_pass'] = trim((string)$input['su_pass']);
-    }
-    if (isset($input['code_server_pass'])) {
-        $codeServerPassVal = trim((string)$input['code_server_pass']);
-        $updateData['staged_preferences.code_server_pass'] = $codeServerPassVal;
-        $updateData['staged_preferences.password'] = $codeServerPassVal;
     }
 
     // Build details string for activity log by comparing with existing data
@@ -138,11 +123,19 @@ try {
 
     // 1. Save to DB first
     $col->updateOne(
-        ['instance_hash' => $instanceHash],
+        ['deploy.instance_hash' => $instanceHash],
         [
-            '$set' => $updateData,
+            '$set' => [
+                'deploy.http_proxies' => $httpProxies,
+                'deploy.always_on'    => $alwaysOn,
+                'deploy.init_script'  => $initScript,
+                'deploy.prefs_updated_at' => time(),
+                'deploy.staged_preferences.su_pass' => $updateData['staged_preferences.su_pass'] ?? null,
+                'deploy.staged_preferences.code_server_pass' => $updateData['staged_preferences.code_server_pass'] ?? null,
+                'deploy.staged_preferences.password' => $updateData['staged_preferences.password'] ?? null,
+            ],
             '$push' => [
-                'activity_log' => [
+                'deploy.activity_log' => [
                     '$each' => [
                         [
                             'action' => 'Fast Apply',

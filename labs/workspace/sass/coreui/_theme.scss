@@ -8,9 +8,12 @@
   --cui-body-bg: rgba(255, 255, 255, 0.8);
   --cui-card-bg: rgba(255, 255, 255, 0.45);
   --cui-card-border-color: rgba(255, 255, 255, 0.5);
+  --cui-border-color: rgba(0, 0, 0, 0.1);
+  --cui-header-border-color: transparent !important;
   --glass-border-glow: rgba(255, 255, 255, 0.6);
   --glass-shine: rgba(255, 255, 255, 0.4);
   --glass-bg: rgba(255, 255, 255, 0.866);
+  --glass-bg-solid: rgba(255, 255, 255, 0.75);
   --glass-text: #000000 !important;
   --glass-text-muted: rgba(0, 0, 0, 0.65) !important;
   --glass-icon: #000000 !important;
@@ -64,8 +67,8 @@
     color: #e74c3c !important;
   }
 
-  .badge:not(.badge-neon) {
-    color: #ffffff !important; // Force white text for better contrast on solid badges
+  span.badge:not([class*="bg-"]) {
+    color: #ffffff !important;
     font-weight: 700 !important;
     letter-spacing: 0.5px;
     padding: 4px 10px !important;
@@ -191,6 +194,7 @@
   --cui-tertiary-bg: #010d12;
   --cui-secondary-bg: #071e31;
   --cui-dark-bg-subtle: #091723;
+  --cui-header-border-color: transparent !important;
 
   /* Selfmade Ninja Functional Colors - 100% Match */
   --cui-primary: #8b91f9;
@@ -324,7 +328,7 @@
 }
 
 body {
-  font-family: 'Ubuntu', sans-serif !important;
+  font-family: 'Rubik', sans-serif !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--cui-body-bg);
@@ -585,8 +589,6 @@ body::before {
     background-position: 100% 100%;
   }
 }
-
-/* Breadcrumb Contrast Fix */
 .breadcrumb-item,
 .breadcrumb-item a,
 .breadcrumb-item+.breadcrumb-item::before {
@@ -624,6 +626,12 @@ body::before {
     background: var(--glass-bg) !important;
   }
 
+  /* Remove border and shadow on header always */
+  &.header {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
   border-radius: 1.25rem;
   position: relative;
   transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -638,15 +646,20 @@ body::before {
   /* Fallback for when Visual Blur is OFF */
   body.hwa-disabled & {
     background: var(--glass-bg-solid) !important;
-    border-color: rgba(255, 255, 255, 0.05) !important;
+    border-color: transparent !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1) !important;
+    box-shadow: none !important;
   }
   
   [data-coreui-theme="light"] body.hwa-disabled & {
     background: var(--glass-bg-solid) !important;
     border-color: rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* Remove border on header when blur is OFF */
+  body.hwa-disabled &.header {
+    border-color: transparent !important;
   }
 
   /* Top-edge light refraction removed */
@@ -791,34 +804,6 @@ body::before {
   letter-spacing: 1px;
 }
 
-@keyframes drift {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-@keyframes gradient {
-  0% {
-    background-position: 0% 50%;
-  }
-
-  50% {
-    background-position: 100% 50%;
-  }
-
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
 /*════════════════════════════════════════════
   1.  COREUI THEME PALettes
   ════════════════════════════════════════════*/
@@ -851,17 +836,6 @@ html[data-coreui-theme="dark"] {
 :root {
   --cycle-time: 30s;
   --step-count: 120;
-}
-
-/* one discrete jump every 2 s */
-@keyframes drift {
-  from {
-    background-position: 0% 50%;
-  }
-
-  to {
-    background-position: 100% 50%;
-  }
 }
 
 /* Modern Color Picker UI */
@@ -1281,7 +1255,7 @@ html[data-coreui-theme="dark"] body.hwa-disabled .liquid-rim .dropdown-menu {
 html[data-coreui-theme="light"] body.hwa-disabled .liquid-rim,
 html[data-coreui-theme="light"] body.hwa-disabled .card.blur,
 html[data-coreui-theme="light"] body.hwa-disabled .liquid-rim .dropdown-menu {
-  box-shadow: rgba(0, 0, 0, 0.18) 0 12px 28px 0, rgba(0, 0, 0, 0.1) 0 2px 4px 0, rgba(var(--cui-primary-rgb), 0.12) 0 0 32px -4px, rgba(0, 0, 0, 0.08) 0 0 0 1px inset, rgba(0, 0, 0, 0.1) 0 1px 0 0 inset !important;
+  box-shadow: rgba(0, 0, 0, 0.06) 0 8px 24px, rgba(var(--cui-primary-rgb), 0.12) 0 0 32px -4px !important;
 }
 
 [data-coreui-theme="light"] .labs-banner-tab.active::after {

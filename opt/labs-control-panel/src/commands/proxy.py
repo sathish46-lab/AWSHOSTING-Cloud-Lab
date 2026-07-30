@@ -46,13 +46,22 @@ class ProxyCmd(Command):
             self.log("Missing --hash", "error")
             return
 
-        # Get lab data from DB
-        lab_data = self.db.deployed_labs.find_one({"instance_hash": instance_id}) if self.db is not None else None
+        # Get lab data from DB — try machine_labs first, fall back to machine_labs
+        lab_data = None
+        if self.db is not None:
+            lab_data = self.db.machine_labs.find_one({"deploy.instance_hash": instance_id})
+            if lab_data:
+                lab_data = lab_data.get('deploy', {})
+            else:
+                lab_data = self.db.machine_labs.find_one({"instance_hash": instance_id})
         if not lab_data:
             self.log(f"Lab not found: {instance_id}", "error")
             return
 
-        docker_ip = lab_data.get("credentials", {}).get("docker_ip")
+        docker_ip = lab_data.get("credentials", {})
+        if not isinstance(docker_ip, dict):
+            docker_ip = {}
+        docker_ip = docker_ip.get("docker_ip")
         if not docker_ip:
             self.log("No docker_ip in credentials", "error")
             return
@@ -85,12 +94,21 @@ class ProxyCmd(Command):
             self.log("Missing --hash", "error")
             return
 
-        lab_data = self.db.deployed_labs.find_one({"instance_hash": instance_id}) if self.db is not None else None
+        lab_data = None
+        if self.db is not None:
+            lab_data = self.db.machine_labs.find_one({"deploy.instance_hash": instance_id})
+            if lab_data:
+                lab_data = lab_data.get('deploy', {})
+            else:
+                lab_data = self.db.machine_labs.find_one({"instance_hash": instance_id})
         if not lab_data:
             self.log(f"Lab not found: {instance_id}", "error")
             return
 
-        docker_ip = lab_data.get("credentials", {}).get("docker_ip")
+        creds = lab_data.get("credentials", {})
+        if not isinstance(creds, dict):
+            creds = {}
+        docker_ip = creds.get("docker_ip")
         if not docker_ip:
             self.log("No docker_ip in credentials", "error")
             return

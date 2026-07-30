@@ -40,18 +40,24 @@ $roleColors = [
     </div>
     <?php else: ?>
     <div class="d-flex align-items-center justify-content-between border-bottom border-secondary border-opacity-25 pb-2 mb-3">
-        <span class="text-secondary fw-bold small text-uppercase">SHARED WITH <span class="badge bg-secondary text-white rounded-pill fw-bold ms-2"><?= count($shares) ?></span></span>
+        <span class="text-secondary fw-bold small text-uppercase">SHARED WITH <span class="badge bg-primary rounded-pill px-2 py-1 fw-bold ms-2"><?= count($shares) ?></span></span>
     </div>
 
     <div id="sharesList">
         <?php foreach ($shares as $s):
             $role = $s['role'] ?? 'viewer';
-            $rc = $roleColors[$role] ?? $roleColors['viewer'];
+            $roleColorMap = [
+                'owner'    => 'success',
+                'operator' => 'warning',
+                'manager'  => 'primary',
+                'viewer'   => 'info',
+            ];
+            $roleColor = $roleColorMap[$role] ?? 'info';
         ?>
         <div class="d-flex align-items-center justify-content-between p-3 mb-2 rounded-3" style="background-color: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);" data-share-user="<?= htmlspecialchars($s['shared_with'] ?? '') ?>">
             <div class="d-flex align-items-center gap-3">
-                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background-color: <?= $rc[1] ?>;">
-                    <i class='bx bx-user' style="color: <?= $rc[0] ?>;"></i>
+                <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 36px; height: 36px; background-color: rgba(255,255,255,0.05);">
+                    <i class='bx bx-user text-secondary'></i>
                 </div>
                 <div>
                     <div class="fw-bold" style="color: rgba(255,255,255,0.9);"><?= htmlspecialchars($s['shared_with'] ?? '') ?></div>
@@ -59,7 +65,7 @@ $roleColors = [
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <span class="badge rounded-pill fw-bold" style="background-color: <?= $rc[1] ?>; color: <?= $rc[0] ?>;">
+                <span class="badge bg-<?= $roleColor ?> rounded-pill px-2 py-1">
                     <?= $role ?>
                 </span>
                 <?php if ($isOwner): ?>
@@ -103,11 +109,6 @@ $roleColors = [
     const isOwner = document.getElementById('sharingTab')?.dataset.owner === '1';
     if (!hash) return;
 
-    function reloadTab() {
-        if (window.__loadInstanceTab) window.__loadInstanceTab('sharing');
-    }
-    }
-
     if (isOwner) {
         document.addEventListener('click', async (e) => {
             if (e.target.closest('#addShareBtn')) {
@@ -132,7 +133,7 @@ $roleColors = [
                     });
                     const data = await res.json();
                     if (data.status === 'success') {
-                        reloadTab();
+                        htmx.ajax('GET', location.href, '#main-content');
                     } else {
                         alert(data.error || 'Share failed');
                     }

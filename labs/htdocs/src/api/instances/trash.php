@@ -38,7 +38,7 @@ $deployStatus = $deploy['status'] ?? 'none';
 $instanceHash = $instance['instance_hash'] ?? '';
 
 if (in_array($deployStatus, ['running', 'deploying', 'starting'])) {
-    $containerName = $instanceHash;
+    $containerName = escapeshellarg($instanceHash);
     @shell_exec("docker stop {$containerName} 2>/dev/null");
     @shell_exec("docker rm -f {$containerName} 2>/dev/null");
 }

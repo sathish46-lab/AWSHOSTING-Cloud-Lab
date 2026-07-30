@@ -1,9 +1,13 @@
 import os
+import re
 import json
 import pymongo
 import time
 import subprocess
 from src.DockerHelper import DockerHelper
+
+SAFE_NAME_RE = re.compile(r'^[a-zA-Z0-9._-]+$')
+SAFE_IP_RE = re.compile(r'^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$')
 
 class BaseOrchestrator:
     def __init__(self, args, session_hash=None):
@@ -46,20 +50,22 @@ class BaseOrchestrator:
                 self.log(f"Env Connection Failed: {e}", "warn", "init")
 
         # Fallback Logic for local development/bootstrapping
-        try:
-            # Try Docker Internal Network
-            self.mongo_client = pymongo.MongoClient("mongodb://admin:Tombootroot@TomCloudLab_mongodb:27017/?authSource=admin", serverSelectionTimeoutMS=2000)
-            self.mongo_client.admin.command('ping')
-            self.db = self.mongo_client.tom_labs_db 
-        except Exception:
+        mongo_user = os.environ.get('MONGO_USER', '')
+        mongo_pass = os.environ.get('MONGO_PASS', '')
+        mongo_host = os.environ.get('MONGO_HOST', 'localhost')
+        mongo_port = os.environ.get('MONGO_PORT', '27018')
+
+        if mongo_user and mongo_pass:
+            fallback_uri = f"mongodb://{mongo_user}:{mongo_pass}@{mongo_host}:{mongo_port}/?authSource=admin"
             try:
-                # Try Local Host (Mapped Port)
-                self.mongo_client = pymongo.MongoClient("mongodb://admin:Tombootroot@localhost:27018/?authSource=admin", serverSelectionTimeoutMS=2000)
+                self.mongo_client = pymongo.MongoClient(fallback_uri, serverSelectionTimeoutMS=2000)
                 self.mongo_client.admin.command('ping')
                 self.db = self.mongo_client.tom_labs_db
+                return
             except Exception:
-                self.db = None
-                self.log("Database connection completely failed", "error", "init")
+                pass
+        self.db = None
+        self.log("Database connection failed — set MONGO_USER/MONGO_PASS env vars", "error", "init")
 
     def log(self, message, level="info", phase="general", step=None):
         """Standard text log format."""
@@ -117,6 +123,10 @@ class BaseOrchestrator:
 
     def configure_routing(self, tunnel_ip, docker_ip, bridge_id, dnat=False):
         """Shared iptables/routing logic."""
+        if not tunnel_ip or not SAFE_IP_RE.match(str(tunnel_ip)):
+            return
+        if not docker_ip or not SAFE_IP_RE.match(str(docker_ip)):
+            return
         self.run("sysctl -w net.ipv4.ip_forward=1")
         self.run(f"ip route del {tunnel_ip}/32 2>/dev/null || true")
         
@@ -140,6 +150,8 @@ class BaseOrchestrator:
 
     def cleanup_container(self, container_name, docker_network):
         """Shared container cleanup."""
+        if not container_name or not SAFE_NAME_RE.match(str(container_name)):
+            return False
         if self.docker.container_exists(container_name):
             try:
                 self.run(f"docker network disconnect -f {docker_network} {container_name} 2>/dev/null")

@@ -26,8 +26,8 @@ try {
         echo json_encode(['status' => 'error', 'error' => 'Instance not found']); exit;
     }
 
-    $filesDb = DatabaseConnection::getClient()->selectDatabase('tom_labs_files_db');
-    $fileDoc = $filesDb->files->findOne(['instance_id' => $hash]);
+    $filesDb = DatabaseConnection::getClient()->selectDatabase('tom_labs_instances_db');
+    $fileDoc = $filesDb->instance_files->findOne(['instance_id' => $hash]);
 
     $instDb->instance_versions->insertOne([
         'instance_hash'  => $hash,

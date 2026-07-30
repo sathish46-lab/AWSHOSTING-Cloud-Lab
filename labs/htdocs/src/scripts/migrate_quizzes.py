@@ -2,22 +2,25 @@ import json
 import pymongo
 import os
 
-# Connect to MongoDB - Use 127.0.0.1 for strict host resolution
-mongo_uri = "mongodb://admin:Tombootroot@127.0.0.1:27018/?authSource=admin"
+# Connect to MongoDB via environment variables
+mongo_user = os.environ.get('MONGO_USER', '')
+mongo_pass = os.environ.get('MONGO_PASS', '')
+mongo_host = os.environ.get('MONGO_HOST', '127.0.0.1')
+mongo_port = os.environ.get('MONGO_PORT', '27018')
+
+if not mongo_user or not mongo_pass:
+    raise SystemExit("MONGO_USER/MONGO_PASS env vars not set")
+
+mongo_uri = f"mongodb://{mongo_user}:{mongo_pass}@{mongo_host}:{mongo_port}/?authSource=admin"
 
 try:
     client = pymongo.MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
     client.server_info() # Force connection check
     db = client.tom_labs_db
-    print(f"Connected to MongoDB via {mongo_uri}")
-except Exception:
-    # Fallback for container execution
-    mongo_uri = "mongodb://admin:Tombootroot@TomCloudLab_mongodb:27017/?authSource=admin"
-    try:
-        client = pymongo.MongoClient(mongo_uri, serverSelectionTimeoutMS=5000)
-        client.server_info()
-        db = client.tom_labs_db
-        print(f"Connected to MongoDB via {mongo_uri}")
+    print(f"Connected to MongoDB via {mongo_host}:{mongo_port}")
+except Exception as e:
+    print(f"Failed to connect: {e}")
+    raise
     except Exception as e:
         print(f"❌ Error: Could not connect to MongoDB: {e}")
         exit(1)

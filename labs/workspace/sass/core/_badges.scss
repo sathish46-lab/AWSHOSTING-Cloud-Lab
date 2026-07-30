@@ -1,0 +1,140 @@
+// ===========================
+// BADGES
+// Override CoreUI defaults → neon look on all .badge.bg-* classes
+// ===========================
+
+// --- Global badge base ---
+.badge {
+  font-size: 0.55rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  border-radius: 999px;
+}
+
+// --- Override CoreUI .bg-* badges with neon look ---
+.badge.bg-success,
+.badge.bg-success-gradient {
+  color: #2ecc71 !important;
+  border: 1.5px solid rgba(46, 204, 113, 0.5) !important;
+  background: rgba(46, 204, 113, 0.08) !important;
+  text-shadow: 0 0 6px rgba(46, 204, 113, 0.4) !important;
+  box-shadow: 0 0 8px rgba(46, 204, 113, 0.15) !important;
+}
+
+.badge.bg-danger,
+.badge.bg-danger-gradient {
+  color: #ff6b6b !important;
+  border: 1.5px solid rgba(255, 107, 107, 0.5) !important;
+  background: rgba(255, 107, 107, 0.08) !important;
+  text-shadow: 0 0 6px rgba(255, 107, 107, 0.4) !important;
+  box-shadow: 0 0 8px rgba(255, 107, 107, 0.15) !important;
+}
+
+.badge.bg-warning,
+.badge.bg-warning-gradient {
+  color: #f39c12 !important;
+  border: 1.5px solid rgba(243, 156, 18, 0.5) !important;
+  background: rgba(243, 156, 18, 0.08) !important;
+  text-shadow: 0 0 6px rgba(243, 156, 18, 0.4) !important;
+  box-shadow: 0 0 8px rgba(243, 156, 18, 0.15) !important;
+}
+
+.badge.bg-primary,
+.badge.bg-primary-gradient {
+  color: #5299E0 !important;
+  border: 1.5px solid rgba(82, 153, 224, 0.5) !important;
+  background: rgba(82, 153, 224, 0.08) !important;
+  text-shadow: 0 0 6px rgba(82, 153, 224, 0.4) !important;
+  box-shadow: 0 0 8px rgba(82, 153, 224, 0.15) !important;
+}
+
+.badge.bg-info,
+.badge.bg-info-gradient {
+  color: #38bdf8 !important;
+  border: 1.5px solid rgba(56, 189, 248, 0.5) !important;
+  background: rgba(56, 189, 248, 0.08) !important;
+  text-shadow: 0 0 6px rgba(56, 189, 248, 0.4) !important;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.15) !important;
+}
+
+.badge.bg-secondary,
+.badge.bg-secondary-gradient {
+  color: #aab3c5 !important;
+  border: 1.5px solid rgba(170, 179, 197, 0.5) !important;
+  background: rgba(170, 179, 197, 0.08) !important;
+  text-shadow: 0 0 6px rgba(170, 179, 197, 0.4) !important;
+  box-shadow: 0 0 8px rgba(170, 179, 197, 0.15) !important;
+}
+
+.badge.bg-dark,
+.badge.bg-dark-gradient {
+  color: #e2e8f0 !important;
+  border: 1.5px solid rgba(226, 232, 240, 0.3) !important;
+  background: rgba(226, 232, 240, 0.06) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+// --- Light theme overrides ---
+html[data-coreui-theme="light"] .badge.bg-success,
+html[data-coreui-theme="light"] .badge.bg-success-gradient {
+  color: #0d7a3a !important;
+  border: 1.5px solid rgba(13, 122, 58, 0.4) !important;
+  background: rgba(13, 122, 58, 0.08) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+html[data-coreui-theme="light"] .badge.bg-danger,
+html[data-coreui-theme="light"] .badge.bg-danger-gradient {
+  color: #c0392b !important;
+  border: 1.5px solid rgba(192, 57, 43, 0.4) !important;
+  background: rgba(192, 57, 43, 0.08) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+html[data-coreui-theme="light"] .badge.bg-warning,
+html[data-coreui-theme="light"] .badge.bg-warning-gradient {
+  color: #b8860b !important;
+  border: 1.5px solid rgba(184, 134, 11, 0.4) !important;
+  background: rgba(184, 134, 11, 0.08) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+html[data-coreui-theme="light"] .badge.bg-primary,
+html[data-coreui-theme="light"] .badge.bg-primary-gradient {
+  color: #2c5aa0 !important;
+  border: 1.5px solid rgba(44, 90, 160, 0.4) !important;
+  background: rgba(44, 90, 160, 0.08) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+html[data-coreui-theme="light"] .badge.bg-info,
+html[data-coreui-theme="light"] .badge.bg-info-gradient {
+  color: #0e6bcf !important;
+  border: 1.5px solid rgba(14, 107, 207, 0.4) !important;
+  background: rgba(14, 107, 207, 0.08) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+html[data-coreui-theme="light"] .badge.bg-secondary,
+html[data-coreui-theme="light"] .badge.bg-secondary-gradient {
+  color: #4a5568 !important;
+  border: 1.5px solid rgba(74, 85, 104, 0.4) !important;
+  background: rgba(74, 85, 104, 0.08) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+html[data-coreui-theme="light"] .badge.bg-dark,
+html[data-coreui-theme="light"] .badge.bg-dark-gradient {
+  color: #1a202c !important;
+  border: 1.5px solid rgba(26, 32, 44, 0.3) !important;
+  background: rgba(26, 32, 44, 0.06) !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}

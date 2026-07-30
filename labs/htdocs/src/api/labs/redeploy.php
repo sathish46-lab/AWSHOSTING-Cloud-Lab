@@ -17,17 +17,25 @@ if (empty($hash)) {
 }
 
 $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-$labData = $db->deployed_labs->findOne(['instance_hash' => $hash]);
+
+$inst = $db->machine_labs->findOne(
+    ['deploy.instance_hash' => $hash],
+    ['projection' => ['deploy' => 1, 'lab_type' => 1, 'lab_name' => 1, 'user_id' => 1]]
+);
+if ($inst) {
+    $labData = $inst['deploy'] ?? [];
+    $labData['lab_type'] = $inst['lab_type'] ?? 'essentials';
+    $labData['lab_name'] = $inst['lab_name'] ?? '';
+    $labData['user_id'] = $inst['user_id'] ?? null;
+} else {
+    $labData = [];
+}
 $user = Session::getUser();
 $fullHash = $hash;
 
-if (!$labData) {
-    echo '<p class="text-danger">Lab not found</p>';
-    exit;
-}
-
+// Fresh deploy: use defaults so modal still opens
 $labType = $labData['lab_type'] ?? 'essentials';
-$status = $labData['status'] ?? 'offline';
+$status = $labData['status'] ?? 'not_deployed';
 $isRunning = ($status === 'running');
 $creds = $labData['credentials'] ?? null;
 $deviceIp = $labData['internal_ip'] ?? '0.0.0.0';

@@ -26,8 +26,13 @@ $isActive = in_array($status, ['building', 'deploying', 'starting']);
     <!-- Status Row -->
     <div class="d-flex align-items-center justify-content-between border-bottom border-secondary border-opacity-25 pb-2 mb-3">
         <span class="text-secondary fw-bold small text-uppercase">Build Status</span>
-        <span class="badge rounded-pill fw-bold" id="buildStatusBadge"
-            style="background-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.5);">
+        <?php
+            $buildStatusColor = 'primary';
+            if ($status === 'built') $buildStatusColor = 'success';
+            elseif (in_array($status, ['building', 'deploying'])) $buildStatusColor = 'warning';
+            elseif ($status === 'error') $buildStatusColor = 'danger';
+        ?>
+        <span class="badge bg-<?= $buildStatusColor ?> rounded-pill px-3 py-1" id="buildStatusBadge">
             <?= htmlspecialchars($status) ?>
         </span>
     </div>

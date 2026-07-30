@@ -119,7 +119,7 @@ $current = Session::getCurrentFile();
         </li>
     </ul>
 
-    <div id="sidebar-stats-container" class="sidebar-stats p-3 mt-auto border-top border-light border-opacity-10">
+    <div id="sidebar-stats-container" class="sidebar-stats p-3 border-top border-light border-opacity-10">
         <div class="stat-group mb-2">
             <div class="small mb-1 cpuinfotext">
                 <span class="stat-label fw-bold">CPU USAGE: <span id="sidebar-cpu-val">0.00%</span></span>
@@ -158,8 +158,9 @@ $current = Session::getCurrentFile();
             <div id="sidebar-swap-details" class="stat-subtext mt-1">Loading...</div>
         </div>
     </div>
+    </div>
 
-    <div class="sidebar-footer border-top border-light border-opacity-10 d-flex align-items-center" style="min-height: 46px; height: 46px; padding: 0;">
+    <div class="sidebar-footer border-top border-light border-opacity-10 d-flex align-items-center" style="height: 46px; padding: 0 8px;">
         <button class="header-toggler border-0 d-flex align-items-center justify-content-center" type="button"
             onclick="coreui.Sidebar.getInstance(document.querySelector('#sidebar')).toggle()"
             style="width: 46px; height: 46px; background: transparent;">
@@ -167,7 +168,6 @@ $current = Session::getCurrentFile();
         </button>
         <button class="sidebar-toggler ms-auto me-2" type="button" data-coreui-toggle="unfoldable"
             data-coreui-target="#sidebar"></button>
-    </div>
     </div>
 </div>
 

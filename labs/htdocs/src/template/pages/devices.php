@@ -15,19 +15,23 @@ $defaultIp = !empty($resources) ? end($resources)['ip_addr'] : "";
 <div class="blur mb-3 rounded-0">
     <div class="container-fluid px-4">
         <div class="row align-items-center py-3">
-            <div class="col">
-                <h1 class="fw-bold theme-text m-0 devices-header-title">Devices</h1>
-                <p class="text-secondary opacity-75 mt-2 mb-0 devices-header-desc">
-                    My Devices is a section where you can register your device to access our labs to learn, develop tools and play challenges and many more features in a secure way. 
-                    We have launched a new VPN app where you can connect to our network with one click to access your labs and do much more, now available for Windows and Ubuntu. 
-                    <a href="#" class="text-info fw-bold" >Download here</a> or 
-                    <a href="#" class="text-info fw-bold" >watch how to use this tool here</a>.
-                </p>
+            <div class="col-lg-9 col-auto me-auto">
+                <div class="p-3">
+                    <h3 class="devices-header-title"><strong>Devices</strong></h3>
+                    <p class="devices-header-desc">
+                        My Devices is a section where you can register your device to access our labs to learn, develop tools and play challenges and many more features in a secure way. 
+                        We have launched a new VPN app where you can connect to our network with one click to access your labs and do much more, now available for Windows and Ubuntu. 
+                        <a href="#" class="devices-header-link">Download here</a> or watch how to use this tool <a href="#" class="devices-header-link">here</a>.
+                    </p>
+                </div>
             </div>
-            <div class="col-auto text-end">
-                <button class="btn btn-success fw-bold px-4 rounded-pill shadow-sm btn-add-device" data-coreui-toggle="modal" data-coreui-target="#addDeviceModal">
-                    <i class="bx bx-plus"></i> Add Device
-                </button>
+            <div class="col-auto m-auto">
+                <div class="row">
+                    <a class="btn btn-success btn-add-device" data-coreui-toggle="modal" data-coreui-target="#addDeviceModal">Add Device</a>
+                </div>
+                <div class="row mt-2">
+                    <div class="device-limit-text text-center">Limit: <?= count($devices) ?>/5</div>
+                </div>
             </div>
         </div>
     </div>

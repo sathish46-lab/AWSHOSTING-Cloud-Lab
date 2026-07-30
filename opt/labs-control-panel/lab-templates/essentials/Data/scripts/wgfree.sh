@@ -20,4 +20,4 @@ else
 fi
 
 # 2. Flush any old routing cache to prevent ghost pings
-ip route flush cache
+ip route flush cache 2>/dev/null || true

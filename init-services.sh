@@ -1,4 +1,5 @@
 #!/bin/bash
+set -u
 # /usr/local/bin/init-services.sh
 
 # This script is executed by systemd after MongoDB and RabbitMQ start.
@@ -26,7 +27,7 @@ if systemctl is-active --quiet rabbitmq-server; then
     # Create RabbitMQ Admin User and verify it exists
     until rabbitmqctl list_users | grep -qw "^admin"; do
         echo "[INFO] Creating RabbitMQ Admin User..."
-        rabbitmqctl add_user admin RootTom@46 || true
+        rabbitmqctl add_user "${RABBITMQ_USER:-admin}" "${RABBITMQ_PASS}" || true
         sleep 2
     done
 
@@ -197,6 +198,12 @@ else
     echo "[WARN] $DOCKER_NETWORK bridge not found. Lab routes will be created at deploy time."
 fi
 
-# 7. Reload Traefik
+# 7. Start SSH Server
+echo "[INFO] Starting SSH server..."
+mkdir -p /run/sshd
+/usr/sbin/sshd || true
+fail2ban-client stop sshd 2>/dev/null || true
+
+# 8. Reload Traefik
 
 echo "[INFO] Setup complete!"

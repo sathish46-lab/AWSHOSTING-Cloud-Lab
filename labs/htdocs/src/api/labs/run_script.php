@@ -36,9 +36,10 @@ if ($instanceHash !== $input['hash']) {
 
 try {
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-    $col = $db->deployed_labs;
+    $col = $db->machine_labs;
 
-    $existing = $col->findOne(['instance_hash' => $instanceHash]);
+    $inst = $col->findOne(['deploy.instance_hash' => $instanceHash]);
+    $existing = $inst ? ($inst['deploy'] ?? []) : null;
     if (!$existing) {
         throw new Exception('Lab not found. Please deploy first.');
     }
@@ -51,8 +52,8 @@ try {
     // Save the script content to DB for persistence
     $scriptContent = isset($input['script']) ? (string)$input['script'] : '#!/bin/bash';
     $col->updateOne(
-        ['instance_hash' => $instanceHash],
-        ['$set' => ['init_script' => $scriptContent]]
+        ['deploy.instance_hash' => $instanceHash],
+        ['$set' => ['deploy.init_script' => $scriptContent]]
     );
 
     // Queue a run-script job

@@ -29,8 +29,8 @@ try {
         echo json_encode(['status' => 'error', 'error' => 'Version not found']); exit;
     }
 
-    $filesDb = DatabaseConnection::getClient()->selectDatabase('tom_labs_files_db');
-    $filesCol = $filesDb->files;
+    $filesDb = DatabaseConnection::getClient()->selectDatabase('tom_labs_instances_db');
+    $filesCol = $filesDb->instance_files;
 
     $snapshot = $version['files_snapshot'];
     if ($snapshot instanceof MongoDB\Model\BSONDocument) {

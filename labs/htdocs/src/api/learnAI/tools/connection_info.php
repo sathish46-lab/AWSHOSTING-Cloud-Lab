@@ -41,10 +41,11 @@ try {
     // We get the active running lab.
     // For simplicity, we just find any running lab for this user.
     // If the orchestrator has specific mapping for lesson->lab, it can be added here.
-    $labDoc = $db->deployed_labs->findOne([
-        'user_id' => (int)$userId,
-        'status' => 'running'
+    $inst = $db->machine_labs->findOne([
+        'deploy.user_id' => (int)$userId,
+        'deploy.status' => 'running'
     ]);
+    $labDoc = $inst ? ($inst['deploy'] ?? []) : null;
 
     $labNames = [
         'essentials' => 'Essentials Lab',

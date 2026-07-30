@@ -32,16 +32,17 @@ if (!Session::get('labs_list')) {
     $labsList = [];
     foreach ($labTemplates as $tmpl) {
         $hash = $user->getLabHash($tmpl['id']);
-        $data = $db->deployed_labs->findOne(['instance_hash' => $hash]);
+        $data = $db->machine_labs->findOne(['deploy.instance_hash' => $hash]);
+        $deploy = $data ? ($data['deploy'] ?? []) : null;
         $labsList[] = [
             'id'        => $tmpl['id'],
             'name'      => $tmpl['name'],
             'icon'      => $tmpl['icon'],
             'badges'    => $tmpl['badges'],
             'hash'      => $hash,
-            'status'    => ($data && $data['status'] === 'running') ? 'running' : 'offline',
-            'ip'        => ($data && $data['status'] === 'running' && isset($data['internal_ip'])) ? $data['internal_ip'] : 'Instance Down',
-            'is_public' => ($data && isset($data['is_public'])) ? 'public' : 'private'
+            'status'    => ($deploy && ($deploy['status'] ?? '') === 'running') ? 'running' : 'offline',
+            'ip'        => ($deploy && ($deploy['status'] ?? '') === 'running' && isset($deploy['internal_ip'])) ? $deploy['internal_ip'] : 'Instance Down',
+            'is_public' => ($deploy && isset($deploy['is_public'])) ? 'public' : 'private'
         ];
     }
     Session::set('labs_list', $labsList);

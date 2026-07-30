@@ -19,21 +19,22 @@ try {
     $instanceHash = $user->getLabHash($labName); 
     
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-    $col = $db->deployed_labs;
+    $col = $db->machine_labs;
     
     // 2. Check if the lab exists
-    $existing = $col->findOne(['instance_hash' => $instanceHash]);
+    $inst = $col->findOne(['deploy.instance_hash' => $instanceHash]);
+    $existing = $inst ? ($inst['deploy'] ?? []) : null;
     if (!$existing) {
         throw new Exception("No active lab session found.");
     }
     
     // 3. Update status to 'stopping' immediately
     $col->updateOne(
-        ['instance_hash' => $instanceHash],
+        ['deploy.instance_hash' => $instanceHash],
         [
-            '$set' => ['status' => 'stopping'],
+            '$set' => ['deploy.status' => 'stopping'],
             '$push' => [
-                'activity_log' => [
+                'deploy.activity_log' => [
                     '$each' => [
                         [
                             'action' => 'Stopped',

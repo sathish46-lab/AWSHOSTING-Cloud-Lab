@@ -1,0 +1,320 @@
+// ===========================
+// ANIMATIONS
+// Consolidated keyframes and animations
+// ===========================
+
+// --- Green pulse (success indicators) ---
+@keyframes greenPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(46, 204, 113, 0);
+  }
+}
+
+.green-pulse {
+  animation: greenPulse 2s infinite;
+}
+
+// --- Blue pulse (info indicators) ---
+@keyframes bluePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(82, 153, 224, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(82, 153, 224, 0);
+  }
+}
+
+.blue-pulse {
+  animation: bluePulse 2s infinite;
+}
+
+// --- AI pulse (loading indicators) ---
+@keyframes aiPulse {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.ai-pulse {
+  animation: aiPulse 2s ease-in-out infinite;
+}
+
+// --- AI ring pulse ---
+@keyframes aiRingPulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+.ai-ring-pulse {
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border: 2px solid rgba(139, 92, 246, 0.5);
+    border-radius: inherit;
+    animation: aiRingPulse 2s ease-out infinite;
+  }
+}
+
+// --- Card entrance ---
+@keyframes cardEntrance {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-entrance {
+  animation: cardEntrance 0.4s ease-out;
+}
+
+// --- Card assemble (challenge) ---
+@keyframes cardAssemble {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.card-assemble {
+  animation: cardAssemble 0.5s ease-out;
+}
+
+// --- Flip in card ---
+@keyframes flipInCard {
+  from {
+    opacity: 0;
+    transform: perspective(400px) rotateY(90deg);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(400px) rotateY(0);
+  }
+}
+
+.flip-in-card {
+  animation: flipInCard 0.6s ease-out;
+}
+
+// --- Home card slide up ---
+@keyframes homeCardSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.home-card-slide-up {
+  animation: homeCardSlideUp 0.4s ease-out;
+}
+
+// --- Fade in scale ---
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.fade-in-scale {
+  animation: fadeInScale 0.3s ease-out;
+}
+
+// --- Popover fade ---
+@keyframes popoverFade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.popover-fade {
+  animation: popoverFade 0.2s ease-out;
+}
+
+// --- Session fade in ---
+@keyframes sessionFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.session-fade-in {
+  animation: sessionFadeIn 0.5s ease-out;
+}
+
+// --- Session slide in ---
+@keyframes sessionSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.session-slide-in {
+  animation: sessionSlideIn 0.5s ease-out;
+}
+
+// --- Particle burst (SVG highlights) ---
+@keyframes particleBurst {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.particle-burst {
+  animation: particleBurst 0.6s ease-out forwards;
+}
+
+// --- Drift (floating elements) ---
+@keyframes drift {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    transform: translateY(-10px) translateX(5px);
+  }
+  50% {
+    transform: translateY(-5px) translateX(-5px);
+  }
+  75% {
+    transform: translateY(-15px) translateX(3px);
+  }
+}
+
+.drift {
+  animation: drift 6s ease-in-out infinite;
+}
+
+// --- Gradient shift ---
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.gradient-shift {
+  background-size: 200% 200%;
+  animation: gradientShift 3s ease infinite;
+}
+
+// --- Float 1 ---
+@keyframes float1 {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.float-1 {
+  animation: float1 3s ease-in-out infinite;
+}
+
+// --- Float 2 ---
+@keyframes float2 {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-15px) rotate(5deg);
+  }
+}
+
+.float-2 {
+  animation: float2 4s ease-in-out infinite;
+}
+
+// --- Apple fold assemble ---
+@keyframes appleFoldAssemble {
+  from {
+    opacity: 0;
+    transform: perspective(800px) rotateX(10deg) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(800px) rotateX(0) translateY(0);
+  }
+}
+
+.apple-fold-assemble {
+  animation: appleFoldAssemble 0.5s ease-out;
+}
+
+// --- Hover mini effect ---
+.hovermini {
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: scale(1.02);
+  }
+}
+
+// ===========================
+// REDUCED MOTION
+// ===========================
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

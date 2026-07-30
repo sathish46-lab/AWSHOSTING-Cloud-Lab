@@ -30,9 +30,10 @@ if ($instanceHash !== $input['hash']) {
 
 try {
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-    $col = $db->deployed_labs;
+    $col = $db->machine_labs;
 
-    $existing = $col->findOne(['instance_hash' => $instanceHash]);
+    $inst = $col->findOne(['deploy.instance_hash' => $instanceHash]);
+    $existing = $inst ? ($inst['deploy'] ?? []) : null;
     $status = $existing['status'] ?? 'not_deployed';
 
     // Sanitize HTTP proxies
@@ -66,13 +67,6 @@ try {
         $initScript = isset($input['init_script']) ? (string)$input['init_script'] : '#!/bin/bash';
     }
 
-    $updateData = [
-        'http_proxies' => $httpProxies,
-        'always_on'    => $alwaysOn,
-        'init_script'  => $initScript,
-        'prefs_updated_at' => time()
-    ];
-
     $changes = [
         'proxies' => false,
         'init_script' => false,
@@ -87,16 +81,23 @@ try {
         $changes['init_script'] = true;
     }
 
+    $setFields = [
+        'deploy.http_proxies' => $httpProxies,
+        'deploy.always_on'    => $alwaysOn,
+        'deploy.init_script'  => $initScript,
+        'deploy.prefs_updated_at' => time(),
+    ];
+
     if (isset($input['su_pass'])) {
-        $updateData['staged_preferences.su_pass'] = trim((string)$input['su_pass']);
+        $setFields['deploy.staged_preferences.su_pass'] = trim((string)$input['su_pass']);
         $currentSuPass = $existing['staged_preferences']['su_pass'] ?? $existing['credentials']['su_pass'] ?? '';
         if ($currentSuPass !== trim((string)$input['su_pass'])) {
             $changes['passwords'] = true;
         }
     }
     if (isset($input['code_server_pass'])) {
-        $updateData['staged_preferences.code_server_pass'] = trim((string)$input['code_server_pass']);
-        $updateData['staged_preferences.password'] = trim((string)$input['code_server_pass']);
+        $setFields['deploy.staged_preferences.code_server_pass'] = trim((string)$input['code_server_pass']);
+        $setFields['deploy.staged_preferences.password'] = trim((string)$input['code_server_pass']);
         $currentCodePass = $existing['staged_preferences']['code_server_pass'] ?? $existing['credentials']['code_server_pass'] ?? '';
         if ($currentCodePass !== trim((string)$input['code_server_pass'])) {
             $changes['passwords'] = true;
@@ -104,16 +105,16 @@ try {
     }
 
     $col->updateOne(
-        ['instance_hash' => $instanceHash],
+        ['deploy.instance_hash' => $instanceHash],
         [
-            '$set' => $updateData,
+            '$set' => $setFields,
             '$setOnInsert' => [
-                'user_id'       => $user->getUserId(),
-                'email'         => $user->getEmail(),
-                'username'      => $user->getUsername(),
-                'lab_type'      => $labName,
-                'status'        => 'not_deployed',
-                'created_at'    => time()
+                'deploy.user_id'       => $user->getUserId(),
+                'deploy.email'         => $user->getEmail(),
+                'deploy.username'      => $user->getUsername(),
+                'deploy.lab_type'      => $labName,
+                'deploy.status'        => 'not_deployed',
+                'deploy.created_at'    => time()
             ]
         ],
         ['upsert' => true]

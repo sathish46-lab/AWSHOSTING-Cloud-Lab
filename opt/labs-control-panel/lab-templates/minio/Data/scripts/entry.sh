@@ -3,6 +3,13 @@
 
 echo "[*] Initializing MinIO S3 Lab Environment..."
 
+# 0. Regenerate unique SSH host keys
+echo "[*] Regenerating SSH host keys..."
+rm -f /etc/ssh/ssh_host_*
+ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q
+ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N "" -q
+ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q
+
 # 1. Start System Services
 # SSH is required for administrative shell access and SFTP
 service ssh start

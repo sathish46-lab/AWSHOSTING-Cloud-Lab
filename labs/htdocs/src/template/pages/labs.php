@@ -33,16 +33,15 @@
     <?php foreach(Session::get('labs_list', []) as $lab): ?>
     <div class="col-12 col-md-4 card-entrance">
         <div class="card h-100 border-0 shadow-lg rounded-4 blur position-relative">
-            
-            <div class="position-absolute end-0 top-50 translate-middle-y pe-3 opacity-10 lab-card-bg-icon">
+
+            <div class="position-absolute end-0 top-50 translate-middle-y pe-3 lab-card-bg-icon">
                 <?php if ($lab['id'] === 'minio'): ?>
                     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" height="140" width="140">
                         <path d="M13.2072 0.006c-0.6216 -0.0478 -1.2 0.1943 -1.6211 0.582a2.15 2.15 0 0 0 -0.0938 3.0352l3.4082 3.5507a3.042 3.042 0 0 1 -0.664 4.6875l-0.463 0.2383V7.2853a15.4198 15.4198 0 0 0 -8.0174 10.4862v0.0176l6.5487 -3.3281v7.621L13.7794 24V13.6817l0.8965 -0.4629a4.4432 4.4432 0 0 0 1.2207 -7.0292l-3.371 -3.5254a0.7489 0.7489 0 0 1 0.037 -1.0547 0.7522 0.7522 0 0 1 1.0567 0.0371l0.4668 0.4863 -0.006 0.0059 4.0704 4.2441a0.0566 0.0566 0 0 0 0.082 0 0.06 0.06 0 0 0 0 -0.0703l-3.1406 -5.1425 -0.1484 0.1425 0.1484 -0.1445C14.4945 0.3926 13.8287 0.0538 13.2072 0.006Zm-0.9024 9.8652v2.9941l-4.1523 2.1484a13.9787 13.9787 0 0 1 2.7676 -3.9277 14.1784 14.1784 0 0 1 1.3847 -1.2148z" fill="currentColor"></path>
                     </svg>
-                <?php else: 
-                    // Fallback to Boxicons
+                <?php else:
                     $iconMap = [
-                        'tux'    => 'bxl-tux', 
+                        'tux'    => 'bxl-tux',
                         'docker' => 'bxl-docker',
                         'git-repo-forked' => 'bx-git-repo-forked'
                     ];
@@ -74,18 +73,18 @@
 
                 <div class="d-flex justify-content-center flex-wrap gap-1 mb-4">
                     <?php foreach($lab['badges'] as $b): ?>
-                        <span class="badge badge-neon badge-neon-primary rounded-pill px-2 py-1"><?= $b ?></span>
+                        <span class="badge bg-primary rounded-pill px-2 py-1"><?= $b ?></span>
                     <?php endforeach; ?>
 
-                    <span class="badge badge-neon badge-neon-warning rounded-pill px-2 py-1">
+                    <span class="badge bg-warning rounded-pill px-2 py-1">
                         <?= strtoupper($lab['is_public']) ?>
                     </span>
 
                     <?php 
                         $status = strtolower($lab['status']);
-                        $statusClass = ($status === 'running') ? 'badge-neon-success' : 'badge-neon-danger';
+                        $statusClass = ($status === 'running') ? 'bg-success' : 'bg-danger';
                     ?>
-                    <span class="badge badge-neon <?= $statusClass ?> rounded-pill px-3 py-1">
+                    <span class="badge <?= $statusClass ?> rounded-pill px-3 py-1">
                         <?= strtoupper($status) ?>
                     </span>
                 </div>

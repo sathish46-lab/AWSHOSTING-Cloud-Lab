@@ -15,12 +15,13 @@ class InstanceCmd(Command):
     def __init__(self, router=None):
         super().__init__()
         self.subcommands = {
-            "build":  (self._build,  "Build instance image",  "labsctl instance build --hash=HASH"),
-            "deploy": (self._deploy, "Deploy instance",       "labsctl instance deploy --hash=HASH"),
-            "stop":   (self._stop,   "Stop instance",         "labsctl instance stop --hash=HASH"),
-            "start":  (self._start,  "Start instance",        "labsctl instance start --hash=HASH"),
-            "remove": (self._remove, "Remove instance",       "labsctl instance remove --hash=HASH"),
-            "status": (self._status, "Show instance status",  "labsctl instance status --hash=HASH"),
+            "build":   (self._build,   "Build instance image",  "labsctl instance build --hash=HASH"),
+            "deploy":  (self._deploy,  "Deploy instance",       "labsctl instance deploy --hash=HASH"),
+            "stop":    (self._stop,    "Stop instance",         "labsctl instance stop --hash=HASH"),
+            "start":   (self._start,   "Start instance",        "labsctl instance start --hash=HASH"),
+            "restart": (self._restart, "Restart instance",      "labsctl instance restart --hash=HASH"),
+            "remove":  (self._remove,  "Remove instance",       "labsctl instance remove --hash=HASH"),
+            "status":  (self._status,  "Show instance status",  "labsctl instance status --hash=HASH"),
         }
 
     def _inst_col(self):
@@ -91,9 +92,9 @@ class InstanceCmd(Command):
                     shutil.copy2(s, d)
 
             # Overlay user files from DB
-            files_db = self.mongo_client["tom_labs_files_db"] if self.mongo_client else None
+            files_db = self.mongo_client["tom_labs_instances_db"] if self.mongo_client else None
             if files_db:
-                user_doc = files_db.files.find_one({"instance_id": instance_id})
+                user_doc = files_db.instance_files.find_one({"instance_id": instance_id})
                 if user_doc:
                     count = 0
                     for fpath, fdata in user_doc.get("files", {}).items():
@@ -172,6 +173,49 @@ class InstanceCmd(Command):
         lab_cmd.base = self
         lab_cmd.cfg = self.cfg
 
+        # Override _get_deploy_data so LabCmd uses the data we already fetched
+        # from instances collection (not machine_labs)
+        deploy = data.get("deploy", {})
+        lab_cmd._get_deploy_data = lambda iid: deploy
+
+        # Override write methods to target instances collection, not machine_labs
+        col = self._inst_col()
+        def _inst_set_deploy_field(iid, field, value):
+            if col:
+                col.update_one({"instance_hash": iid}, {"$set": {f"deploy.{field}": value, "updated_at": time.time()}})
+        def _inst_set_deploy_fields(iid, fields):
+            if col:
+                sf = {}
+                for k, v in fields.items():
+                    sf[f"deploy.{k}"] = v
+                sf["updated_at"] = time.time()
+                col.update_one({"instance_hash": iid}, {"$set": sf})
+        lab_cmd._set_deploy_field = _inst_set_deploy_field
+        lab_cmd._set_deploy_fields = _inst_set_deploy_fields
+
+        # Override _fail_deploy to target instances collection
+        def _inst_fail_deploy(iid, msg):
+            import sys, time as _t
+            lab_cmd.log(msg, "error")
+            _inst_set_deploy_field(iid, "status", "error")
+            if col:
+                now = _t.time()
+                col.update_one({"instance_hash": iid}, {"$set": {
+                    "deploy.last_error": msg,
+                    "deploy.error_at": now,
+                    "deploy.deploy_log": {
+                        "logs": [f"[!] {msg}"],
+                        "status": "error",
+                        "message": msg,
+                        "created_at": now,
+                        "expire_at": now + 300
+                    },
+                    "status": "error",
+                    "updated_at": now
+                }})
+            sys.exit(1)
+        lab_cmd._fail_deploy = _inst_fail_deploy
+
         # Build args for lab deploy
         lab_args = type("Args", (), {
             "hash": instance_id,
@@ -181,7 +225,30 @@ class InstanceCmd(Command):
             "get": lambda self, n=0: None,
         })()
 
-        lab_cmd._deploy(lab_args)
+        try:
+            lab_cmd._deploy(lab_args)
+        except (SystemExit, Exception) as e:
+            self.log(f"Deploy failed: {e}", "error")
+            now = time.time()
+            if self._inst_col():
+                self._inst_col().update_one(
+                    {"instance_hash": instance_id},
+                    {"$set": {
+                        "deploy.status": "error",
+                        "deploy.last_error": str(e),
+                        "deploy.error_at": now,
+                        "deploy.deploy_log": {
+                            "logs": [f"[!] {e}"],
+                            "status": "error",
+                            "message": str(e),
+                            "created_at": now,
+                            "expire_at": now + 300
+                        },
+                        "status": "error",
+                        "updated_at": now
+                    }}
+                )
+            return
 
         # Update final status
         final = self._get(instance_id)
@@ -204,7 +271,10 @@ class InstanceCmd(Command):
 
         data = self._get(instance_id)
         if data:
-            tunnel_ip = data.get("deploy", {}).get("credentials", {}).get("tunnel_ip")
+            creds = data.get("deploy", {}).get("credentials", {})
+            if not isinstance(creds, dict):
+                creds = {}
+            tunnel_ip = creds.get("tunnel_ip")
             if tunnel_ip:
                 self.remove_route(tunnel_ip)
 
@@ -236,6 +306,8 @@ class InstanceCmd(Command):
         data = self._get(instance_id)
         if data:
             creds = data.get("deploy", {}).get("credentials", {})
+            if not isinstance(creds, dict):
+                creds = {}
             tunnel_ip = creds.get("tunnel_ip")
             docker_ip = creds.get("docker_ip")
             lab_pub_key = creds.get("wg_pubkey")
@@ -254,10 +326,43 @@ class InstanceCmd(Command):
         self._set_deploy_field(instance_id, "status", "running")
         self.log("Instance started.", "success")
 
+    # ── Restart ──────────────────────────────────────────────────
+
+    def _restart(self, args):
+        instance_id = args.hash
+        if not instance_id:
+            self.log("Missing --hash", "error")
+            return
+
+        self._stop(args)
+        self._start(args)
+
     # ── Remove ──────────────────────────────────────────────────
 
     def _remove(self, args):
+        instance_id = args.hash
+        if not instance_id:
+            self.log("Missing --hash", "error")
+            return
+
+        data = self._get(instance_id)
+        username = data.get("username") if data else None
+
         self._stop(args)
+
+        # Release quota if user has no more labs (check machine_labs collection)
+        if username and self.db:
+            remaining = self.db.machine_labs.count_documents({
+                "username": username,
+                "instance_hash": {"$ne": instance_id}
+            })
+            if remaining == 0:
+                from src.commands.lab import LabCmd
+                lab_cmd = LabCmd(None)
+                lab_cmd.db = self.db
+                lab_cmd.cfg = self.cfg
+                lab_cmd._release_user_quota(username)
+                self.log(f"User {username} has no more labs, quota released")
 
     # ── Status ──────────────────────────────────────────────────
 
@@ -275,6 +380,8 @@ class InstanceCmd(Command):
         status = data.get("status", "unknown")
         deploy = data.get("deploy", {})
         creds = deploy.get("credentials", {})
+        if not isinstance(creds, dict):
+            creds = {}
 
         print(f"\n  Instance: {instance_id}")
         print(f"  Status:   {status}")

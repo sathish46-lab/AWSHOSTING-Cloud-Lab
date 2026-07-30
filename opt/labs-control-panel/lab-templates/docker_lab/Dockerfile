@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y \
 # We hardcode the version to prevent API failures and reduce network requests
 RUN STABLE_VER="4.95.3" && \
     ARCH=$(dpkg --print-architecture) && \
-    wget --no-check-certificate -O code-server.deb \
+    wget -O code-server.deb \
     "https://github.com/coder/code-server/releases/download/v${STABLE_VER}/code-server_${STABLE_VER}_${ARCH}.deb" && \
     dpkg -i code-server.deb && \
     rm code-server.deb

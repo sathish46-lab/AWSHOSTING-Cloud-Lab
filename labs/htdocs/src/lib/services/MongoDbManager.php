@@ -8,7 +8,12 @@ class MongoDbManager
     public function __construct()
     {
         $host = gethostname();
-        $uri = "mongodb://admin:Tombootroot@{$host}:27017/?authSource=admin";
+        $mongo_user = get_config('mongo_user') ?: 'admin';
+        $mongo_pass = get_config('mongo_pass') ?: '';
+        if (empty($mongo_pass)) {
+            throw new \RuntimeException("mongo_pass missing in env.json");
+        }
+        $uri = "mongodb://{$mongo_user}:{$mongo_pass}@{$host}:27017/?authSource=admin";
         
         $this->adminClient = new MongoDB\Client($uri);
         $this->adminDb = $this->adminClient->admin;

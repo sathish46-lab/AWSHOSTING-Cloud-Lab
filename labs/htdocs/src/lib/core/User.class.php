@@ -70,6 +70,7 @@ class User {
 
     public function getLabData($labName) {
         $hash = $this->getLabHash($labName);
-        return $this->db->deployed_labs->findOne(['instance_hash' => $hash]);
+        $inst = $this->db->instances->findOne(['instance_hash' => $hash]);
+        return $inst ? ($inst['deploy'] ?? []) : null;
     }
 }

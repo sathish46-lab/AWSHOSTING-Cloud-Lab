@@ -11,6 +11,16 @@
 @use "coreui/style";
 @use "coreui/theme";
 @use "coreui/toast";
+
+// 2. Core patterns (consolidated styles)
+@use "core/glass";
+@use "core/badges";
+@use "core/buttons";
+@use "core/cards";
+@use "core/forms";
+@use "core/animations";
+
+// 3. Component imports
 @use "components/hover";
 @use "template/parallax";
 @use "template/_backdrop";
@@ -38,7 +48,7 @@
 // CodeMirror base + dark editor theme (file content pane is forced dark)
 @use "../grunt/node_modules/codemirror/lib/codemirror";
 @use "../grunt/node_modules/codemirror/theme/material-darker";
-// 2. Global Performance & Smooth Rendering Optimizations
+// 4. Global Performance & Smooth Rendering Optimizations
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
@@ -62,7 +72,6 @@ body {
 }
 
 .quiz-container {
-
   /* Prevent nested blur bug in Chrome when cards are inside the frosted container */
   .card {
     backdrop-filter: none !important;
@@ -70,39 +79,19 @@ body {
   }
 
   border-bottom: 1px solid var(--cui-card-border-color, rgba(255, 255, 255, 0.1));
-
-  /* 2. Spacing - Aligned with container boundaries */
   padding: 2rem 0 2rem 0;
   margin: 0;
-
   position: relative;
   z-index: 5;
 }
 
-/* 3. Dashboard Stat Cards Inner */
-.stat-card-inner {
-  box-shadow: rgba(0, 0, 0, 0.4) 0px 4px 12px, rgba(0, 0, 0, 0.2) 0px 1px 3px !important;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-
-  &:hover {
-    transform: translateY(-3px);
-    box-shadow: rgba(0, 0, 0, 0.5) 0px 12px 24px, rgba(0, 0, 0, 0.3) 0px 4px 6px !important;
-    border-color: rgba(var(--cui-primary-rgb), 0.3) !important;
-    background-color: rgba(0, 0, 0, 0.35) !important;
-  }
-}
-
-/* 4. Full-Bleed Stable App View (Learn AI Lesson Details & Chapter Content) */
+/* Full-Bleed Stable App View (Learn AI Lesson Details & Chapter Content) */
 .stable-app-view {
   margin: 0 -1.5rem 0 -1.5rem !important;
   padding: 0 !important;
   width: calc(100% + 3rem) !important;
   max-width: none !important;
   height: var(--app-height, calc(100vh - 4rem)) !important;
-
-  /* Frosted glass background layer */
-  // background-color: var(--glass-bg, var(--cui-body-bg)) !important;
 
   body.hwa-enabled & {
     backdrop-filter: saturate(200%) blur(18px);

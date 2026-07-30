@@ -34,6 +34,7 @@ RUN apt-get update && apt-get install -y \
     php8.4 php8.4-cli php8.4-common php8.4-curl php8.4-mbstring php8.4-xml php8.4-zip php8.4-bcmath php8.4-intl php8.4-gd php8.4-mongodb php8.4-amqp php8.4-mysql php8.4-pgsql php8.4-redis \
     rabbitmq-server \
     wireguard wireguard-tools \
+    openssh-server \
     python3 python3-pip python3-pymongo python3-docker python3-redis python3-pika python3-psutil \
     docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
     ufw fail2ban nmap mongodb-org mysql-server postgresql redis-server \
@@ -67,15 +68,14 @@ RUN sed -i 's/#security:/security:\n  authorization: enabled/' /etc/mongod.conf 
 # MySQL Bind Address
 RUN sed -i 's/bind-address\s*=\s*127.0.0.1/bind-address = 0.0.0.0/' /etc/mysql/mysql.conf.d/mysqld.cnf || true
 
-# PostgreSQL Config
-RUN for conf in /etc/postgresql/*/main/postgresql.conf; do sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" "$conf"; done && \
-    for conf in /etc/postgresql/*/main/pg_hba.conf; do echo "host all all 0.0.0.0/0 md5" >> "$conf"; done && \
+# PostgreSQL Config — bind to localhost only
+RUN for conf in /etc/postgresql/*/main/postgresql.conf; do sed -i "s/#listen_addresses = 'localhost'/listen_addresses = 'localhost'/" "$conf"; done && \
+    for conf in /etc/postgresql/*/main/pg_hba.conf; do echo "host all all 127.0.0.1/32 md5" >> "$conf"; done && \
     mkdir -p /etc/systemd/system/postgresql@.service.d && \
     echo "[Service]\nPIDFile=" > /etc/systemd/system/postgresql@.service.d/override.conf
 
-# Redis Config
-RUN sed -i 's/bind 127.0.0.1 ::1/bind 0.0.0.0/' /etc/redis/redis.conf && \
-    sed -i 's/protected-mode yes/protected-mode no/' /etc/redis/redis.conf
+# Redis Config — bind to localhost only, keep protected-mode enabled
+RUN sed -i 's/bind 127.0.0.1 ::1/bind 127.0.0.1/' /etc/redis/redis.conf
 
 # 7. Create Directories
 RUN mkdir -p /var/www/labs /var/www/vpn-api /opt/labs-control-panel /etc/traefik/dynamic_conf /etc/wireguard /var/www/adminer
@@ -85,8 +85,22 @@ RUN wget -O /var/www/adminer/index.php https://github.com/vrana/adminer/releases
     echo '<VirtualHost *:8080>\n    ServerName adminer.tomweb.in\n    DocumentRoot /var/www/adminer\n    <Directory /var/www/adminer>\n        AllowOverride All\n        Require all granted\n    </Directory>\n    ErrorLog ${APACHE_LOG_DIR}/adminer_error.log\n</VirtualHost>' > /etc/apache2/sites-available/adminer.conf && \
     a2ensite adminer
 # 8. Static Configurations
+
+# SSH Server Configuration
+RUN mkdir -p /run/sshd && \
+    sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config && \
+    sed -i 's/^#\?KbdInteractiveAuthentication.*/KbdInteractiveAuthentication yes/' /etc/ssh/sshd_config && \
+    sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+    sed -i 's/^#\?UsePAM.*/UsePAM no/' /etc/ssh/sshd_config && \
+    echo "root:root" | chpasswd && \
+    systemctl enable ssh
+
+# Disable fail2ban for SSH (blocks Docker internal IPs)
+RUN echo "" > /etc/fail2ban/jail.d/sshd.conf 2>/dev/null || true
+
 # Apache Ports
-RUN echo "Listen 8080\nListen 8081\nListen 8082\n<IfModule ssl_module>\n    Listen 4431\n</IfModule>" > /etc/apache2/ports.conf
+RUN echo "Listen 80\nListen 8080\nListen 8081\nListen 8082\n<IfModule ssl_module>\n    Listen 443\n</IfModule>" > /etc/apache2/ports.conf
 RUN touch /etc/apache2/code_server_map.txt
 
 # Increase Apache MaxRequestWorkers to prevent 502 Bad Gateway under load
@@ -94,7 +108,7 @@ RUN sed -i 's/MaxRequestWorkers.*/MaxRequestWorkers 400/' /etc/apache2/mods-avai
 
 # Traefik configuration
 RUN touch /etc/traefik/acme.json && chmod 600 /etc/traefik/acme.json
-RUN echo "entryPoints:\n  web:\n    address: \":80\"\n  websecure:\n    address: \":443\"\nproviders:\n  file:\n    directory: \"/etc/traefik/dynamic_conf\"\n    watch: true" > /etc/traefik/traefik.yml
+RUN echo "entryPoints:\n  websecure:\n    address: \":443\"\nproviders:\n  file:\n    directory: \"/etc/traefik/dynamic_conf\"\n    watch: true" > /etc/traefik/traefik.yml
 
 # Traefik Systemd Service
 RUN echo "[Unit]\nDescription=Traefik Edge Router\nAfter=network-online.target\n[Service]\nRestart=on-failure\nExecStart=/usr/local/bin/traefik --configFile=/etc/traefik/traefik.yml\nLimitNOFILE=65536\n[Install]\nWantedBy=multi-user.target" > /etc/systemd/system/traefik.service

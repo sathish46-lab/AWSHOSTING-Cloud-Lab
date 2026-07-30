@@ -19,9 +19,9 @@ $userId = (int)$user->getUserId();
 $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
 
 // 2. Get active labs count
-$activeLabs = $db->deployed_labs->countDocuments([
+$activeLabs = $db->machine_labs->countDocuments([
     'user_id' => $userId,
-    'status' => 'running'
+    'deploy.status' => 'running'
 ]);
 
 $labsLimit = 5; 
@@ -40,7 +40,7 @@ if ($domainCount === 0) {
 $domainsLimit = 10;
 
 // 4. Get ALL deployed labs
-$deployedLabs = $db->deployed_labs->find(
+$deployedLabs = $db->machine_labs->find(
     ['user_id' => $userId],
     ['sort' => ['created_at' => -1]]
 );
@@ -50,7 +50,8 @@ $allStats = file_exists($cacheFile) ? json_decode(file_get_contents($cacheFile),
 
 $labsList = [];
 foreach ($deployedLabs as $lab) {
-    $hash = $lab['instance_hash'] ?? '';
+    $deploy = $lab['deploy'] ?? [];
+    $hash = $deploy['instance_hash'] ?? '';
     
     // Retrieve real-time metrics for this specific lab from memory cache
     $metrics = ['status' => 'offline'];
@@ -61,11 +62,11 @@ foreach ($deployedLabs as $lab) {
     }
 
     $labsList[] = [
-        'name' => ucfirst($lab['lab_type'] ?? 'Lab'),
-        'ip' => $lab['internal_ip'] ?? 'Unknown',
-        'status' => $lab['status'] ?? 'unknown',
+        'name' => ucfirst($deploy['lab_type'] ?? 'Lab'),
+        'ip' => $deploy['internal_ip'] ?? 'Unknown',
+        'status' => $deploy['status'] ?? 'unknown',
         'hash' => $hash,
-        'type' => $lab['lab_type'] ?? 'unknown',
+        'type' => $deploy['lab_type'] ?? 'unknown',
         'metrics' => $metrics
     ];
 }

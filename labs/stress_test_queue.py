@@ -1,13 +1,14 @@
+import os
 import pika
 import json
 import time
 import uuid
 
 # Configuration
-AMQP_HOST = '127.0.0.1'
-AMQP_PORT = 5672
-AMQP_USER = 'admin'
-AMQP_PASS = 'RootTom@46'
+AMQP_HOST = os.environ.get('RABBITMQ_HOST', '127.0.0.1')
+AMQP_PORT = int(os.environ.get('RABBITMQ_PORT', '5672'))
+AMQP_USER = os.environ.get('RABBITMQ_USER', 'admin')
+AMQP_PASS = os.environ.get('RABBITMQ_PASS', '')
 QUEUE_NAME = 'labs_jobs'
 
 def stress_test():

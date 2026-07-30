@@ -1,9 +1,10 @@
+import os
 import pika
 
-AMQP_HOST = '127.0.0.1'
-AMQP_PORT = 5672
-AMQP_USER = 'admin'
-AMQP_PASS = 'RootTom@46'
+AMQP_HOST = os.environ.get('RABBITMQ_HOST', '127.0.0.1')
+AMQP_PORT = int(os.environ.get('RABBITMQ_PORT', '5672'))
+AMQP_USER = os.environ.get('RABBITMQ_USER', 'admin')
+AMQP_PASS = os.environ.get('RABBITMQ_PASS', '')
 
 credentials = pika.PlainCredentials(AMQP_USER, AMQP_PASS)
 parameters = pika.ConnectionParameters(host=AMQP_HOST, port=AMQP_PORT, credentials=credentials)

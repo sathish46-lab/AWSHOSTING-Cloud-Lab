@@ -682,7 +682,7 @@ if [ ! -f "/var/www/env.json" ]; then
         "host": "127.0.0.1",
         "port": 5672,
         "user": "admin",
-        "password": "RootTom@46"
+        "password": "${MQ_PASS}"
     }
 }
 EOF
@@ -849,7 +849,7 @@ if systemctl is-active --quiet rabbitmq-server; then
     # Create RabbitMQ Admin User and verify it exists
     until rabbitmqctl list_users | grep -qw "^admin"; do
         echo "[INFO] Creating RabbitMQ Admin User..."
-        rabbitmqctl add_user admin RootTom@46 || true
+        rabbitmqctl add_user admin "${MQ_PASS}" || true
         sleep 2
     done
 

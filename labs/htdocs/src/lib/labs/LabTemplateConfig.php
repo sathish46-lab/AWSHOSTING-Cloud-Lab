@@ -13,7 +13,7 @@ class LabTemplateConfig {
      * Get the template configuration for a specific lab type
      * 
      * @param string $labType The ID of the lab (e.g., 'essentials', 'minio')
-     * @param array $labData The full document from deployed_labs
+     * @param array $labData The deploy subdocument from instances collection
      * @param string|null $currentUser The current session username
      * @return array Configuration array with 'fields'
      */

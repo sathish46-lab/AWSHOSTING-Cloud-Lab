@@ -26,7 +26,7 @@ $user = new User($email);
 $avatar = "https://ui-avatars.com/api/?name=".urlencode($user->getFullName() ?? 'U')."&background=random";
 
 // Get user labs and domains
-$deployedLabs = iterator_to_array($db->deployed_labs->find(['email' => $email]));
+$deployedLabs = iterator_to_array($db->machine_labs->find(['deploy.email' => $email]));
 $domains = iterator_to_array($db->domains->find(['email' => $email]));
 $quizzes = $userData['quizzes_completed'] ?? [];
 

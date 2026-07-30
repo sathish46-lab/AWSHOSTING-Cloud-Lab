@@ -52,14 +52,3 @@
     color: rgb(14, 181, 0) !important;
     filter: drop-shadow(0 0 3px #0a4c04);
 }
-
-/* Always maintain blur for the Server Logs panel */
-.server-logs-panel {
-    backdrop-filter: saturate(200%) blur(18px) !important;
-    -webkit-backdrop-filter: saturate(200%) blur(18px) !important;
-}
-
-body.hwa-enabled .server-logs-panel {
-    backdrop-filter: saturate(200%) blur(18px);
-    -webkit-backdrop-filter: saturate(200%) blur(18px);
-}

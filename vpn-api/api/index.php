@@ -1,6 +1,6 @@
 <?php
 error_reporting(E_ALL ^ E_DEPRECATED);
-ini_set("memory_limit",-1);
+ini_set("memory_limit","256M");
 require_once($_SERVER['DOCUMENT_ROOT']."/api/REST.api.php");
 require_once($_SERVER['DOCUMENT_ROOT']."/api/lib/Database.class.php");
 require_once($_SERVER['DOCUMENT_ROOT']."/api/lib/Signup.class.php");
@@ -68,12 +68,13 @@ class API extends REST {
     $config_json = file_get_contents('/var/www/env.json');
     $config = json_decode($config_json, true);
     
-    // Check for X-API-KEY in uppercase
-    if(isset($headers['X-API-KEY']) && $headers['X-API-KEY'] === $config['api_secret']){
+    // 1. Check for X-API-KEY header
+    $api_secret = $config['api_secret'] ?? '';
+    if (!empty($api_secret) && isset($headers['X-API-KEY']) && $headers['X-API-KEY'] === $api_secret) {
         return true;
     }
 
-    // Fallback to standard OAuth session check
+    // 2. Fallback to standard OAuth session check
     if($this->auth == null){
         return false;
     }

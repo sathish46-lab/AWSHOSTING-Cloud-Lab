@@ -4,8 +4,14 @@
 # 1. Wait for linkuser.sh to finish if it's running (prevents race conditions)
 sleep 2
 
+# 1.5. Regenerate unique SSH host keys
+echo "[*] Regenerating SSH host keys..."
+rm -f /etc/ssh/ssh_host_*
+ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q
+ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N "" -q
+ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q
+
 # 2. Force Apache to recognize symlinked configs
-# We re-enable any .conf files found in the persistent htconfig
 echo "[*] Enabling persistent Apache sites..."
 find /etc/apache2/sites-available -name "*.conf" -exec a2ensite {} +
 

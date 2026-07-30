@@ -230,7 +230,7 @@ $classString = implode(' ', $htmlClasses);
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Fira+Code:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="<?= Session::cacheCDN('/assets/css/app.css') ?>">
     <link rel="stylesheet" href="<?= Session::cacheCDN('/assets/css/htmx-progress.css') ?>">
@@ -391,9 +391,8 @@ $classString = implode(' ', $htmlClasses);
             --cui-body-bg: <?= $bodyBgLight ?>;
         }
         html[data-coreui-theme="dark"] .btn-primary { color: #ffffff !important; }
-        html[data-coreui-theme="dark"] .badge.bg-primary { color: #ffffff !important; }
+        /* html[data-coreui-theme="dark"] .badge.bg-primary { color: #ffffff !important; } */
         html[data-coreui-theme="light"] .btn-primary { color: #ffffff !important; }
-        html[data-coreui-theme="light"] .badge.bg-primary { color: #ffffff !important; }
 
         <?php if ($mode === 'plain'): ?>
         /* Unified Seamless Look for Plain Theme (Instantly rendered via PHP) */
@@ -462,7 +461,7 @@ $classString = implode(' ', $htmlClasses);
     <!-- This card section is for the background selection modal -->
     <div class="modal fade" id="bgSelectModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content border-0 rounded-4 shadow-lg" style="background: rgba(var(--cui-body-bg-rgb, 11, 30, 54), 0.92); backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px); border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.1) !important;">
+            <div class="modal-content border-0 rounded-4 shadow-lg" style="backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px); border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.1) !important;">
                 <div class="modal-header border-0 pt-4 px-4 pb-0">
                     <h5 class="fw-bold m-0 text-body-emphasis">Change Background</h5>
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" style="filter: var(--cui-btn-close-white-filter, none);"></button>
@@ -485,7 +484,7 @@ $classString = implode(' ', $htmlClasses);
     <!-- Plain Theme Color Picker Modal — Edit Custom Theme -->
     <div class="modal fade" id="plainColorModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content border-0 rounded-4 shadow-lg" style="background: rgba(var(--cui-body-bg-rgb, 11, 30, 54), 0.92); backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px); border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.1) !important;">
+            <div class="modal-content border-0 rounded-4 shadow-lg" style="backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px); border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.1) !important;">
                 <div class="modal-header border-0 pt-4 px-4 pb-0">
                     <h5 class="fw-bold m-0 text-body-emphasis">Edit Custom Theme</h5>
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" style="filter: var(--cui-btn-close-white-filter, none);"></button>

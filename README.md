@@ -136,7 +136,7 @@ Located at `/var/www/labs/htdocs/ip.json` (or `/var/www/ip.json` directly on a b
   "amqp_host": "127.0.0.1",
   "amqp_port": 5672,
   "amqp_user": "admin",
-  "amqp_pass": "RootTom@46",
+  "amqp_pass": "YOUR_RABBITMQ_PASSWORD",
   "google_oauth": {
     "client_id": "*****************.apps.googleusercontent.com",
     "client_secret": "********************",
@@ -152,7 +152,7 @@ Located at `/var/www/labs/htdocs/ip.json` (or `/var/www/ip.json` directly on a b
   "exception_path": "/var/www/labs/htdocs/src/lib/exceptions/",
   "app_log": "/var/log/labs/log.txt",
   "app_cache": "/var/cache/labs",
-  "database_file": "mongodb://admin:Tombootroot@127.0.0.1:27017/tom_labs_db?authSource=admin",
+  "database_file": "mongodb://admin:YOUR_MONGO_PASSWORD@127.0.0.1:27017/tom_labs_db?authSource=admin",
   "main_db": "tom_labs_db",
   "vpn_db": "tom_labs_vpn",
   "vpn_url": "https://vpn.tomweb.in/api",
@@ -165,8 +165,8 @@ Located at `/var/www/labs/htdocs/ip.json` (or `/var/www/ip.json` directly on a b
     "endpoint": "https://api-0a0fa067832614bb98336cde4230ad3b.tomweb.shop",
     "region": "us-east-1",
     "bucket": "labassets",
-    "access_key": "sathish47",
-    "secret_key": "gjgI7bKk3XjE",
+    "access_key": "YOUR_S3_ACCESS_KEY",
+    "secret_key": "YOUR_S3_SECRET_KEY",
     "use_path_style": true
   },
   "allowed_hosts": [

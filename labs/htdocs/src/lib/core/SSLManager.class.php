@@ -317,7 +317,7 @@ class SSLManager {
         
         // Also get domains from deployed labs
         $deployedLabs = iterator_to_array(
-            $this->db->deployed_labs->find(['user_id' => (int)$userId])
+            $this->db->machine_labs->find(['user_id' => (int)$userId])
         );
         
         // Collect all unique domains

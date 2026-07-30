@@ -6,7 +6,7 @@
  * Storage model:
  *   - Base layer:  MinIO at labassets/instances/base/<template>/<path>
  *                  Fallback: /opt/labs-control-panel/lab-templates/<template>/
- *   - User layer:  ONE document per instance in tom_labs_files_db.files
+ *   - User layer:  ONE document per instance in tom_labs_instances_db.instance_files
  *                  { instance_id, template, files: { "path": {content, size, ...} } }
  *                  Created/updated copy-on-write when a user edits/creates a file.
  *
@@ -15,7 +15,6 @@
 
 class InstanceFileStore {
 
-    const TEMPLATES_DIR = '/opt/labs-control-panel/lab-templates';
     const S3_BASE_PREFIX = 'labassets/instances/base/';
 
     const TEXT_EXT = [
@@ -24,18 +23,30 @@ class InstanceFileStore {
         'toml', 'csv', 'rst', 'gitignore', 'service', 'socket', 'mount', 'path', 'link'
     ];
 
+    // Paths to never expose to users (internal/sensitive)
+    const HIDDEN_PATHS = [
+        'ssh_host_keys',
+        '.gitkeep',
+        'Dockerfile',
+        'config.json',
+        'docker-compose.yml',
+        '.env',
+        '.env.example',
+        'entrypoints',
+    ];
+
     /** @var MongoDB\Database */
     protected static $filesDb = null;
 
     public static function db() {
         if (self::$filesDb === null) {
-            self::$filesDb = DatabaseConnection::getClient()->selectDatabase('tom_labs_files_db');
+            self::$filesDb = DatabaseConnection::getClient()->selectDatabase('tom_labs_instances_db');
         }
         return self::$filesDb;
     }
 
     public static function collection() {
-        return self::db()->selectCollection('files');
+        return self::db()->selectCollection('instance_files');
     }
 
     /**
@@ -56,23 +67,48 @@ class InstanceFileStore {
             ];
             self::collection()->insertOne($newDoc);
             $doc = self::collection()->findOne(['instance_id' => $instanceId]);
+        } elseif ((empty($doc['username']) || empty($doc['email'])) && (!empty($username) || !empty($email))) {
+            $updates = ['updated_at' => new MongoDB\BSON\UTCDateTime()];
+            if (empty($doc['username']) && !empty($username)) $updates['username'] = $username;
+            if (empty($doc['email']) && !empty($email)) $updates['email'] = $email;
+            self::collection()->updateOne(['instance_id' => $instanceId], ['$set' => $updates]);
+            $doc = self::collection()->findOne(['instance_id' => $instanceId]);
         }
         return (array) $doc;
     }
 
     /**
      * Map an instance's template name to a lab-templates folder.
+     * Checks MinIO for existence, not filesystem.
      */
     public static function resolveTemplateFolder($instance) {
-        if (!empty($instance['template']) && is_dir(self::TEMPLATES_DIR . '/' . $instance['template'])) {
-            return $instance['template'];
-        }
-        $candidate = $instance['lab_type'] ?? ($instance['type'] ?? '');
-        if (!empty($candidate) && is_dir(self::TEMPLATES_DIR . '/' . $candidate)) {
-            return $candidate;
-        }
-        if (is_dir(self::TEMPLATES_DIR . '/essentials')) {
-            return 'essentials';
+        $candidates = [];
+        if (!empty($instance['template'])) $candidates[] = $instance['template'];
+        if (!empty($instance['lab_type'])) $candidates[] = $instance['lab_type'];
+        if (!empty($instance['type'])) $candidates[] = $instance['type'];
+        $candidates[] = 'essentials';
+
+        foreach ($candidates as $name) {
+            // Check MinIO
+            try {
+                $prefix = self::S3_BASE_PREFIX . $name . '/';
+                $keys = Storage::listObjects($prefix);
+                if ($keys !== false && count($keys) > 0) {
+                    return $name;
+                }
+            } catch (Exception $e) {
+                // Fall through
+            }
+            // Check DB
+            try {
+                $baseFilesCol = self::db()->selectCollection('instance_base_files');
+                $doc = $baseFilesCol->findOne(['template' => $name]);
+                if ($doc && !empty($doc['files'])) {
+                    return $name;
+                }
+            } catch (Exception $e) {
+                // Fall through
+            }
         }
         return null;
     }
@@ -89,7 +125,7 @@ class InstanceFileStore {
     }
 
     /**
-     * Seed base files from filesystem to MinIO (idempotent — skips if already uploaded).
+     * Seed base files to MinIO from DB (idempotent — skips if already uploaded).
      */
     public static function seedBaseToMinIO($templateFolder) {
         $prefix = self::S3_BASE_PREFIX . $templateFolder . '/';
@@ -98,71 +134,79 @@ class InstanceFileStore {
             return true;
         }
 
-        $basePath = self::TEMPLATES_DIR . '/' . $templateFolder;
-        if (!is_dir($basePath)) return false;
-
-        $rii = new RecursiveIteratorIterator(
-            new RecursiveDirectoryIterator($basePath, FilesystemIterator::SKIP_DOTS),
-            RecursiveIteratorIterator::SELF_FIRST
-        );
-
-        foreach ($rii as $fileInfo) {
-            if ($fileInfo->isDir()) continue;
-            $relative = ltrim(substr($fileInfo->getPathname(), strlen($basePath) + 1), '/');
-            if ($relative === '') continue;
-            $s3Key = self::S3_BASE_PREFIX . $templateFolder . '/' . $relative;
-            Storage::upload($fileInfo->getPathname(), $s3Key);
+        // Read from DB fallback
+        try {
+            $baseFilesCol = self::db()->selectCollection('instance_base_files');
+            $doc = $baseFilesCol->findOne(['template' => $templateFolder]);
+            if ($doc && !empty($doc['files'])) {
+                foreach ((array)$doc['files'] as $path => $fileData) {
+                    $fileData = (array)$fileData;
+                    $content = $fileData['content'] ?? '';
+                    $s3Key = $prefix . $path;
+                    Storage::uploadContent($content, $s3Key);
+                }
+                return true;
+            }
+        } catch (Exception $e) {
+            error_log('seedBaseToMinIO DB error: ' . $e->getMessage());
         }
-        return true;
+
+        return false;
     }
 
     /**
      * List all base files for a template.
+     * Order: MinIO → DB fallback. NEVER reads from filesystem.
      */
     public static function listBaseFiles($templateFolder) {
-        // Filesystem
-        $basePath = self::TEMPLATES_DIR . '/' . $templateFolder;
-        if (is_dir($basePath)) {
-            $files = [];
-            $rii = new RecursiveIteratorIterator(
-                new RecursiveDirectoryIterator($basePath, FilesystemIterator::SKIP_DOTS),
-                RecursiveIteratorIterator::SELF_FIRST
-            );
-            foreach ($rii as $fileInfo) {
-                if ($fileInfo->isDir()) continue;
-                $relative = ltrim(substr($fileInfo->getPathname(), strlen($basePath) + 1), '/');
-                if ($relative !== '') $files[] = $relative;
-            }
-            if (!empty($files)) return $files;
-        }
-        // MinIO fallback
+        // 1. Try MinIO first
         try {
             $prefix = self::S3_BASE_PREFIX . $templateFolder . '/';
             $keys = Storage::listObjects($prefix);
             if ($keys !== false && count($keys) > 0) {
-                return array_map(function ($key) use ($prefix) {
+                $files = array_map(function ($key) use ($prefix) {
                     return ltrim(substr($key, strlen($prefix)), '/');
                 }, $keys);
+                return self::filterHiddenPaths($files);
             }
         } catch (Exception $e) {
             error_log('listBaseFiles MinIO error: ' . $e->getMessage());
         }
+
+        // 2. DB fallback — tom_labs_instances_db.instance_base_files
+        try {
+            $baseFilesCol = self::db()->selectCollection('instance_base_files');
+            $doc = $baseFilesCol->findOne(['template' => $templateFolder]);
+            if ($doc && !empty($doc['files'])) {
+                $files = array_keys((array)$doc['files']);
+                return self::filterHiddenPaths($files);
+            }
+        } catch (Exception $e) {
+            error_log('listBaseFiles DB error: ' . $e->getMessage());
+        }
+
         return [];
     }
 
     /**
-     * Read base file content. Filesystem first, MinIO fallback.
+     * Filter out hidden/internal paths from file list.
+     */
+    protected static function filterHiddenPaths($files) {
+        return array_filter($files, function ($path) {
+            foreach (self::HIDDEN_PATHS as $hidden) {
+                if ($path === $hidden || strpos($path, $hidden . '/') === 0 || strrchr($path, '/') === '/' . $hidden) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }
+
+    /**
+     * Read base file content. MinIO first, DB fallback. NEVER reads from filesystem.
      */
     public static function readBaseFile($templateFolder, $path) {
-        // Filesystem first
-        $filePath = self::TEMPLATES_DIR . '/' . $templateFolder . '/' . $path;
-        if (file_exists($filePath) && is_file($filePath)) {
-            $content = file_get_contents($filePath);
-            if ($content !== false) {
-                return ['content' => $content, 'size' => strlen($content)];
-            }
-        }
-        // MinIO fallback
+        // 1. Try MinIO first
         try {
             $s3Key = self::S3_BASE_PREFIX . $templateFolder . '/' . $path;
             $content = Storage::download($s3Key);
@@ -172,6 +216,23 @@ class InstanceFileStore {
         } catch (Exception $e) {
             error_log('readBaseFile MinIO error for ' . $path . ': ' . $e->getMessage());
         }
+
+        // 2. DB fallback
+        try {
+            $baseFilesCol = self::db()->selectCollection('instance_base_files');
+            $doc = $baseFilesCol->findOne(['template' => $templateFolder]);
+            if ($doc && !empty($doc['files'])) {
+                $files = (array)$doc['files'];
+                if (isset($files[$path])) {
+                    $fileData = (array)$files[$path];
+                    $content = $fileData['content'] ?? '';
+                    return ['content' => $content, 'size' => strlen($content)];
+                }
+            }
+        } catch (Exception $e) {
+            error_log('readBaseFile DB error for ' . $path . ': ' . $e->getMessage());
+        }
+
         return null;
     }
 

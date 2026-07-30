@@ -5,6 +5,7 @@ import secrets
 import string
 import sys
 import base64
+import shlex
 from pymongo import MongoClient
 from src.BaseOrchestrator import BaseOrchestrator
 
@@ -13,33 +14,59 @@ class Lab(BaseOrchestrator):
         super().__init__(args, session_hash)
         self.is_instance = is_instance
         if is_instance and self.db is not None:
-            self.instances_col = self.mongo_client['tom_labs_instances_db'].instances
+            self.instances_col = self.db['machine_labs']
         else:
             self.instances_col = None
 
     def _get_deploy_data(self, instance_id):
-        """Read lab data — from instances.deploy for instances, deployed_labs for legacy."""
+        """Read lab data — from instances.deploy for instances, machine_labs for legacy."""
         if self.is_instance and self.instances_col:
+            # Try top-level instance_hash
             doc = self.instances_col.find_one({"instance_hash": instance_id})
-            if not doc:
-                return None
-            deploy = doc.get('deploy', {})
-            deploy['_instance_doc'] = doc
-            return deploy
-        return self.db.deployed_labs.find_one({"instance_hash": instance_id})
+            if doc:
+                deploy = doc.get('deploy', {})
+                deploy['_instance_doc'] = doc
+                return deploy
+            # Fallback: UI stores hash inside deploy subdocument
+            doc = self.instances_col.find_one({"deploy.instance_hash": instance_id})
+            if doc:
+                deploy = doc.get('deploy', {})
+                deploy['_instance_doc'] = doc
+                return deploy
+            return None
+        # Try top-level instance_hash first
+        doc = self.db.machine_labs.find_one({"instance_hash": instance_id})
+        if doc:
+            return doc
+        # Fallback: UI stores hash inside deploy subdocument
+        doc = self.db.machine_labs.find_one({"deploy.instance_hash": instance_id})
+        if doc:
+            return doc.get("deploy", {})
+        return None
 
     def _set_deploy_field(self, instance_id, field, value):
-        """Write a single deploy field — to instances.deploy.X or deployed_labs.X."""
+        """Write a single deploy field — to instances.deploy.X or machine_labs.X."""
         if self.is_instance and self.instances_col:
-            self.instances_col.update_one(
+            result = self.instances_col.update_one(
                 {"instance_hash": instance_id},
                 {"$set": {f"deploy.{field}": value, "updated_at": time.time()}}
             )
+            if result.matched_count == 0:
+                self.instances_col.update_one(
+                    {"deploy.instance_hash": instance_id},
+                    {"$set": {f"deploy.{field}": value, "updated_at": time.time()}}
+                )
         else:
-            self.db.deployed_labs.update_one(
+            result = self.db.machine_labs.update_one(
                 {"instance_id": instance_id} if not instance_id else {"instance_hash": instance_id},
                 {"$set": {field: value}}
             )
+            if result.matched_count == 0:
+                # UI stores hash inside deploy — prefix field with deploy.
+                self.db.machine_labs.update_one(
+                    {"deploy.instance_hash": instance_id},
+                    {"$set": {f"deploy.{field}": value}}
+                )
 
     def _set_deploy_fields(self, instance_id, fields):
         """Write multiple deploy fields at once."""
@@ -48,34 +75,75 @@ class Lab(BaseOrchestrator):
             for k, v in fields.items():
                 set_fields[f"deploy.{k}"] = v
             set_fields["updated_at"] = time.time()
-            self.instances_col.update_one(
+            result = self.instances_col.update_one(
                 {"instance_hash": instance_id},
                 {"$set": set_fields}
             )
+            if result.matched_count == 0:
+                self.instances_col.update_one(
+                    {"deploy.instance_hash": instance_id},
+                    {"$set": set_fields}
+                )
         else:
-            self.db.deployed_labs.update_one(
+            result = self.db.machine_labs.update_one(
                 {"instance_hash": instance_id},
                 {"$set": fields}
             )
+            if result.matched_count == 0:
+                # UI stores hash inside deploy — prefix fields with deploy.
+                deploy_fields = {f"deploy.{k}": v for k, v in fields.items()}
+                self.db.machine_labs.update_one(
+                    {"deploy.instance_hash": instance_id},
+                    {"$set": deploy_fields}
+                )
 
     def _fail_deploy(self, instance_id, message):
         """Set deploy status to error — called on any failure during deploy()."""
         self.log(message, "error", "init")
+        now = time.time()
         if self.is_instance and self.instances_col:
-            self.instances_col.update_one(
+            error_doc = {
+                "deploy.status": "error",
+                "deploy.last_error": message,
+                "deploy.error_at": now,
+                "deploy.deploy_log": {
+                    "logs": [f"[!] {message}"],
+                    "status": "error",
+                    "message": message,
+                    "created_at": now,
+                    "expire_at": now + 300
+                },
+                "status": "error",
+                "updated_at": now
+            }
+            result = self.instances_col.update_one(
                 {"instance_hash": instance_id},
-                {"$set": {"deploy.status": "error", "status": "error", "updated_at": time.time()}}
+                {"$set": error_doc}
             )
+            if result.matched_count == 0:
+                self.instances_col.update_one(
+                    {"deploy.instance_hash": instance_id},
+                    {"$set": error_doc}
+                )
         else:
-            self.db.deployed_labs.update_one(
+            result = self.db.machine_labs.update_one(
                 {"instance_hash": instance_id},
-                {"$set": {"status": "error"}}
+                {"$set"   : {"status": "error"}}
             )
+            if result.matched_count == 0:
+                self.db.machine_labs.update_one(
+                    {"deploy.instance_hash": instance_id},
+                    {"$set"   : {"deploy.status": "error"}}
+                )
+        sys.exit(1)
 
     def _get_instance_doc(self, instance_id):
         """For instances, get the full instances document."""
         if self.is_instance and self.instances_col:
-            return self.instances_col.find_one({"instance_hash": instance_id})
+            doc = self.instances_col.find_one({"instance_hash": instance_id})
+            if doc:
+                return doc
+            return self.instances_col.find_one({"deploy.instance_hash": instance_id})
         return None
 
     def build(self):
@@ -211,7 +279,7 @@ class Lab(BaseOrchestrator):
         if not docker_network:
             self.log("FATAL: 'docker_network_name' not set in config.", "error", "init")
             return
-        code, _ = self.run(f"docker network inspect {docker_network} > /dev/null 2>&1", capture=True)
+        code, _ = self.run(f"docker network inspect {shlex.quote(docker_network)} > /dev/null 2>&1", capture=True)
         if code != 0:
             self.log(f"FATAL: Docker network {docker_network} not found. Is docker-compose up?", "error", "init")
             return
@@ -220,7 +288,11 @@ class Lab(BaseOrchestrator):
         if not instance_id:
             self.log("FATAL: session_hash is empty. Cannot deploy without a valid instance hash.", "error", "init")
             raise ValueError("session_hash is required for deployment")
+        # Validate instance_id to prevent command injection
+        instance_id = shlex.quote(instance_id)
         username = self.args.getFlagValue('user')
+        if username:
+            username = shlex.quote(username)
         
         if self.db is None:
             self.log("Database connection failed. Aborting.", "error", "init")
@@ -244,6 +316,11 @@ class Lab(BaseOrchestrator):
 
         # Load the specific Lab Template Configuration
         template_name = lab_data['lab_type']
+        # Validate template name — only allow safe characters
+        if not template_name or not shlex.quote(template_name).strip("'"):
+            self._fail_deploy(instance_id, "Invalid template name in database")
+            return
+        template_name_safe = shlex.quote(template_name)
         template_config_path = os.path.join(self.config.get('templates_dir'), template_name, 'config.json')
         
         if not os.path.exists(template_config_path):
@@ -430,7 +507,7 @@ class Lab(BaseOrchestrator):
         if staged_creds.get('su_pass'):
             su_pass = staged_creds['su_pass']
         else:
-            su_pass = existing_creds.get('su_pass', f"{username}@098")
+            su_pass = existing_creds.get('su_pass', '') or ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(16))
         
         # Custom Domain Logic for n8n
         selected_n8n_domain = None
@@ -443,13 +520,21 @@ class Lab(BaseOrchestrator):
             selected_n8n_domain = custom_n8n if custom_n8n else f"n8n-{instance_id}.{base_domain}"
 
         # Pass email to linkuser.sh (8th argument)
-        user_profile = self.db.users.find_one({"username": username})
-        user_email = user_profile.get('email', username) if user_profile else username
+        user_profile = self.db.users.find_one({"username": username.strip("'")})
+        user_email = user_profile.get('email', username.strip("'")) if user_profile else username.strip("'")
         
         # Pass n8n Domain (9th argument) for Webhook URL
         n8n_domain_arg = selected_n8n_domain if selected_n8n_domain else ""
         escaped_auth_content = auth_content.replace('"', '\\"')
-        link_cmd = f'docker exec {instance_id} {link_script} "{username}" "{escaped_auth_content}" "{docker_ip}" "{dynamic_pass}" "{lab_priv_key}" "{tunnel_ip}" "{server_pub_key}" "{user_email}" "{n8n_domain_arg}" "{vps_docker_ip}" "{su_pass}"'
+        link_cmd = (
+            f'docker exec {instance_id} {link_script} '
+            f'{shlex.quote(username)} {shlex.quote(escaped_auth_content)} '
+            f'{shlex.quote(docker_ip)} {shlex.quote(dynamic_pass)} '
+            f'{shlex.quote(lab_priv_key)} {shlex.quote(tunnel_ip)} '
+            f'{shlex.quote(server_pub_key)} {shlex.quote(user_email)} '
+            f'{shlex.quote(n8n_domain_arg)} {shlex.quote(vps_docker_ip)} '
+            f'{shlex.quote(su_pass)}'
+        )
         
         code, _ = self.run(link_cmd, capture=False)
         if code != 0:
@@ -624,9 +709,9 @@ class Lab(BaseOrchestrator):
 
     def shell(self):
         """Drop into a container shell"""
+        import subprocess
         lab_name = self.session_hash
-        shell_cmd = self.config.get('docker_drop_shell', f"docker exec -it {lab_name} /bin/bash")
-        os.system(shell_cmd.format(lab_name=lab_name, shell="/bin/bash"))
+        subprocess.run(["docker", "exec", "-it", lab_name, "/bin/bash"], check=False)
 
     def info(self):
         """Show lab metadata"""
@@ -678,9 +763,9 @@ class Lab(BaseOrchestrator):
         # or use the template default.
         
         # Checking one of the user's labs to get the storage path
-        user_lab = self.db.deployed_labs.find_one({"username": username})
+        user_lab = self.db.machine_labs.find_one({"deploy.username": username})
         if user_lab:
-            storage_path = user_lab.get('storage_path')
+            storage_path = (user_lab.get('deploy') or {}).get('storage_path')
         else:
             # Fallback to default pattern
             storage_path = f"/var/tomlabs/storage/{username}"

@@ -578,6 +578,7 @@
   min-height: 200px;
   transition: transform 0.18s ease, box-shadow 0.18s ease;
   position: relative;
+  color: #ffffff !important;
 
   .dropdown-menu {
     background: var(--cui-dropdown-bg, rgba(30,30,30,0.95)) !important;
@@ -598,9 +599,35 @@
   }
 }
 
-.instance-template-card > div:first-child {
-  border-radius: 1rem;
-  overflow: hidden;
+[data-coreui-theme="light"] .instance-template-card {
+  color: #ffffff !important;
+
+  .theme-text,
+  h6,
+  span,
+  .text-secondary,
+  .instance-action-btn,
+  .instance-action-btn i {
+    color: #ffffff !important;
+  }
+
+  .instance-action-btn {
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.18) !important;
+    }
+  }
+
+  .dropdown-menu {
+    background: rgba(255, 255, 255, 0.95) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+
+    .dropdown-item:hover {
+      background: rgba(0, 0, 0, 0.05);
+    }
+  }
 }
 
 .instance-template-card:hover {
@@ -615,61 +642,174 @@
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  filter: brightness(0.6);
+  background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0.9) 100%);
 }
 
-.instance-template-card-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: rgba(0, 0, 0, 0.4);
+.instance-card-essentials .instance-template-card-bg {
+  background: linear-gradient(209deg, #2089e9, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.9));
 }
 
-// ----- Instance card badges (matches domain card sizing) -----
-.instance-badge-tag {
-  font-size: 8px !important;
-  padding: 2px 8px !important;
-  font-weight: 700 !important;
-  border-radius: 50rem !important;
-  letter-spacing: 0.3px;
+.instance-card-minio .instance-template-card-bg {
+  background: llinear-gradient(209deg, #2527d9, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.9));
 }
 
-// Visibility
-.badge-vis-public {
-  background-color: #0dcaf0 !important;
-  color: #fff !important;
-}
-.badge-vis-private {
-  background-color: #6366f1 !important;
-  color: #fff !important;
+.instance-card-n8n .instance-template-card-bg {
+  background: linear-gradient(209deg, #a79b2f, rgba(0, 0, 0, 0.7) 60%, rgba(0, 0, 0, 0.9));
 }
 
-// Type
-.badge-type-machine {
-  background-color: #8b5cf6 !important;
-  color: #fff !important;
-}
-.badge-type-challenge {
-  background-color: #f59e0b !important;
-  color: #fff !important;
+.instance-card-docker_lab .instance-template-card-bg {
+  background: linear-gradient(209deg, #2496ed 0%, rgba(0,0,0,0.7) 60%, rgba(0,0,0,0.9) 100%);
 }
 
-// Status
-.badge-status-draft {
-  background-color: #f59e0b !important;
-  color: #fff !important;
-}
-.badge-status-built {
-  background-color: #10b981 !important;
-  color: #fff !important;
-}
-.badge-status-running {
-  background-color: #10b981 !important;
-  color: #fff !important;
-}
+// ----- Instance Status Badge (uses badge-neon from _dashboard.scss) -----
 
 // Trash
 .badge-status-trashed {
   background-color: #ef4444 !important;
   color: #fff !important;
+}
+
+// ----- Segmented Button Group (Deploy, Code, Redeploy, Pause, Stop) -----
+.btn-instance-group {
+  display: inline-flex;
+  align-items: stretch;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.btn-instance-seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  position: relative;
+  text-decoration: none;
+
+  &:last-child {
+    border-right: none;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  i {
+    font-size: 0.9rem;
+  }
+}
+
+// Segment color variants
+.btn-seg-code {
+  background: linear-gradient(135deg, #e8533d 0%, #ff6b4b 100%);
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ff6b4b 0%, #e8533d 100%);
+  }
+}
+
+.btn-seg-redeploy {
+  background: linear-gradient(135deg, #b8c94c 0%, #d4e85c 100%);
+  color: #1a1a1a;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #d4e85c 0%, #b8c94c 100%);
+  }
+}
+
+.btn-seg-pause {
+  background: linear-gradient(135deg, #5a6a7a 0%, #7a8a9a 100%);
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #7a8a9a 0%, #5a6a7a 100%);
+  }
+}
+
+.btn-seg-stop {
+  background: linear-gradient(135deg, #cc3366 0%, #ff4488 100%);
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ff4488 0%, #cc3366 100%);
+  }
+}
+
+.btn-seg-deploy {
+  background: linear-gradient(135deg, #e8533d 0%, #ff6b4b 100%);
+  color: white;
+  border-radius: 9999px;
+  padding: 0.5rem 1.5rem;
+
+  &:hover:not(:disabled) {
+    background: linear-gradient(135deg, #ff6b4b 0%, #e8533d 100%);
+  }
+}
+
+// ----- Instance Header Actions -----
+.instance-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+// ----- Deployment Log Collapse -----
+.deployment-log-collapse {
+  max-height: 300px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.4);
+  border-radius: 1rem;
+  padding: 0.75rem;
+
+  pre {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #f8f8f2;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+}
+
+// ----- Terminal Viewport -----
+.terminal-viewport {
+  max-height: 400px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 0.5rem;
+  padding: 0.5rem;
+
+  &.logs-minimized {
+    max-height: 100px;
+  }
+}
+
+// ----- Log Entries -----
+.log-entry {
+  padding: 0.25rem 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+
+  &.success {
+    color: #a6e3a1;
+  }
+
+  &.error {
+    color: #f38ba8;
+  }
+
+  &.warning {
+    color: #ffa502;
+  }
 }

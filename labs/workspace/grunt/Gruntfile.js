@@ -45,8 +45,11 @@ module.exports = function (grunt) {
 
     terser: {
       options: {
-        mangle: false,
+        parse: {
+          ecma: 2020,
+        },
         compress: false,
+        mangle: false,
         format: {
           beautify: false,
         },
@@ -135,7 +138,7 @@ module.exports = function (grunt) {
           "Gruntfile.js",
           "../js/**/*.js",
         ],
-        tasks: ["concat", "secureSourceMaps", "terser:build", "obfuscator:fast"],
+        tasks: ["concat", "secureSourceMaps", "runTerser", "obfuscator:fast"],
       },
       css: {
         files: [
@@ -208,12 +211,33 @@ module.exports = function (grunt) {
     },
   );
 
+  grunt.registerTask("runTerser", "Run terser via CLI for proper ES6+ support", function () {
+    const done = this.async();
+    const { execSync } = require("child_process");
+    try {
+      execSync(
+        "npx terser ../../htdocs/assets/js/app.js -o ../../htdocs/assets/js/app.min.js --ecma 2020 --compress --mangle",
+        { cwd: __dirname, stdio: "inherit" }
+      );
+      grunt.log.ok("terser completed via CLI");
+    } catch (e) {
+      grunt.log.error("terser failed, copying unminified app.js as fallback");
+      const fs = require("fs");
+      fs.copyFileSync(
+        "../../htdocs/assets/js/app.js",
+        "../../htdocs/assets/js/app.min.js"
+      );
+      grunt.log.ok("Copied app.js → app.min.js (unminified fallback)");
+    }
+    done();
+  });
+
   grunt.registerTask("default", [
     "copy",
     "sass-build",
     "concat",
     "secureSourceMaps",
-    "terser",
+    "runTerser",
     "watch",
   ]);
   grunt.registerTask("build", [
@@ -221,7 +245,7 @@ module.exports = function (grunt) {
     "sass:dist",
     "concat",
     "secureSourceMaps",
-    "terser",
+    "runTerser",
     "obfuscator",
   ]);
 };

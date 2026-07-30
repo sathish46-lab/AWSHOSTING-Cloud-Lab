@@ -13,8 +13,11 @@ class RabbitClient {
         
         $host = get_config('amqp_host') ?? '127.0.0.1';
         $port = get_config('amqp_port') ?? 5672;
-        $user = get_config('amqp_user') ?? 'admin';
-        $pass = get_config('amqp_pass') ?? 'RootTom@46';
+        $user = get_config('amqp_user') ?? (getenv('RABBITMQ_USER') ?: 'admin');
+        $pass = get_config('amqp_pass') ?? getenv('RABBITMQ_PASS');
+        if (empty($pass)) {
+            throw new \RuntimeException("RABBITMQ_PASS not configured");
+        }
 
         $this->connection = new AMQPStreamConnection($host, $port, $user, $pass, '/');
         $this->channel = $this->connection->channel();

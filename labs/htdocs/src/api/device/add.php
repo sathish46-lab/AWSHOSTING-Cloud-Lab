@@ -57,7 +57,7 @@ $defaultIp = !empty($resources) ? end($resources)['ip_addr'] : "";
                     <div class="row mb-2 align-items-center">
                         <label class="col-sm-4 small fw-bold" style="font-size: 0.8rem;">Reallocate IP</label>
                         <div class="col-sm-8">
-                            <select class="form-select bg-transparent text-white border-secondary shadow-none px-3 rounded-pill" style="border-radius: 12px !important; border: 1px solid rgba(255,255,255,0.2); font-size: 0.85rem;" name="reallocate_ip">
+                            <select class="form-select bg-transparent text-white border-secondary shadow-none px-3 rounded-pill" style="border-radius: 12px !important; border: 1px solid rgba(255,255,255,0.2); font-size: 0.85rem;" name="ip">
                                 <option value="">Assign New IP Address</option>
                                 <?php foreach ($resources as $res): ?>
                                 <option value="<?= $res['ip_addr'] ?>"
@@ -92,6 +92,7 @@ $defaultIp = !empty($resources) ? end($resources)['ip_addr'] : "";
 
                     <input type="hidden" name="public_key" id="hiddenPubKey">
                     <input type="hidden" name="private_key" id="hiddenPrivKey">
+                    <input type="hidden" name="email" value="<?= htmlspecialchars($user->getEmail()) ?>">
 
                     <div class="row mb-1 mt-1">
                         <div class="col-sm-4"></div>
@@ -105,7 +106,7 @@ $defaultIp = !empty($resources) ? end($resources)['ip_addr'] : "";
                                 <label class="form-check-label opacity-75" for="trustedCheck" style="font-size: 0.8rem;">Trusted Device</label>
                             </div>
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="reserve_allocated" id="reserveCheck">
+                                <input class="form-check-input" type="checkbox" name="reserved" id="reserveCheck">
                                 <label class="form-check-label opacity-75" for="reserveCheck" style="font-size: 0.8rem;">Reserve IP when Allocated</label>
                             </div>
                         </div>

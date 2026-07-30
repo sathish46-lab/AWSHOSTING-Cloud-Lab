@@ -45,9 +45,9 @@ class UserCmd(Command):
         auth_content = "\n".join([k["public_key"] for k in user_keys if "public_key" in k])
 
         # Find storage path
-        user_lab = self.db.deployed_labs.find_one({"username": username})
+        user_lab = self.db.machine_labs.find_one({"deploy.username": username})
         if user_lab:
-            storage_path = user_lab.get("storage_path")
+            storage_path = (user_lab.get('deploy') or {}).get("storage_path")
         else:
             storage_path = f"/var/tomlabs/storage/{username}"
 
@@ -72,15 +72,16 @@ class UserCmd(Command):
             return
 
         users = list(self.db.users.find({}))
-        labs = list(self.db.deployed_labs.find({}))
+        labs = list(self.db.machine_labs.find({}))
 
         # Group labs by username
         user_labs = {}
         for lab in labs:
-            username = lab.get("username", "unknown")
+            deploy = lab.get('deploy') or {}
+            username = deploy.get("username", "unknown")
             if username not in user_labs:
                 user_labs[username] = []
-            user_labs[username].append(lab.get("lab_type", "unknown"))
+            user_labs[username].append(deploy.get("lab_type", "unknown"))
 
         print("\n  Users:")
         print("  " + "-" * 50)

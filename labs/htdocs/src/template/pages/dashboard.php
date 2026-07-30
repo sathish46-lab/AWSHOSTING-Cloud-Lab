@@ -9,18 +9,19 @@ $uiPrefs = $user ? ($user->getUiPreferences() ?? []) : [];
 $activeContinueTab = $uiPrefs['active_continue_tab'] ?? 'setup';
 
 // 1. Fetch Labs
-$activeLabsCount = $db->deployed_labs->countDocuments(['user_id' => $userId, 'status' => 'running']);
+$activeLabsCount = $db->machine_labs->countDocuments(['user_id' => $userId, 'deploy.status' => 'running']);
 $labsLimit = 5;
-$deployedLabs = $db->deployed_labs->find(['user_id' => $userId, 'status' => 'running'], ['sort' => ['created_at' => -1]]);
+$deployedLabs = $db->machine_labs->find(['user_id' => $userId, 'deploy.status' => 'running'], ['sort' => ['created_at' => -1]]);
 
 $labsList = [];
 foreach ($deployedLabs as $lab) {
+    $deploy = $lab['deploy'] ?? [];
     $labsList[] = [
-        'name' => ucfirst($lab['lab_type'] ?? 'Lab'),
-        'ip' => $lab['internal_ip'] ?? 'Unknown',
-        'status' => $lab['status'] ?? 'unknown',
-        'hash' => $lab['instance_hash'] ?? '',
-        'type' => $lab['lab_type'] ?? 'unknown'
+        'name' => ucfirst($deploy['lab_type'] ?? 'Lab'),
+        'ip' => $deploy['internal_ip'] ?? 'Unknown',
+        'status' => $deploy['status'] ?? 'unknown',
+        'hash' => $deploy['instance_hash'] ?? '',
+        'type' => $deploy['lab_type'] ?? 'unknown'
     ];
 }
 
@@ -124,13 +125,14 @@ foreach ($attempts as $a) {
 }
 
 // B. Fetch Deployed Labs
-$labs = $db->deployed_labs->find(
+$labs = $db->machine_labs->find(
     ['user_id' => $userId],
     ['sort' => ['created_at' => -1], 'limit' => 5]
 );
     foreach ($labs as $l) {
-    $time = isset($l['created_at']) ? (int)$l['created_at'] : time();
-    $isStopped = isset($l['status']) && $l['status'] === 'stopped';
+    $deploy = $l['deploy'] ?? [];
+    $time = isset($deploy['created_at']) ? (int)$deploy['created_at'] : time();
+    $isStopped = isset($deploy['status']) && $deploy['status'] === 'stopped';
     
     $activitiesList[] = [
         'timestamp' => $time,
@@ -138,7 +140,7 @@ $labs = $db->deployed_labs->find(
         'color' => $isStopped ? "#636e72" : "#10ac84",
         'bg' => $isStopped ? "rgba(99, 110, 114, 0.15)" : "rgba(16, 172, 132, 0.15)",
         'border' => $isStopped ? "rgba(99, 110, 114, 0.30)" : "rgba(16, 172, 132, 0.30)",
-        'text' => ($isStopped ? "Stopped" : "Deployed") . " <strong>" . ucfirst($l['lab_type'] ?? 'sandbox') . "</strong> Lab"
+        'text' => ($isStopped ? "Stopped" : "Deployed") . " <strong>" . ucfirst($deploy['lab_type'] ?? 'sandbox') . "</strong> Lab"
     ];
 }
 
@@ -324,7 +326,7 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                 <small class="text-body-secondary"><?= $finishedQuizzes ?> lessons in progress — keep going!</small>
                             </div>
                         </div>
-                        <a href="/profile" class="btn btn-sm btn-secondary flex-shrink-0 d-none d-md-inline-flex align-items-center gap-1">
+                        <a href="/profile" class="btn btn-sm btn-secondary rounded-pill flex-shrink-0 d-none d-md-inline-flex align-items-center gap-1 px-3 profile-pill">
                             <i class='bx bx-user'></i> Profile
                         </a>
                     </div>
@@ -350,42 +352,42 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
 
                     <!-- Activity stats -->
                     <div class="d-flex gap-1 flex-wrap mb-3">
-                        <span class="badge badge-neon badge-neon-success rounded-pill px-3 py-1">
+                        <span class="badge bg-success rounded-pill px-3 py-1">
                             <i class='bx bx-check-double me-1'></i> <?= number_format($finishedQuizzes) ?> Quizzes
                         </span>
-                        <span class="badge badge-neon badge-neon-danger rounded-pill px-3 py-1">
+                        <span class="badge bg-danger rounded-pill px-3 py-1">
                             <i class='bx bx-diamond me-1'></i> <?= number_format($challengesSolved) ?> Challenges
                         </span>
-                        <span class="badge badge-neon badge-neon-primary rounded-pill px-3 py-1">
+                        <span class="badge bg-primary rounded-pill px-3 py-1">
                             <i class='bx bx-code-block me-1'></i> <?= number_format($codeSolved) ?> Code Solved
                         </span>
-                        <span class="badge badge-neon badge-neon-info rounded-pill px-3 py-1">
+                        <span class="badge bg-info rounded-pill px-3 py-1">
                             <i class='bx bx-book-reader me-1'></i> <?= number_format($lessonsCompleted) ?> Lessons
                         </span>
-                        <span class="badge badge-neon badge-neon-warning rounded-pill px-3 py-1">
+                        <span class="badge bg-warning rounded-pill px-3 py-1">
                             <i class='bx bx-medal me-1'></i> <?= number_format($achievementsCount) ?> Achievements
                         </span>
                     </div>
 
                     <!-- Shortcut buttons -->
                     <div class="d-flex gap-1 flex-wrap">
-                        <a href="/learn" class="btn btn-xs btn-primary rounded-pill fw-bold px-3">
-                            <i class='bx bxs-brain me-1'></i> AI Learning <span class="badge bg-white bg-opacity-25 rounded-pill ms-1"><?= number_format($lessonsCompleted) ?></span>
+                        <a href="/learn" class="badge rounded-pill shortcut-pill shortcut-pill-primary">
+                            <i class='bx bxs-brain'></i> AI Learning <span class="rounded-pill shortcut-pill-count"><?= number_format($lessonsCompleted) ?></span>
                         </a>
-                        <a href="/labs" class="btn btn-xs btn-success rounded-pill fw-bold px-3">
-                            <i class='bx bx-desktop me-1'></i> Labs <span class="badge bg-white bg-opacity-25 rounded-pill ms-1"><?= number_format($activeLabsCount) ?></span>
+                        <a href="/labs" class="badge rounded-pill shortcut-pill shortcut-pill-success">
+                            <i class='bx bx-desktop'></i> Labs <span class="rounded-pill shortcut-pill-count"><?= number_format($activeLabsCount) ?></span>
                         </a>
-                        <a href="#" class="btn btn-xs btn-info rounded-pill fw-bold px-3">
-                            <i class='bx bx-code-alt me-1'></i> Code Arena <span class="badge bg-white bg-opacity-25 rounded-pill ms-1"><?= number_format($codeSolved) ?></span>
+                        <a href="#" class="badge rounded-pill shortcut-pill shortcut-pill-info">
+                            <i class='bx bx-code-alt'></i> Code Arena <span class="rounded-pill shortcut-pill-count"><?= number_format($codeSolved) ?></span>
                         </a>
-                        <a href="#" class="btn btn-xs btn-warning rounded-pill fw-bold px-3">
-                            <i class='bx bx-map-alt me-1'></i> Roadmaps
+                        <a href="#" class="badge rounded-pill shortcut-pill shortcut-pill-warning">
+                            <i class='bx bx-map-alt'></i> Roadmaps
                         </a>
-                        <a href="/quiz" class="btn btn-xs btn-danger rounded-pill fw-bold px-3">
-                            <i class='bx bx-check-square me-1'></i> Quizzes <span class="badge bg-white bg-opacity-25 rounded-pill ms-1"><?= number_format($finishedQuizzes) ?></span>
+                        <a href="/quiz" class="badge rounded-pill shortcut-pill shortcut-pill-danger">
+                            <i class='bx bx-check-square'></i> Quizzes <span class="rounded-pill shortcut-pill-count"><?= number_format($finishedQuizzes) ?></span>
                         </a>
-                        <a href="#" class="btn btn-xs btn-secondary rounded-pill fw-bold px-3">
-                            <i class='bx bx-chat me-1'></i> Discuss
+                        <a href="#" class="badge rounded-pill shortcut-pill shortcut-pill-neutral">
+                            <i class='bx bx-chat'></i> Discuss
                         </a>
                     </div>
                 </div>
@@ -502,8 +504,8 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                 </div>
                                             </div>
                                             <div class="d-flex gap-1 flex-wrap mb-2">
-                                                <span class="badge badge-neon badge-neon-success rounded-pill">ports</span>
-                                                <span class="badge badge-neon badge-neon-success rounded-pill">port security</span>
+                                                <span class="badge bg-success rounded-pill">ports</span>
+                                                <span class="badge bg-success rounded-pill">port security</span>
                                             </div>
                                             <div class="mt-auto">
                                                 <div class="d-flex justify-content-between align-items-center mb-1">
@@ -530,8 +532,8 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                 </div>
                                             </div>
                                             <div class="d-flex gap-1 flex-wrap mb-2">
-                                                <span class="badge badge-neon badge-neon-warning rounded-pill">ai-assistant</span>
-                                                <span class="badge badge-neon badge-neon-warning rounded-pill">database-design</span>
+                                                <span class="badge bg-warning rounded-pill">ai-assistant</span>
+                                                <span class="badge bg-warning rounded-pill">database-design</span>
                                             </div>
                                             <div class="mt-auto">
                                                 <div class="d-flex justify-content-between align-items-center mb-1">
@@ -558,8 +560,8 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                 </div>
                                             </div>
                                             <div class="d-flex gap-1 flex-wrap mb-2">
-                                                <span class="badge badge-neon badge-neon-success rounded-pill">HTTP</span>
-                                                <span class="badge badge-neon badge-neon-success rounded-pill">security headers</span>
+                                                <span class="badge bg-success rounded-pill">HTTP</span>
+                                                <span class="badge bg-success rounded-pill">security headers</span>
                                             </div>
                                             <div class="mt-auto">
                                                 <div class="d-flex justify-content-between align-items-center mb-1">
@@ -586,8 +588,8 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                 </div>
                                             </div>
                                             <div class="d-flex gap-1 flex-wrap mb-2">
-                                                <span class="badge badge-neon badge-neon-success rounded-pill">appsec</span>
-                                                <span class="badge badge-neon badge-neon-success rounded-pill">secure coding</span>
+                                                <span class="badge bg-success rounded-pill">appsec</span>
+                                                <span class="badge bg-success rounded-pill">secure coding</span>
                                             </div>
                                             <div class="mt-auto">
                                                 <div class="d-flex justify-content-between align-items-center mb-1">
@@ -614,8 +616,8 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                 </div>
                                             </div>
                                             <div class="d-flex gap-1 flex-wrap mb-2">
-                                                <span class="badge badge-neon badge-neon-warning rounded-pill">WebSocket</span>
-                                                <span class="badge badge-neon badge-neon-warning rounded-pill">STOMP</span>
+                                                <span class="badge bg-warning rounded-pill">WebSocket</span>
+                                                <span class="badge bg-warning rounded-pill">STOMP</span>
                                             </div>
                                             <div class="mt-auto">
                                                 <div class="d-flex justify-content-between align-items-center mb-1">
@@ -790,7 +792,7 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                 <div class="col-12 col-md-7">
                                     <div class="liquid-rim simple-whitebg p-3 h-100">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <h6 class="fw-bold mb-0">Machine Labs <span class="badge badge-neon badge-neon-success rounded-pill ms-1">live</span></h6>
+                                            <h6 class="fw-bold mb-0">Machine Labs <span class="badge bg-success rounded-pill ms-1">live</span></h6>
                                             <small class="text-body-secondary">Limit: <?= $activeLabsCount ?>/<?= $labsLimit ?></small>
                                         </div>
 
@@ -816,8 +818,8 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                              <div class="d-flex flex-column gap-0.5">
                                                                  <span class="fw-bold small"><?= $lab['name'] ?> Lab</span>
                                                                  <div class="d-flex gap-1 align-items-center">
-                                                                     <span class="badge badge-neon badge-neon-primary rounded-pill fw-bold">beta</span>
-                                                                     <span class="badge badge-neon badge-neon-<?= $statusColor ?> rounded-pill"><?= $labStatus ?></span>
+                                                                     <span class="badge bg-primary rounded-pill fw-bold">beta</span>
+                                                                     <span class="badge bg-<?= $statusColor ?> rounded-pill"><?= $labStatus ?></span>
                                                                  </div>
                                                              </div>
                                                          </div>
@@ -859,8 +861,8 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                              <div class="d-flex flex-column gap-0.5">
                                                                  <span class="fw-bold small">Essentials Lab</span>
                                                                  <div class="d-flex gap-1 align-items-center">
-                                                                     <span class="badge badge-neon badge-neon-primary rounded-pill">beta</span>
-                                                                     <span class="badge badge-neon badge-neon-success rounded-pill">running</span>
+                                                                     <span class="badge bg-primary rounded-pill">beta</span>
+                                                                     <span class="badge bg-success rounded-pill">running</span>
                                                                  </div>
                                                              </div>
                                                          </div>
@@ -880,13 +882,13 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                          </div>
                                                      </div>
                                                      <div class="d-flex justify-content-end w-100 mt-2 gap-2">
-                                                         <a href="/labs/dashboard/2dfa0d10c8ee99549594d584e85c92d3" class="btn btn-sm btn-primary rounded-pill d-flex align-items-center gap-1">
+                                                         <a href="/labs/dashboard/<?= $user->getLabHash('essentials') ?>" class="btn btn-sm btn-primary rounded-pill d-flex align-items-center gap-1">
                                                              <i class='bx bx-grid-alt'></i> Dashboard
                                                          </a>
-                                                         <button onclick="openCodeModal('2dfa0d10c8ee99549594d584e85c92d3', 'Essentials Lab', 'running')" class="btn btn-sm btn-success rounded-pill d-flex align-items-center gap-1">
+                                                         <button onclick="openCodeModal('<?= $user->getLabHash('essentials') ?>', 'Essentials Lab', 'running')" class="btn btn-sm btn-success rounded-pill d-flex align-items-center gap-1">
                                                              <i class='bx bx-code-alt'></i> Code
                                                          </button>
-                                                         <button onclick="openConnectionModal('2dfa0d10c8ee99549594d584e85c92d3', 'Essentials Lab', 'running')" class="btn btn-sm btn-secondary rounded-circle d-flex align-items-center justify-content-center" title="Connection Info">
+                                                         <button onclick="openConnectionModal('<?= $user->getLabHash('essentials') ?>', 'Essentials Lab', 'running')" class="btn btn-sm btn-secondary rounded-circle d-flex align-items-center justify-content-center" title="Connection Info">
                                                              <i class='bx bx-info-circle'></i>
                                                          </button>
                                                      </div>
@@ -900,7 +902,7 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                 <div class="col-12 col-md-5">
                                     <div class="liquid-rim simple-whitebg p-3 h-100">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <h6 class="fw-bold mb-0">Challenge Labs <span class="badge badge-neon badge-neon-success rounded-pill ms-1">live</span></h6>
+                                            <h6 class="fw-bold mb-0">Challenge Labs <span class="badge bg-success rounded-pill ms-1">live</span></h6>
                                         </div>
                                         <div class="d-flex flex-column gap-2">
                                             <?php if (!empty($challengeLabsList)): ?>
@@ -914,7 +916,7 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                             <span class="fw-bold small text-truncate" title="<?= htmlspecialchars($clab['name']) ?>"><?= htmlspecialchars($clab['name']) ?></span>
                                                             <div class="d-flex gap-1 align-items-center mt-1">
                                                                 <span class="badge rounded-pill fw-bold" style="font-size:0.55rem; background: <?= $clab['diffColor'] ?>22; border: 1px solid <?= $clab['diffColor'] ?>45; color: <?= $clab['diffColor'] ?>;"><?= htmlspecialchars(strtolower($clab['difficulty'])) ?></span>
-                                                                <span class="badge badge-neon badge-neon-success rounded-pill fw-bold"><?= htmlspecialchars(strtolower($clab['status'])) ?></span>
+                                                                <span class="badge bg-success rounded-pill fw-bold"><?= htmlspecialchars(strtolower($clab['status'])) ?></span>
         </div>
 
         <!-- Clan Card -->
@@ -1017,7 +1019,7 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                 <div class="rounded p-2" style="background: rgba(var(--cui-primary-rgb), 0.1);">
                                                     <i class='bx bx-code-alt' style="color: rgb(var(--cui-primary-rgb));"></i>
                                                 </div>
-                                                <span class="badge badge-neon badge-neon-primary rounded-pill">Next Lesson</span>
+                                                <span class="badge bg-primary rounded-pill">Next Lesson</span>
                                             </div>
                                             <h6 class="fw-bold mb-1" style="font-size:0.85rem;">Introduction to Cybersecurity for Beginners</h6>
                                             <small class="text-body-secondary">Beginner</small>
@@ -1031,7 +1033,7 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                 <div class="rounded p-2" style="background: rgba(var(--cui-primary-rgb), 0.1);">
                                                     <i class='bx bx-code-alt' style="color: rgb(var(--cui-primary-rgb));"></i>
                                                 </div>
-                                                <span class="badge badge-neon badge-neon-primary rounded-pill">Next Lesson</span>
+                                                <span class="badge bg-primary rounded-pill">Next Lesson</span>
                                             </div>
                                             <h6 class="fw-bold mb-1" style="font-size:0.85rem;">Elite Ethical Hacking Roadmap: Beginner to...</h6>
                                             <small class="text-body-secondary">Beginner</small>
@@ -1045,7 +1047,7 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                 <div class="rounded p-2" style="background: rgba(var(--cui-success-rgb), 0.1);">
                                                     <i class='bx bx-terminal' style="color: rgb(var(--cui-success-rgb));"></i>
                                                 </div>
-                                                <span class="badge badge-neon badge-neon-success rounded-pill">Practice</span>
+                                                <span class="badge bg-success rounded-pill">Practice</span>
                                             </div>
                                             <h6 class="fw-bold mb-1" style="font-size:0.85rem;">Calculate the sum of squares by caching co...</h6>
                                             <small class="text-body-secondary">Easy</small>
@@ -1059,7 +1061,7 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                 <div class="rounded p-2" style="background: rgba(var(--cui-success-rgb), 0.1);">
                                                     <i class='bx bx-terminal' style="color: rgb(var(--cui-success-rgb));"></i>
                                                 </div>
-                                                <span class="badge badge-neon badge-neon-success rounded-pill">Practice</span>
+                                                <span class="badge bg-success rounded-pill">Practice</span>
                                             </div>
                                             <h6 class="fw-bold mb-1" style="font-size:0.85rem;">Place stones strategically to cross river ...</h6>
                                             <small class="text-body-secondary">Easy</small>
@@ -1073,7 +1075,7 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                 <div class="rounded p-2" style="background: rgba(var(--cui-info-rgb), 0.1);">
                                                     <i class='bx bx-chat' style="color: rgb(var(--cui-info-rgb));"></i>
                                                 </div>
-                                                <span class="badge badge-neon badge-neon-primary rounded-pill">Join Discussion</span>
+                                                <span class="badge bg-primary rounded-pill">Join Discussion</span>
                                             </div>
                                             <h6 class="fw-bold mb-1" style="font-size:0.85rem;">Community Discussions</h6>
                                             <small class="text-body-secondary">Ask questions, share knowledge</small>

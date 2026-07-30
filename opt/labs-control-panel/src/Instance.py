@@ -2,6 +2,7 @@ import os
 import shutil
 import time
 import tempfile
+import pathlib
 from src.Lab import Lab
 
 
@@ -67,14 +68,20 @@ class Instance(Lab):
             return
 
         count = 0
+        base = pathlib.Path(dest_dir).resolve()
         for file_path, file_data in user_files.items():
             if isinstance(file_data, dict) and file_data.get('is_dir'):
                 continue
             content = file_data.get('content', '') if isinstance(file_data, dict) else ''
             if not content:
                 continue
+            # Path traversal check
+            target = (base / file_path).resolve()
+            if not str(target).startswith(str(base)):
+                self.log(f"Path traversal blocked: {file_path}", "warn", "build")
+                continue
             content = content.replace('\r\n', '\n')
-            full_path = os.path.join(dest_dir, file_path)
+            full_path = str(target)
             os.makedirs(os.path.dirname(full_path), exist_ok=True)
             with open(full_path, 'w') as f:
                 f.write(content)
@@ -143,12 +150,12 @@ class Instance(Lab):
 
         instance_data = self._get_instance(instance_id)
         if not instance_data:
-            self.log(f"Instance not found: {instance_id}", "error", "init")
+            self._fail_deploy(instance_id, f"Instance not found: {instance_id}")
             return
 
         deploy_data = instance_data.get('deploy', {})
         if not deploy_data:
-            self.log(f"No deploy data for {instance_id}. Run deploy_instance.php first.", "error", "init")
+            self._fail_deploy(instance_id, f"No deploy data for {instance_id}. Run deploy_instance.php first.")
             return
 
         template_name = deploy_data.get('lab_type', 'essentials')

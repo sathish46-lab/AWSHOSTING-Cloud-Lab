@@ -19,14 +19,15 @@ $instanceHash = $user->getLabHash($labName);
 
 try {
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-    $col = $db->deployed_labs;
+    $col = $db->machine_labs;
     
     $ipManager = new IPManager();
     
     $rabbit = new RabbitClient(); // Defaults to amq.topic
     $log_topic = "logs." . $instanceHash;
     // We can use $rabbit->sendMessage($msg, $log_topic) if we want to send logs from PHP
-    $existing = $col->findOne(['instance_hash' => $instanceHash]);
+    $inst = $col->findOne(['deploy.instance_hash' => $instanceHash]);
+    $existing = $inst ? ($inst['deploy'] ?? []) : null;
 
     // 1. CAPTURE NEW UI FIELDS
     $user_domains = $_POST['domains'] ?? []; 
@@ -63,24 +64,24 @@ try {
         $internalIp = $ipManager->getNextIPForUser($email, $instanceHash, $labName);
         
         $updateResult = $col->updateOne(
-            ['instance_hash' => $instanceHash],
+            ['deploy.instance_hash' => $instanceHash],
             ['$set' => [
-                'user_id'       => $user->getUserId(),
-                'email'         => $email,
-                'username'      => $user->getUsername(),
-                'instance_hash' => $instanceHash,
-                'lab_type'      => $labName,
-                'internal_ip'   => $internalIp, 
-                'domains'       => $user_domains,
-                'code_domain'   => $code_domain,
-                'expose_web'    => $expose_web,
-                'http_proxies'  => $httpProxies,
-                'status'        => 'deploying',
-                'created_at'    => time(),
-                'storage_path'  => "labs_storage_" . $instanceHash
+                'deploy.user_id'       => $user->getUserId(),
+                'deploy.email'         => $email,
+                'deploy.username'      => $user->getUsername(),
+                'deploy.instance_hash' => $instanceHash,
+                'deploy.lab_type'      => $labName,
+                'deploy.internal_ip'   => $internalIp, 
+                'deploy.domains'       => $user_domains,
+                'deploy.code_domain'   => $code_domain,
+                'deploy.expose_web'    => $expose_web,
+                'deploy.http_proxies'  => $httpProxies,
+                'deploy.status'        => 'deploying',
+                'deploy.created_at'    => time(),
+                'deploy.storage_path'  => "/var/labsstorage/" . $user->getUsername()
             ],
             '$push' => [
-                'activity_log'  => [
+                'deploy.activity_log'  => [
                     '$each' => [
                         [
                             'action' => 'Deployed',
@@ -107,17 +108,17 @@ try {
         
         // Update domains, expose_web, AND code_domain on redeploy
         $col->updateOne(
-            ['instance_hash' => $instanceHash],
+            ['deploy.instance_hash' => $instanceHash],
             ['$set' => [
-                'domains'     => $user_domains, 
-                'expose_web'  => $expose_web,
-                'code_domain' => $code_domain,
-                'http_proxies'=> $httpProxies,
-                'storage_path'=> "labs_storage_" . $instanceHash,
-                'status'      => 'deploying'
+                'deploy.domains'     => $user_domains, 
+                'deploy.expose_web'  => $expose_web,
+                'deploy.code_domain' => $code_domain,
+                'deploy.http_proxies'=> $httpProxies,
+                'deploy.storage_path'=> "/var/labsstorage/" . $user->getUsername(),
+                'deploy.status'      => 'deploying'
             ],
             '$push' => [
-                'activity_log' => [
+                'deploy.activity_log' => [
                     '$each' => [
                         [
                             'action' => 'Redeployed',

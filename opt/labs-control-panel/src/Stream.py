@@ -11,9 +11,9 @@ class Stream:
     def __init__(self, args, key):
         self.args = args
         self.key = key
-        self.rabbitmq_host = 'localhost'
-        self.user = 'admin'
-        self.password = 'RootTom@46'
+        self.rabbitmq_host = os.environ.get('RABBITMQ_HOST', 'localhost')
+        self.user = os.environ.get('RABBITMQ_USER', 'admin')
+        self.password = os.environ.get('RABBITMQ_PASS', '')
         
         # Management API URL
         self.api_url = f"http://{self.rabbitmq_host}:15672/api/exchanges/%2f/labs_{self.key}/bindings/source"

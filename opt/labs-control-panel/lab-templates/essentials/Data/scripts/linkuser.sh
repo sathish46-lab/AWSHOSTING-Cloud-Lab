@@ -1,8 +1,10 @@
 #!/bin/bash
-# linkuser.sh - Fixed version with server public key parameter
+# linkuser.sh — Full user setup: password, SSH, WireGuard, storage symlinks, code-server
 # $1=Username, $2=PublicKeys, $3=DockerIP, $4=CodePassword
 # $5=LabPrivateKey, $6=TunnelIP, $7=ServerPublicKey
-# $8=UserEmail, $9=N8nDomain, $10=VPSDockerIP
+# $8=UserEmail, $9=N8nDomain, $10=VPSDockerIP, $11=SuPass
+
+set -e
 
 USER_NAME=$1
 PUB_KEYS=$2
@@ -17,13 +19,12 @@ SU_PASS=${11}
 SYSTEM_PASS="${SU_PASS:-${USER_NAME}@098}"
 
 echo "[*] Starting user configuration..."
-echo "    Username: $USER_NAME"
-echo "    Docker IP: $DOCKER_IP"
-echo "    Tunnel IP: $TUNNEL_IP"
+echo "[*] Username: $USER_NAME"
+echo "[*] Docker IP: $DOCKER_IP"
+echo "[*] Tunnel IP: $TUNNEL_IP"
 
-# 1. User Setup
+# ── 1. User Setup ─────────────────────────────────────────────
 if ! id "$USER_NAME" &>/dev/null; then
-    # Delete default ubuntu user that steals UID 1000 in newer Ubuntu images
     if id -u ubuntu >/dev/null 2>&1; then userdel -r ubuntu || true; fi
     useradd -m -s /bin/bash -u 1000 "$USER_NAME" 2>/dev/null || useradd -m -s /bin/bash "$USER_NAME"
     usermod -aG sudo "$USER_NAME"
@@ -35,7 +36,7 @@ fi
 echo "$USER_NAME:$SYSTEM_PASS" | chpasswd
 echo "[✓] System password set"
 
-# 2. SSH Keys
+# ── 2. SSH Keys ───────────────────────────────────────────────
 USER_HOME="/home/$USER_NAME"
 mkdir -p "$USER_HOME/.ssh"
 printf "%b" "$PUB_KEYS" > "$USER_HOME/.ssh/authorized_keys"
@@ -43,11 +44,11 @@ chmod 700 "$USER_HOME/.ssh"
 chmod 600 "$USER_HOME/.ssh/authorized_keys"
 chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME"
 
-# Disable StrictModes for shared volume mounts and restart SSH
 sed -i 's/^#\?StrictModes .*/StrictModes no/' /etc/ssh/sshd_config
 service ssh restart || systemctl restart ssh || /etc/init.d/ssh restart || true
+echo "[✓] SSH configured and restarted"
 
-# 3. Bash Configuration
+# ── 3. Bash Configuration ─────────────────────────────────────
 cat << 'BASHRC_EOF' > "$USER_HOME/.bashrc"
 export force_color_prompt=yes
 export TERM=xterm-256color
@@ -58,20 +59,19 @@ BASHRC_EOF
 
 echo '[[ -f ~/.bashrc ]] && . ~/.bashrc' > "$USER_HOME/.bash_profile"
 chown "$USER_NAME":"$USER_NAME" "$USER_HOME/.bashrc" "$USER_HOME/.bash_profile"
+echo "[✓] Bash environment configured"
 
-# 4. WireGuard Configuration
+# ── 4. WireGuard Configuration ────────────────────────────────
 if [ -n "$LAB_PRIV_KEY" ] && [ -n "$SERVER_PUBKEY" ]; then
     echo "[*] Configuring WireGuard tunnel..."
-    echo "    Tunnel IP: $TUNNEL_IP"
-    echo "    Server Key: ${SERVER_PUBKEY:0:20}..."
-    
+    echo "[*] Tunnel IP: $TUNNEL_IP"
+    echo "[*] Server Key: ${SERVER_PUBKEY:0:20}..."
+
     mkdir -p /etc/wireguard
-    
-    # Use the VPS container's Docker network IP as the WireGuard endpoint
-    # This is reachable from sibling containers on the same Docker bridge network
-    WG_ENDPOINT="${VPS_DOCKER_IP:-172.30.0.1}"
+
+    WG_ENDPOINT="${VPS_DOCKER_IP:-172.31.0.1}"
     TUNNEL_PREFIX=$(echo "$WG_ENDPOINT" | awk -F. '{print $1"."$2"."$3"."}')
-    
+
     cat <<EOF > /etc/wireguard/wg0.conf
 [Interface]
 PrivateKey = $LAB_PRIV_KEY
@@ -85,77 +85,116 @@ Endpoint = ${WG_ENDPOINT}:51820
 AllowedIPs = ${TUNNEL_PREFIX}0/16
 PersistentKeepalive = 25
 EOF
-    
+
     chmod 600 /etc/wireguard/wg0.conf
-    
-    # Start WireGuard
+
     wg-quick down wg0 2>/dev/null || true
     sleep 1
     wg-quick up wg0
-    
-    # Verify
+
     if wg show wg0 &>/dev/null; then
         ACTUAL_IP=$(ip addr show wg0 2>/dev/null | grep "inet " | awk '{print $2}')
         echo "[✓] WireGuard configured: $ACTUAL_IP"
     else
         echo "[!] WireGuard failed to start"
+        exit 1
     fi
 else
     echo "[!] Missing WireGuard parameters, skipping tunnel setup"
 fi
 
-# 4.5 Internal service resolution is now handled natively by Docker DNS!
-USER_HOME="/home/$USER_NAME"
+# ── 5. Persistent Storage Links ───────────────────────────────
 HTDOCS="$USER_HOME/htdocs"
 HTCONFIG="$USER_HOME/htconfig"
 
 echo "[*] Configuring persistent storage links..."
 
-# 1. Initialize folders in Persistent Home if they don't exist
+# Initialize htdocs folder if it doesn't exist
 if [ ! -d "$HTDOCS" ]; then
     mkdir -p "$HTDOCS"
-    # Copy default "It Works" page only on first ever deploy
     cp /var/www/html/index.html "$HTDOCS/" 2>/dev/null || echo "<h2>Tom Lab</h2>" > "$HTDOCS/index.html"
 fi
 
+# Initialize htconfig folder and copy default Apache configs if empty
 if [ ! -d "$HTCONFIG" ]; then
     mkdir -p "$HTCONFIG"
-    # Move current active configs to persistent storage to "save" them
 fi
 
-# ALWAYS ensure the default config points to /var/www (which is symlinked to htdocs)
-# We do this on the persistent HTCONFIG folder directly since it might already exist
+# Always copy 000-default.conf if it doesn't exist in htconfig
+if [ ! -f "$HTCONFIG/000-default.conf" ]; then
+    if [ -f /etc/apache2/sites-available/000-default.conf ]; then
+        cp /etc/apache2/sites-available/000-default.conf "$HTCONFIG/000-default.conf"
+    else
+        cat <<'DEFAULTCONF' > "$HTCONFIG/000-default.conf"
+<VirtualHost *:80>
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www
+    ErrorLog ${APACHE_LOG_DIR}/error.log
+    CustomLog ${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+DEFAULTCONF
+    fi
+    echo "[*] Created 000-default.conf in htconfig"
+fi
+
+# Ensure DocumentRoot points to /var/www (not /var/www/html)
 sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www|g' "$HTCONFIG/000-default.conf" 2>/dev/null || true
 
-# 2. SYMLINK: Professional Web Root Persistence
-echo "[*] Linking htdocs directly to /var/www..."
+# Copy sites-enabled symlinks if missing
+mkdir -p "$HTCONFIG/sites-enabled"
+if [ ! -L "$HTCONFIG/sites-enabled/000-default.conf" ] && [ -f "$HTCONFIG/000-default.conf" ]; then
+    ln -sf "$HTCONFIG/000-default.conf" "$HTCONFIG/sites-enabled/000-default.conf"
+fi
 
-# Remove the existing /var/www directory and all its content (like the 'html' folder)
-# to make room for our symlink.
+# SYMLINK: /var/www -> ~/htdocs
+echo "[*] Linking htdocs directly to /var/www..."
 if [ -d "/var/www" ] && [ ! -L "/var/www" ]; then
     rm -rf /var/www
 fi
-
-# Link your home htdocs folder as the new /var/www
-# Now ~/htdocs/be physically exists at /var/www/be
 ln -sfn "$HTDOCS" /var/www
 
-# 3. SYMLINK: Apache Config Persistence (Remains the same)
+# SYMLINK: /etc/apache2/sites-available -> ~/htconfig
 echo "[*] Linking htconfig to /etc/apache2/sites-available..."
 if [ -d "/etc/apache2/sites-available" ] && [ ! -L "/etc/apache2/sites-available" ]; then
     rm -rf /etc/apache2/sites-available
 fi
 ln -sfn "$HTCONFIG" /etc/apache2/sites-available
 
-# 4. Permissions Fix
+# SYMLINK: /etc/apache2/sites-enabled -> ~/htconfig/sites-enabled
+if [ -d "/etc/apache2/sites-enabled" ] && [ ! -L "/etc/apache2/sites-enabled" ]; then
+    rm -rf /etc/apache2/sites-enabled
+fi
+ln -sfn "$HTCONFIG/sites-enabled" /etc/apache2/sites-enabled
+
+# NOTE: Do NOT symlink mods-enabled or conf-enabled — Apache needs original system modules
+# Restore mods-enabled if it was previously symlinked to htconfig
+if [ -L "/etc/apache2/mods-enabled" ]; then
+    rm -f /etc/apache2/mods-enabled
+    # The original mods-enabled was a directory with symlinks to mods-available
+    # We can't restore it perfectly, but we can ensure the essential modules are enabled
+    mkdir -p /etc/apache2/mods-enabled
+    for mod in mpm_event authz_core authz_host dir log_config rewrite ssl mime socache_shmcb; do
+        if [ -f "/etc/apache2/mods-available/${mod}.load" ]; then
+            ln -sf "/etc/apache2/mods-available/${mod}.load" "/etc/apache2/mods-enabled/${mod}.load" 2>/dev/null || true
+        fi
+        if [ -f "/etc/apache2/mods-available/${mod}.conf" ]; then
+            ln -sf "/etc/apache2/mods-available/${mod}.conf" "/etc/apache2/mods-enabled/${mod}.conf" 2>/dev/null || true
+        fi
+    done
+    echo "[*] Restored Apache mods-enabled from mods-available"
+fi
+
+# Permissions
 chown -R "$USER_NAME:$USER_NAME" "$HTDOCS" "$HTCONFIG"
 chmod -R 755 "$HTDOCS"
 chmod -R 755 "$HTCONFIG"
 
-# Reload Apache to apply any config changes
-service apache2 reload || true
+# Verify 000-default is enabled
+a2ensite 000-default.conf 2>/dev/null || true
+service apache2 restart || true
+echo "[✓] Storage links configured"
 
-# 5. Code-Server Setup
+# ── 6. Code-Server Setup ──────────────────────────────────────
 echo "[*] Setting up Code-Server..."
 pkill -9 -u "$USER_NAME" -f code-server 2>/dev/null || true
 fuser -k 8080/tcp 2>/dev/null || true
@@ -174,7 +213,6 @@ CODE_CONFIG
 chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME/.config"
 chmod 644 "$USER_CONFIG"
 
-# Start code-server
 sudo -u "$USER_NAME" -H bash -c "nohup code-server --config $USER_CONFIG > $USER_HOME/.code-server.log 2>&1 &"
 sleep 2
 

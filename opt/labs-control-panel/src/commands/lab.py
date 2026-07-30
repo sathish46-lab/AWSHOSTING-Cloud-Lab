@@ -3,6 +3,7 @@ import json
 import time
 import secrets
 import string
+import base64
 import subprocess
 from src.router import Command
 
@@ -10,11 +11,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__fi
 
 
 class LabCmd(Command):
-    """labsctl lab — legacy deployed_labs operations."""
+    """labsctl lab — legacy machine_labs operations."""
 
     name = "lab"
     description = "Base template operations (system only)"
-    usage = "labsctl lab <build|deploy|stop|start|remove|info|generate-keys> [options]"
+    usage = "labsctl lab <build|deploy|stop|start|remove|info|generate-keys|sync-user|redeploy|update> [options]"
 
     def __init__(self, router=None):
         super().__init__()
@@ -27,32 +28,125 @@ class LabCmd(Command):
             "info":         (self._info,         "Show lab info",             "labsctl lab info --hash=HASH"),
             "shell":        (self._shell,        "Enter container",           "labsctl lab shell --hash=HASH"),
             "generate-keys":(self._generate_keys,"Generate SSH host keys",    "labsctl lab generate-keys [template]"),
+            "sync-user":    (self._sync_user,    "Sync SSH keys for user",    "labsctl lab sync-user --user=USER"),
+            "redeploy":     (self._redeploy,     "Redeploy lab",              "labsctl lab redeploy --hash=HASH --user=USER"),
+            "update":       (self._update,       "Update lab image",          "labsctl lab update --hash=HASH --user=USER"),
         }
 
     def _get_deploy_data(self, instance_id):
         if self.db is not None:
-            return self.db.deployed_labs.find_one({"instance_hash": instance_id})
+            doc = self.db.machine_labs.find_one({"instance_hash": instance_id})
+            if doc:
+                return doc
+            doc = self.db.machine_labs.find_one({"deploy.instance_hash": instance_id})
+            if doc:
+                return doc.get("deploy", {})
         return None
 
     def _set_deploy_field(self, instance_id, field, value):
         if self.db is not None:
-            self.db.deployed_labs.update_one(
+            result = self.db.machine_labs.update_one(
                 {"instance_hash": instance_id},
                 {"$set": {field: value}}
             )
+            if result.matched_count == 0:
+                self.db.machine_labs.update_one(
+                    {"deploy.instance_hash": instance_id},
+                    {"$set": {f"deploy.{field}": value}}
+                )
+
+    def _set_deploy_fields(self, instance_id, fields):
+        if self.db is not None:
+            result = self.db.machine_labs.update_one(
+                {"instance_hash": instance_id},
+                {"$set": fields}
+            )
+            if result.matched_count == 0:
+                deploy_fields = {f"deploy.{k}": v for k, v in fields.items()}
+                self.db.machine_labs.update_one(
+                    {"deploy.instance_hash": instance_id},
+                    {"$set": deploy_fields}
+                )
 
     def _fail_deploy(self, instance_id, msg):
         self.log(msg, "error")
         self._set_deploy_field(instance_id, "status", "error")
+        if self.db is not None:
+            result = self.db.machine_labs.update_one(
+                {"instance_hash": instance_id},
+                {"$set": {"last_error": msg, "error_at": time.time()}}
+            )
+            if result.matched_count == 0:
+                self.db.machine_labs.update_one(
+                    {"deploy.instance_hash": instance_id},
+                    {"$set": {"deploy.last_error": msg, "deploy.error_at": time.time()}}
+                )
+
+    # ── Detect VPS Docker IP ────────────────────────────────────
+
+    def _detect_vps_docker_ip(self, docker_network):
+        """Detect the orchestrator container's Docker IP on the shared network."""
+        orchestrator = self.cfg.orchestrator_container
+        if not orchestrator:
+            fallback = f"{self.cfg.docker_ip}2"
+            self.log(f"No orchestrator container configured, using fallback: {fallback}", "warn")
+            return fallback
+
+        code, ip = self.run(
+            f"docker inspect {orchestrator} "
+            f"--format '{{{{.NetworkSettings.Networks.{docker_network}.IPAddress}}}}' 2>/dev/null",
+            capture=True
+        )
+        if ip and ip != "<no value>" and ip.strip():
+            return ip.strip()
+
+        fallback = f"{self.cfg.docker_ip}2"
+        self.log(f"Could not detect VPS container IP, using fallback: {fallback}", "warn")
+        return fallback
+
+    # ── Storage Quota ─────────────────────────────────────────
+
+    def _get_user_proj_id(self, username):
+        import hashlib
+        return int(hashlib.md5(username.encode()).hexdigest()[:8], 16) % 100000 + 1000
+
+    def _set_user_quota(self, username, storage_path):
+        storage_base = self.cfg.storage_base
+        limit_gb = self.cfg.storage_limit_gb
+        limit_soft = limit_gb - 1
+
+        code, _ = self.run("which xfs_quota 2>/dev/null", capture=True)
+        if code != 0:
+            self.log(f"XFS quota not available, skipping quota setup for {username}", "warn")
+            return
+
+        code, mount_info = self.run(f"mount | grep {storage_base} | head -1", capture=True)
+        if "prjquota" not in mount_info and "pquota" not in mount_info:
+            self.log(f"Filesystem does not support prjquota, skipping quota for {username}", "warn")
+            return
+
+        proj_id = self._get_user_proj_id(username)
+        self.run(f'grep -q "^{proj_id}:" /etc/projects 2>/dev/null || echo "{proj_id}:{storage_path}" >> /etc/projects')
+        self.run(f'grep -q "^{username}:" /etc/projid 2>/dev/null || echo "{username}:{proj_id}" >> /etc/projid')
+        self.run(f'xfs_quota -x -c "project -s {proj_id}" {storage_base}')
+        self.run(f'xfs_quota -x -c "limit -p bsoft={limit_soft}g bhard={limit_gb}g {proj_id}" {storage_base}')
+        self.log(f"Quota set: {limit_gb}GB limit for {username} (project {proj_id})", "success")
+
+    def _release_user_quota(self, username):
+        storage_base = self.cfg.storage_base
+        code, _ = self.run("which xfs_quota 2>/dev/null", capture=True)
+        if code != 0:
+            return
+        proj_id = self._get_user_proj_id(username)
+        self.run(f'xfs_quota -x -c "limit -p bsoft=0 bhard=0 {proj_id}" {storage_base}')
+        self.log(f"Quota released for {username}", "success")
 
     # ── Generate SSH Host Keys ───────────────────────────────────
 
     def _generate_keys(self, args):
-        """Generate fixed SSH host keys for templates."""
         target = args.get(1)
         templates_dir = self.cfg.templates_dir
 
-        # Use local path if production path not writable
         if not os.access(templates_dir, os.W_OK):
             local_path = os.path.join(BASE_DIR, "lab-templates")
             if os.path.isdir(local_path) and os.access(local_path, os.W_OK):
@@ -84,7 +178,6 @@ class LabCmd(Command):
                 ("ecdsa", "ssh-keygen -t ecdsa -f {path} -N \"\" -q"),
             ]
 
-            created = []
             for key_type, cmd in keys:
                 key_path = os.path.join(key_dir, f"ssh_host_{key_type}_key")
                 if os.path.exists(key_path):
@@ -95,7 +188,6 @@ class LabCmd(Command):
                     pub_path = key_path + ".pub"
                     if os.path.exists(pub_path):
                         os.chmod(pub_path, 0o644)
-                    created.append(key_type)
                     print(f"  {tpl:<25} {key_type:<10} {GREEN}created{RESET}")
 
         print("  " + "-" * 50)
@@ -151,8 +243,13 @@ class LabCmd(Command):
             self._fail_deploy(instance_id, "Missing --user and no user in DB")
             return
 
-        template_name = lab_data.get("lab_type", "essentials")
-        self.log(f"Deploying {template_name} for {username}...")
+        template_name = lab_data.get("template_name", "essentials")
+
+        # Phase: INIT
+        self.log(f"Deployment initiated (WireGuard Mesh Mode)...")
+        self.log(f"Fetching lab metadata from database...")
+        self.log(f"Starting deployment for user: {username}")
+        self.log(f"Instance ID: {instance_id}")
 
         # Load template config
         tpl_path = os.path.join(self.cfg.templates_dir, template_name, "config.json")
@@ -163,11 +260,71 @@ class LabCmd(Command):
         with open(tpl_path) as f:
             lab_spec = json.load(f)
 
-        # IPs
-        base_ip = lab_data.get("internal_ip", "")
-        last_octet = base_ip.split(".")[-1] if base_ip else "10"
+        link_script = lab_spec.get("scripts", {}).get("linkuser", "/var/labsdata/scripts/linkuser.sh")
+
+        # Validate Docker network
+        docker_network = self.cfg.docker_network
+        code, _ = self.run(f"docker network inspect {docker_network} > /dev/null 2>&1", capture=True)
+        if code != 0:
+            self._fail_deploy(instance_id, f"FATAL: Docker network {docker_network} not found.")
+            return
+
+        # IPs — IPManager-style allocation from lab_ips pool
+        lab_ips_col = self.db["lab_ips"] if self.db else None
+        instances_col = self.instances_db().instances if self.instances_db() else None
+
+        allocated_ip = None
+        if lab_ips_col and instances_col:
+            existing = lab_ips_col.find_one({"allocated_to": instance_id})
+            if existing:
+                allocated_ip = existing["ip_addr"]
+                self.log(f"Reusing allocated IP: {allocated_ip}")
+
+        if not allocated_ip and lab_ips_col:
+            result = lab_ips_col.find_one_and_update(
+                {"allocated": False, "status": "available"},
+                {
+                    "$set": {
+                        "status": "allocated",
+                        "allocated": True,
+                        "allocated_to": instance_id,
+                        "email": username,
+                        "reserved_to": username,
+                        "service_type": template_name,
+                        "label": "{} Lab".format(template_name.title()),
+                        "last_deploy": int(time.time())
+                    }
+                },
+                sort=[("ip_numeric", 1)],
+                return_document=True
+            )
+            if result:
+                allocated_ip = result["ip_addr"]
+                self.log(f"Allocated new IP: {allocated_ip}")
+            else:
+                self._fail_deploy(instance_id, "IP Pool Exhausted!")
+                return
+
+        if allocated_ip and instances_col:
+            last_octet = allocated_ip.split(".")[-1]
+            try:
+                instances_col.update_one(
+                    {"instance_hash": instance_id},
+                    {"$set": {"deploy.internal_ip": allocated_ip}}
+                )
+            except Exception:
+                pass
+        elif not allocated_ip:
+            import hashlib
+            last_octet = str(int(hashlib.md5(instance_id.encode()).hexdigest()[:8], 16) % 200 + 21)
+            allocated_ip = f"172.31.0.{last_octet}"
+        else:
+            last_octet = allocated_ip.split(".")[-1]
+
         docker_ip = f"{self.cfg.docker_ip}{last_octet}"
         tunnel_ip = f"{self.cfg.tunnel_ip}{last_octet}"
+        self.log(f"Assigned Docker IP (eth0): {docker_ip}", "info")
+        self.log(f"Assigned Tunnel IP (wg0): {tunnel_ip}", "info")
 
         # Resources
         res = lab_spec.get("resources", {})
@@ -176,21 +333,40 @@ class LabCmd(Command):
         mount_target = lab_spec.get("storage", {}).get("mount_target", "/home/{user}").replace("{user}", username)
         storage_path = lab_data.get("storage_path", "")
 
-        # Cleanup existing
-        self.log("Checking for existing containers...")
+        # Phase: CLEANUP
+        self.log("Checking for conflicting containers...")
+        if self.docker_exists(instance_id):
+            self.log("Existing container removed.")
+        else:
+            self.log("No existing container found.")
         self.docker_stop(instance_id)
 
-        # Storage
+        # Phase: STORAGE
         if storage_path.startswith("/"):
-            os.makedirs(storage_path, exist_ok=True)
+            if not os.path.exists(storage_path):
+                os.makedirs(storage_path, exist_ok=True)
+                self.log(f"Setting up storage: {storage_path}")
+            else:
+                self.log(f"Volume verified: {storage_path}")
+            self._set_user_quota(username, storage_path)
+        else:
+            self.log("Using Docker named volume.")
 
-        # WireGuard
+        # Phase: NETWORK — Clear stale WireGuard peers
+        self.log(f"Clearing stale VPN sessions for {tunnel_ip}...")
+        wgfree_script = os.path.join(self.cfg.templates_dir, template_name, "Data/scripts/wgfree.sh")
+        if os.path.exists(wgfree_script):
+            self.run(f"bash {wgfree_script} {tunnel_ip}")
+
+        # WireGuard keys
         credentials = lab_data.get("credentials", {})
+        if not isinstance(credentials, dict):
+            credentials = {}
         lab_pub_key = credentials.get("wg_pubkey")
         lab_priv_key = credentials.get("wg_privkey")
 
         if not lab_priv_key or not lab_pub_key:
-            self.log("Generating WireGuard keys...")
+            self.log("Generating fresh WireGuard keys...")
             wg_script = os.path.join(self.cfg.templates_dir, template_name, "Data/scripts/wgconfig.py")
             try:
                 code, wg_out = self.run(f"python3 {wg_script} {tunnel_ip}", capture=True)
@@ -199,14 +375,30 @@ class LabCmd(Command):
                 self._fail_deploy(instance_id, "WireGuard key generation failed")
                 return
         else:
-            self.log("Reusing existing WireGuard keys...")
+            self.log("Reusing existing keys for stable connection...")
             self.run(f"wg show wg0 allowed-ips | grep '{tunnel_ip}/32' | awk '{{print $1}}' | xargs -I{{}} wg set wg0 peer {{}} remove 2>/dev/null || true")
             self.run(f"wg set wg0 peer {lab_pub_key} allowed-ips {tunnel_ip}/32")
 
-        # Docker run
-        self.log(f"Starting container: {mem} RAM, {cpu} CPU")
-        docker_network = self.cfg.docker_network
-        host_name = f"{lab_spec.get('network', {}).get('hostname', 'essentials')}.{instance_id}.{self.cfg.code_domain}"
+            code, check = self.run(f"wg show wg0 allowed-ips | grep '{lab_pub_key}'", capture=True)
+            if check:
+                self.log(f"Peer re-registered: {tunnel_ip}", "success")
+            else:
+                self.log(f"WARNING: Peer registration may have failed for {tunnel_ip}", "warn")
+
+        self.log(f"Public Key: {lab_pub_key}")
+
+        code, server_pub_key = self.run("wg show wg0 public-key 2>/dev/null", capture=True)
+        if not server_pub_key:
+            self.log("WARNING: Could not get server WireGuard public key", "warn")
+
+        # Detect VPS Docker IP for WireGuard endpoint
+        vps_docker_ip = self._detect_vps_docker_ip(docker_network)
+        self.log(f"VPS Docker IP (WireGuard endpoint): {vps_docker_ip}")
+
+        # Phase: CONTAINER
+        self.log(f"Provisioning {template_name}: {mem} RAM, {cpu} CPU")
+        tunnel_gw = f"{self.cfg.tunnel_ip}1"
+        vpn_domain = self.cfg.vpn_domain
 
         docker_cmd = self.cfg.get("docker_run", "")
         mapping = {
@@ -218,17 +410,17 @@ class LabCmd(Command):
             "user": username,
             "image": lab_data.get("image", f"{template_name}:lab"),
             "ip": docker_ip,
-            "vps_docker_ip": docker_ip,
-            "tunnel_gw": f"{self.cfg.tunnel_ip}1",
-            "vpn_domain": self.cfg.vpn_domain,
-            "host_name": host_name,
+            "vps_docker_ip": vps_docker_ip,
+            "tunnel_gw": tunnel_gw,
+            "vpn_domain": vpn_domain,
+            "host_name": f"{lab_spec.get('network', {}).get('hostname', 'essentials')}.{instance_id}.{self.cfg.code_domain}",
             "network_name": docker_network,
         }
 
         if "--add-host" not in docker_cmd:
             docker_cmd = docker_cmd.replace(
                 "--cap-add=NET_ADMIN",
-                f"--add-host {self.cfg.vpn_domain}:{mapping['tunnel_gw']} --cap-add=NET_ADMIN"
+                f"--add-host {vpn_domain}:{tunnel_gw} --cap-add=NET_ADMIN"
             )
 
         from src.DockerHelper import DockerHelper
@@ -238,52 +430,183 @@ class LabCmd(Command):
             self._fail_deploy(instance_id, "Container failed to start")
             return
 
-        # Wait for container
+        self.log("Waiting for container services to initialize...")
         for _ in range(10):
             if self.docker_running(instance_id):
                 break
             time.sleep(0.5)
 
-        # Routing
-        self.log("Configuring routing...")
+        # Phase: ROUTING
+        self.log("Configuring network routing and firewall...")
         bridge = self.detect_bridge(docker_network)
         self.configure_routing(tunnel_ip, docker_ip, bridge)
+        self.log("Routing and firewall configured.", "success")
 
-        # Traefik
+        # Add tunnel IP to container's eth0
+        self.run(f"docker exec {instance_id} ip addr add {tunnel_ip}/32 dev eth0 2>/dev/null || true")
+
+        # Phase: CONFIGURE — Apache MPM optimization
+        self.log("Optimizing Apache for single-user environment...")
+        apache_mpm = """#!/bin/bash
+cat <<'EOF' > /etc/apache2/mods-available/mpm_event.conf
+<IfModule mpm_event_module>
+        StartServers             1
+        MinSpareThreads          2
+        MaxSpareThreads          5
+        ThreadsPerChild          10
+        MaxRequestWorkers        20
+        MaxConnectionsPerChild   0
+</IfModule>
+EOF
+service apache2 reload 2>/dev/null || true
+"""
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+            f.write(apache_mpm)
+            tmp_mpm = f.name
+        self.run(f"docker cp {tmp_mpm} {instance_id}:/tmp/mpm_opt.sh")
+        os.unlink(tmp_mpm)
+        self.run(f"docker exec {instance_id} bash /tmp/mpm_opt.sh")
+        self.run(f"docker exec {instance_id} rm -f /tmp/mpm_opt.sh")
+
+        # Phase: CONFIGURE — User environment
+        self.log(f"Configuring user environment for {username}...")
+
+        user_keys = list(self.db.ssh_keys.find({"username": username})) if self.db else []
+        auth_content = "\n".join([k['public_key'] for k in user_keys if 'public_key' in k])
+        ssh_enabled = len(user_keys) > 0
+        self.log(f"Syncing ssh authorized_keys for {username} ({len(user_keys)} key(s))")
+
+        # Staged preferences (password persistence across redeploy)
+        staged_creds = lab_data.get("staged_preferences", {})
+        existing_creds = lab_data.get("credentials", {})
+
+        if staged_creds.get("code_server_pass"):
+            dynamic_pass = staged_creds["code_server_pass"]
+        elif existing_creds.get("password"):
+            dynamic_pass = existing_creds["password"]
+        else:
+            dynamic_pass = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(12))
+
+        if staged_creds.get("su_pass"):
+            su_pass = staged_creds["su_pass"]
+        else:
+            su_pass = existing_creds.get("su_pass", f"{username}@098")
+
+        self.log(f"sudo Password: {su_pass}")
+
+        user_profile = self.db.users.find_one({"username": username}) if self.db else None
+        user_email = user_profile.get('email', username) if user_profile else username
+
+        # Execute linkuser.sh
+        self.log("Configuring user environment...")
+        escaped_auth = auth_content.replace('"', '\\"').replace('$', '\\$')
+
+        # Copy updated scripts into container (image may have stale copies)
+        host_scripts_dir = os.path.join(self.cfg.templates_dir, template_name, "Data", "scripts")
+        if os.path.isdir(host_scripts_dir):
+            self.run(f"docker exec {instance_id} mkdir -p /var/labsdata/scripts")
+            self.run(f"docker cp {host_scripts_dir}/. {instance_id}:/var/labsdata/scripts/")
+            self.run(f"docker exec {instance_id} find /var/labsdata/scripts -name '*.sh' -exec chmod +x {{}} +")
+
+        link_cmd = (
+            f'docker exec {instance_id} {link_script} '
+            f'"{username}" "{escaped_auth}" "{docker_ip}" "{dynamic_pass}" '
+            f'"{lab_priv_key}" "{tunnel_ip}" "{server_pub_key}" '
+            f'"{user_email}" "" "{vps_docker_ip}" "{su_pass}"'
+        )
+        code, _ = self.run(link_cmd)
+        if code != 0:
+            self._fail_deploy(instance_id, "linkuser.sh failed. Check output above for details.")
+            return
+
+        # Phase: POST-LINK — WireGuard routing & DNS fix inside container
+        if tunnel_ip:
+            tunnel_subnet = ".".join(tunnel_ip.split(".")[:2]) + ".0.0/16"
+            tunnel_gw_internal = ".".join(tunnel_ip.split(".")[:3]) + ".1"
+            self.log(f"Applying WireGuard routing and DNS fix for subnet {tunnel_subnet}...")
+
+            # Write fix script to container to avoid shell escaping issues
+            fix_script = f"""#!/bin/bash
+# Fix AllowedIPs to use full /16 subnet
+sed -i 's#AllowedIPs.*#AllowedIPs = {tunnel_subnet}#g' /etc/wireguard/wg0.conf 2>/dev/null || true
+wg set wg0 peer {server_pub_key} allowed-ips {tunnel_subnet} 2>/dev/null || true
+ip route add {tunnel_subnet} dev wg0 metric 10 2>/dev/null || true
+
+# Add IPv6 localhost entries if missing
+grep -q "::1" /etc/hosts || echo "::1 localhost ip6-localhost ip6-loopback" >> /etc/hosts 2>/dev/null || true
+
+# Add VPN domain to hosts for internal access
+grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >> /etc/hosts 2>/dev/null || true
+"""
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.sh', delete=False) as f:
+                f.write(fix_script)
+                tmp_fix = f.name
+            self.run(f"docker cp {tmp_fix} {instance_id}:/tmp/wg_fix.sh")
+            os.unlink(tmp_fix)
+            self.run(f"docker exec {instance_id} bash /tmp/wg_fix.sh")
+            self.run(f"docker exec {instance_id} rm -f /tmp/wg_fix.sh")
+
+        # Phase: TRAEFIK
+        self.log("Finalizing Traefik routing...")
         traefik_yaml = self._gen_traefik(instance_id, docker_ip, lab_spec, lab_data)
         self.write_traefik(instance_id, traefik_yaml)
+        self.log("Traefik configuration written.", "success")
 
-        # Credentials
+        # Phase: METADATA
+        self.log("Finalizing routing metadata...")
         code_domain = args.flag("vsc_domain") or lab_data.get("code_domain") or f"{instance_id}.{self.cfg.code_domain}"
         credentials.update({
             "ssh": f"ssh {username}@{tunnel_ip}",
+            "ssh_proxy": f'ssh -o "ProxyCommand=ssh -W %h:%p -i ~/.ssh/id_ed25519 root@127.0.0.1 -p 2222" {username}@{docker_ip}',
             "docker_ip": docker_ip,
             "tunnel_ip": tunnel_ip,
+            "port": 22,
+            "password": dynamic_pass,
+            "su_pass": su_pass,
+            "sshKey": ssh_enabled,
             "code_server_url": f"https://{code_domain}",
             "wg_pubkey": lab_pub_key,
             "wg_privkey": lab_priv_key,
         })
 
-        self._set_deploy_fields(instance_id, {"status": "running", "credentials": credentials})
-        self.log("Deployment complete.", "success")
-        self.log(f"Access: https://{code_domain}")
+        # Credentials template expansion
+        cred_template = lab_spec.get("credentials_template", {})
+        if cred_template:
+            fmt_args = {
+                "username": username,
+                "password": dynamic_pass,
+                "email": user_email,
+                "su_pass": su_pass,
+            }
+            for key, val in cred_template.items():
+                if isinstance(val, str):
+                    credentials[key] = val.format(**fmt_args)
+                else:
+                    credentials[key] = val
 
-    def _set_deploy_fields(self, instance_id, fields):
-        if self.db is not None:
-            self.db.deployed_labs.update_one(
-                {"instance_hash": instance_id},
-                {"$set": fields}
-            )
+        self._set_deploy_fields(instance_id, {"status": "running", "credentials": credentials})
+
+        # Phase: CODE-SERVER MONITOR
+        self._ensure_codeserver(instance_id, username)
+
+        # Phase: DONE
+        self.log("Deployment Complete. Ready for connections.", "success")
+        self.log(f"Access URL: {code_domain}")
+        self.log(f"VPN Access: ssh {username}@{tunnel_ip}")
+        self.log("[*] reload")
 
     def _gen_traefik(self, instance_id, docker_ip, lab_spec, lab_data):
         """Generate Traefik YAML config."""
         services_spec = lab_spec.get("services", {})
+        base_domain = self.cfg.code_domain
         routers = ""
         services = ""
 
         for svc_name, svc_spec in services_spec.items():
             port = svc_spec["port"]
-            domain = f"{svc_name}-{instance_id}.{self.cfg.code_domain}"
+            domain = f"{svc_name}-{instance_id}.{base_domain}"
 
             router_key = f"router-{instance_id}-{svc_name}"
             service_key = f"service-{instance_id}-{svc_name}"
@@ -298,7 +621,6 @@ class LabCmd(Command):
             services += f"      loadBalancer:\n"
             services += f"        servers: [{{url: \"http://{docker_ip}:{port}\"}}]\n"
 
-        # Custom domains
         user_domains = lab_data.get("domains", [])
         if lab_data.get("expose_web") and user_domains and "web" in services_spec:
             web_port = services_spec["web"]["port"]
@@ -313,7 +635,6 @@ class LabCmd(Command):
                 routers += f"      entryPoints: [web, websecure]\n"
                 routers += f"      priority: 100\n"
 
-        # HTTP proxies
         for idx, proxy in enumerate(lab_data.get("http_proxies", [])):
             p_port = proxy.get("port")
             p_domain = proxy.get("domain")
@@ -329,6 +650,41 @@ class LabCmd(Command):
 
         return "http:\n  routers:\n" + routers + "\n  services:\n" + services
 
+    # ── Code-Server Idle Monitor ────────────────────────────────
+
+    def _ensure_codeserver(self, instance_id, username):
+        """Inject and start code-server idle monitor."""
+        monitor_script = f"""#!/bin/bash
+USER=$1
+IDLE_LIMIT=120
+
+while true; do
+    sleep 30
+    if ! pgrep -u $USER -f code-server > /dev/null; then
+        exit 0
+    fi
+    HEARTBEAT="/home/$USER/.local/share/code-server/heartbeat"
+    if [ -f "$HEARTBEAT" ]; then
+        LAST_MOD=$(stat -c %Y "$HEARTBEAT")
+        NOW=$(date +%s)
+        DIFF=$((NOW - LAST_MOD))
+        if [ $DIFF -ge $IDLE_LIMIT ]; then
+            pkill -u $USER -f code-server
+            exit 0
+        fi
+    fi
+done
+"""
+        b64_script = base64.b64encode(monitor_script.encode()).decode()
+        self.run(f"docker exec {instance_id} mkdir -p /var/labsdata/scripts")
+        self.run(f"docker exec {instance_id} bash -c 'echo {b64_script} | base64 -d > /var/labsdata/scripts/monitor_codeserver.sh'")
+        self.run(f"docker exec {instance_id} chmod +x /var/labsdata/scripts/monitor_codeserver.sh")
+
+        mcode, _ = self.run(f"docker exec {instance_id} pgrep -f monitor_codeserver", capture=True)
+        if mcode != 0:
+            self.run(f"docker exec -d {instance_id} bash /var/labsdata/scripts/monitor_codeserver.sh {username}")
+            self.log("Idle monitor started (2min timeout).", "success")
+
     # ── Stop ────────────────────────────────────────────────────
 
     def _stop(self, args):
@@ -337,17 +693,28 @@ class LabCmd(Command):
             self.log("Missing --hash", "error")
             return
 
-        self.log(f"Stopping {instance_id}...")
+        self.log(f"Initiating graceful shutdown for: {instance_id}")
+
         lab_data = self._get_deploy_data(instance_id)
         if lab_data:
-            tunnel_ip = lab_data.get("credentials", {}).get("tunnel_ip")
+            creds = lab_data.get("credentials", {})
+            if not isinstance(creds, dict):
+                creds = {}
+            tunnel_ip = creds.get("tunnel_ip")
             if tunnel_ip:
+                self.log(f"Cleaning host route: {tunnel_ip}")
                 self.remove_route(tunnel_ip)
 
-        self.docker_stop(instance_id)
-        self._set_deploy_field(instance_id, "status", "stopped")
+        if self.docker_exists(instance_id):
+            self.log("Stopping Docker container...")
+            self.run(f"docker stop {instance_id} && docker rm -f {instance_id}")
+            self._set_deploy_field(instance_id, "status", "stopped")
+            self.log("Container and process-space cleared.", "success")
+        else:
+            self.log("No container found, skipping stop.")
+
         self.remove_traefik(instance_id)
-        self.log("Lab stopped.", "success")
+        self.log(f"Lab {instance_id} is now offline. IP remains reserved.", "success")
 
     # ── Start ───────────────────────────────────────────────────
 
@@ -361,26 +728,31 @@ class LabCmd(Command):
             self.log(f"Container not found: {instance_id}", "error")
             return
 
-        self.log(f"Starting {instance_id}...")
+        self.log(f"Starting container: {instance_id}")
         self.run(f"docker start {instance_id}")
+        self.log("Container started.", "success")
 
         lab_data = self._get_deploy_data(instance_id)
         if lab_data:
             creds = lab_data.get("credentials", {})
+            if not isinstance(creds, dict):
+                creds = {}
             tunnel_ip = creds.get("tunnel_ip")
             docker_ip = creds.get("docker_ip")
             lab_pub_key = creds.get("wg_pubkey")
-            template_name = lab_data.get("lab_type")
+            template_name = lab_data.get("template_name")
 
             if tunnel_ip and lab_pub_key:
                 self.log("Re-applying WireGuard peer...")
                 self.run(f"wg show wg0 allowed-ips | grep '{tunnel_ip}/32' | awk '{{print $1}}' | xargs -I{{}} wg set wg0 peer {{}} remove 2>/dev/null || true")
                 self.run(f"wg set wg0 peer {lab_pub_key} allowed-ips {tunnel_ip}/32")
+                self.log("WireGuard peer registered.", "success")
 
             if tunnel_ip and docker_ip:
-                self.log("Re-applying routing...")
+                self.log("Re-applying network routes...")
                 bridge = self.detect_bridge()
                 self.configure_routing(tunnel_ip, docker_ip, bridge)
+                self.log("Routing configured.", "success")
 
             if template_name:
                 tpl_path = os.path.join(self.cfg.templates_dir, template_name, "config.json")
@@ -389,14 +761,32 @@ class LabCmd(Command):
                         lab_spec = json.load(f)
                     yaml = self._gen_traefik(instance_id, docker_ip, lab_spec, lab_data)
                     self.write_traefik(instance_id, yaml)
+                    self.log("Traefik configuration written.", "success")
 
         self._set_deploy_field(instance_id, "status", "running")
-        self.log("Lab started.", "success")
+        self.log("Lab start sequence complete.", "success")
 
     # ── Remove ──────────────────────────────────────────────────
 
     def _remove(self, args):
+        instance_id = args.hash
+        if not instance_id:
+            self.log("Missing --hash", "error")
+            return
+
+        lab_data = self._get_deploy_data(instance_id)
+        username = lab_data.get("username") if lab_data else None
+
         self._stop(args)
+
+        if username and self.db:
+            remaining = self.db.machine_labs.count_documents({
+                "username": username,
+                "instance_hash": {"$ne": instance_id}
+            })
+            if remaining == 0:
+                self._release_user_quota(username)
+                self.log(f"User {username} has no more labs, quota released")
 
     # ── Info ────────────────────────────────────────────────────
 
@@ -421,3 +811,108 @@ class LabCmd(Command):
             self.log("Missing --hash", "error")
             return
         os.system(f"docker exec -it {instance_id} /bin/bash")
+
+    # ── Sync User ──────────────────────────────────────────────
+
+    def _sync_user(self, args):
+        username = args.user
+        if not username:
+            self.log("Missing --user", "error")
+            return
+
+        self.log(f"Syncing permissions for user: {username}...")
+
+        if not self.db:
+            self.log("Database connection failed", "error")
+            return
+
+        user_keys = list(self.db.ssh_keys.find({"username": username}))
+        if not user_keys:
+            self.log(f"No SSH keys found for {username}", "warn")
+            return
+
+        auth_content = "\n".join([k['public_key'] for k in user_keys if 'public_key' in k])
+
+        labs = list(self.db.machine_labs.find({"username": username, "status": "running"}))
+        if not labs:
+            self.log(f"No running labs found for {username}", "warn")
+            return
+
+        self.log(f"Found {len(labs)} running lab(s) for {username}")
+
+        for lab in labs:
+            iid = lab.get("instance_hash")
+            if not iid:
+                continue
+
+            if not self.docker_running(iid):
+                continue
+
+            self.log(f"Updating SSH keys in {iid}...")
+
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.pub', delete=False) as f:
+                f.write(auth_content + "\n")
+                tmp_key = f.name
+
+            self.run(f"docker exec {iid} mkdir -p /home/{username}/.ssh")
+            self.run(f"docker cp {tmp_key} {iid}:/home/{username}/.ssh/authorized_keys")
+            os.unlink(tmp_key)
+            self.run(f"docker exec {iid} chmod 700 /home/{username}/.ssh")
+            self.run(f"docker exec {iid} chmod 600 /home/{username}/.ssh/authorized_keys")
+            self.run(f"docker exec {iid} chown -R {username} /home/{username}/.ssh 2>/dev/null || true")
+
+            self.log(f"SSH keys updated in {iid}", "success")
+
+        self.log(f"Sync complete for {username}", "success")
+
+    # ── Redeploy ──────────────────────────────────────────────
+
+    def _redeploy(self, args):
+        instance_id = args.hash
+        if not instance_id:
+            self.log("Missing --hash", "error")
+            return
+
+        self.log(f"Checking for running instance with ID: {instance_id}")
+
+        lab_data = self._get_deploy_data(instance_id)
+        if not lab_data:
+            self._fail_deploy(instance_id, f"Lab not found: {instance_id}")
+            return
+
+        if self.docker_exists(instance_id):
+            self.log(f"An instance with name {instance_id} already exists. Removing and redeploying...")
+            self._stop(args)
+            time.sleep(2)
+        else:
+            self.log("No existing instance found. Deploying fresh...")
+
+        self._deploy(args)
+
+    # ── Update ────────────────────────────────────────────────
+
+    def _update(self, args):
+        instance_id = args.hash
+        if not instance_id:
+            self.log("Missing --hash", "error")
+            return
+
+        self.log(f"Updating {instance_id}...")
+
+        lab_data = self._get_deploy_data(instance_id)
+        if not lab_data:
+            self._fail_deploy(instance_id, f"Lab not found: {instance_id}")
+            return
+
+        template_name = lab_data.get("template_name", "essentials")
+        image = lab_data.get("image", f"{template_name}:lab")
+
+        self.log(f"Pulling latest image: {image}...")
+        code, _ = self.run(f"docker pull {image}")
+        if code != 0:
+            self.log(f"Failed to pull image: {image}", "warn")
+
+        self._stop(args)
+        time.sleep(2)
+        self._deploy(args)

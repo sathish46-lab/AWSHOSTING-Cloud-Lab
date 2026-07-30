@@ -13,24 +13,23 @@ $dockerIp = $credentials['docker_ip'] ?? '';
 $tunnelIp = $credentials['tunnel_ip'] ?? '';
 $codeDomain = $deploy['code_domain'] ?? '';
 
-$statusColorMap = [
-    'running'   => 'rgba(46,204,113,0.15)',
-    'deploying' => 'rgba(255,165,0,0.15)',
-    'starting'  => 'rgba(255,165,0,0.15)',
-    'stopping'  => 'rgba(255,107,107,0.15)',
-    'stopped'   => 'rgba(255,107,107,0.15)',
-    'error'     => 'rgba(255,107,107,0.15)',
-];
-$textColorMap = [
-    'running'   => '#2ecc71',
-    'deploying' => '#ffa502',
-    'starting'  => '#ffa502',
-    'stopping'  => '#ff6b6b',
-    'stopped'   => '#ff6b6b',
-    'error'     => '#ff6b6b',
-];
-$bg = $statusColorMap[$depStatus] ?? 'rgba(255,255,255,0.1)';
-$tc = $textColorMap[$depStatus] ?? 'rgba(255,255,255,0.5)';
+// Auto-clean expired logs (older than 5 min)
+$now = time();
+$deployLog = $deploy['deploy_log'] ?? null;
+$buildLog = $deploy['build_log'] ?? null;
+
+if ($deployLog && isset($deployLog['expire_at']) && $now > $deployLog['expire_at']) {
+    $instDb->instances->updateOne(['instance_hash' => $hash], ['$unset' => ['deploy.deploy_log' => '']]);
+    $deployLog = null;
+}
+if ($buildLog && isset($buildLog['expire_at']) && $now > $buildLog['expire_at']) {
+    $instDb->instances->updateOne(['instance_hash' => $hash], ['$unset' => ['deploy.build_log' => '']]);
+    $buildLog = null;
+}
+
+$hasDeployLog = !empty($deployLog['logs']);
+$hasBuildLog = !empty($buildLog['logs']);
+
 $isRunning = ($depStatus === 'running');
 $isStopped = in_array($depStatus, ['stopped', 'none', 'error']);
 ?>
@@ -41,20 +40,23 @@ $isStopped = in_array($depStatus, ['stopped', 'none', 'error']);
         </h5>
         <div class="d-flex gap-2">
             <?php if ($isRunning): ?>
-            <button class="btn rounded-pill px-3 fw-bold btn-sm stop-deploy-btn"
-                style="background-color: rgba(255,107,107,0.15); border: 1px solid rgba(255,107,107,0.3); color: #ff6b6b;"
-                data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
-                <i class='bx bx-stop-circle'></i> Stop
-            </button>
-            <?php elseif ($isStopped && !empty($tunnelIp)): ?>
-            <button class="btn rounded-pill px-3 fw-bold btn-sm start-deploy-btn"
-                style="background-color: rgba(46,204,113,0.15); border: 1px solid rgba(46,204,113,0.3); color: #2ecc71;"
-                data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
-                <i class='bx bx-play-circle'></i> Start
-            </button>
+            <div class="btn-instance-group">
+                <a href="<?= htmlspecialchars($codeUrl ?: '#') ?>" target="_blank"
+                   class="btn-instance-seg btn-seg-code <?= empty($codeUrl) ? 'disabled' : '' ?>">
+                    <i class='bx bx-code-alt'></i> Code
+                </a>
+                <button class="btn-instance-seg btn-seg-redeploy">
+                    <i class='bx bx-bullseye'></i> Redeploy
+                </button>
+                <button class="btn-instance-seg btn-seg-pause">
+                    <i class='bx bx-pause'></i> Pause
+                </button>
+                <button class="btn-instance-seg btn-seg-stop">
+                    <i class='bx bx-stop'></i> Stop
+                </button>
+            </div>
             <?php else: ?>
-            <button class="btn rounded-pill px-4 fw-bold deploy-now-btn"
-                style="background-color: #ff4b2b; border-color: #ff4b2b; color: white;"
+            <button class="btn-instance-seg btn-seg-deploy"
                 data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
                 <i class='bx bx-play'></i> Deploy
             </button>
@@ -70,8 +72,13 @@ $isStopped = in_array($depStatus, ['stopped', 'none', 'error']);
 
     <div class="d-flex align-items-center justify-content-between border-bottom border-secondary border-opacity-25 pb-2 mb-3">
         <span class="text-secondary fw-bold small text-uppercase">DEPLOYMENT STATUS</span>
-        <span class="badge rounded-pill fw-bold" id="deployStatusBadge"
-            style="background-color: <?= $bg ?>; color: <?= $tc ?>;">
+        <?php
+            $depStatusColor = 'primary';
+            if ($depStatus === 'running') $depStatusColor = 'success';
+            elseif (in_array($depStatus, ['deploying', 'starting'])) $depStatusColor = 'warning';
+            elseif (in_array($depStatus, ['stopping', 'stopped', 'error'])) $depStatusColor = 'danger';
+        ?>
+        <span class="badge bg-<?= $depStatusColor ?> rounded-pill px-3 py-1" id="deployStatusBadge" data-status="<?= htmlspecialchars($depStatus) ?>">
             <?= htmlspecialchars($depStatus) ?>
         </span>
     </div>
@@ -121,125 +128,66 @@ $isStopped = in_array($depStatus, ['stopped', 'none', 'error']);
     </div>
     <?php endif; ?>
 
-    <?php if ($isStopped): ?>
+    <?php if ($isStopped && $depStatus !== 'none'): ?>
     <div class="alert alert-warning border-0 rounded-4 py-2 mb-3 small" style="background-color: rgba(255,165,0,0.1); color: #ffa502;">
-        <i class='bx bx-pause-circle me-2'></i> Instance is stopped. Click <strong>Start</strong> to resume.
+        <i class='bx bx-pause-circle me-2'></i> Instance is stopped. Click <strong>Deploy</strong> to start fresh.
     </div>
     <?php endif; ?>
 
     <?php if ($depStatus === 'error'): ?>
+    <?php $lastError = $deploy['last_error'] ?? ''; ?>
     <div class="alert alert-danger border-0 rounded-4 py-2 mb-3 small" style="background-color: rgba(255,107,107,0.1); color: #ff6b6b;">
-        <i class='bx bx-error-circle me-2'></i> Deployment failed. Try redeploying.
+        <i class='bx bx-error-circle me-2'></i> <?= $lastError ? htmlspecialchars($lastError) : 'Deployment failed. Check logs for details.' ?>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($hasDeployLog): ?>
+    <div class="mb-3">
+        <button class="btn btn-sm btn-outline-<?= $depStatus === 'error' ? 'danger' : 'success' ?> rounded-pill px-3 mb-2" type="button" data-coreui-toggle="collapse" data-coreui-target="#deployLogCollapse">
+            <i class='bx bx-terminal me-1'></i> View Deploy Logs
+            <?php if ($depStatus === 'error'): ?>
+            <span class="badge bg-danger rounded-circle px-1 ms-1" style="font-size: 0.6rem;">!</span>
+            <?php endif; ?>
+        </button>
+        <div class="collapse" id="deployLogCollapse">
+            <div class="card blur border border-<?= $depStatus === 'error' ? 'danger' : 'success' ?> border-opacity-25 rounded-4 deployment-log-collapse">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-<?= $depStatus === 'error' ? 'danger' : 'success' ?> fw-bold">Deploy Logs</small>
+                    <small class="text-secondary"><?= date('h:i:s A', $deployLog['created_at'] ?? time()) ?></small>
+                </div>
+                <pre class="mb-0 small"><?php
+                    foreach (array_slice((array)($deployLog['logs'] ?? []), -100) as $logLine) {
+                        echo htmlspecialchars($logLine) . "\n";
+                    }
+                ?></pre>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($hasBuildLog): ?>
+    <div class="mb-3">
+        <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 mb-2" type="button" data-coreui-toggle="collapse" data-coreui-target="#buildLogCollapse">
+            <i class='bx bx-hammer me-1'></i> View Build Logs
+            <?php if (($buildLog['status'] ?? '') === 'error'): ?>
+            <span class="badge bg-danger rounded-circle px-1 ms-1" style="font-size: 0.6rem;">!</span>
+            <?php endif; ?>
+        </button>
+        <div class="collapse" id="buildLogCollapse">
+            <div class="card blur border border-secondary border-opacity-25 rounded-4 deployment-log-collapse">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-secondary fw-bold">Build Logs</small>
+                    <small class="text-secondary"><?= date('H:i:s', $buildLog['created_at'] ?? time()) ?></small>
+                </div>
+                <pre class="mb-0 small"><?php
+                    foreach (array_slice((array)($buildLog['logs'] ?? []), -100) as $logLine) {
+                        echo htmlspecialchars($logLine) . "\n";
+                    }
+                ?></pre>
+            </div>
+        </div>
     </div>
     <?php endif; ?>
 
     <?php endif; ?>
 </div>
-
-<script>
-(function() {
-    function setBtnLoading(btn, loading) {
-        if (typeof Dashboard !== 'undefined' && Dashboard.toggleLoading) {
-            Dashboard.toggleLoading(btn, loading);
-        } else {
-            if (loading) {
-                btn.disabled = true;
-                if (!btn.dataset.originalContent) btn.dataset.originalContent = btn.innerHTML;
-                btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true"></span> Processing';
-            } else {
-                if (btn.dataset.originalContent) { btn.innerHTML = btn.dataset.originalContent; delete btn.dataset.originalContent; }
-                btn.disabled = false;
-            }
-        }
-    }
-
-    function reloadTab() {
-        if (window.__loadInstanceTab) window.__loadInstanceTab('deployments');
-    }
-
-    document.addEventListener('click', async (e) => {
-        const tab = document.getElementById('deploymentsTab');
-        const hash = tab?.dataset.hash;
-        if (!hash) return;
-
-        if (e.target.closest('.deploy-now-btn')) {
-            const btn = e.target.closest('.deploy-now-btn');
-            setBtnLoading(btn, true);
-            if (window.appendInstanceLog) window.appendInstanceLog('[*] Queuing deployment...');
-            try {
-                const res = await fetch('/api/instances/deploy_instance', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'hash=' + encodeURIComponent(hash)
-                });
-                const data = await res.json();
-                if (data.status === 'success') {
-                    if (window.appendInstanceLog) window.appendInstanceLog('[✓] Job queued. Streaming logs...');
-                    const badge = document.getElementById('deployStatusBadge');
-                    if (badge) { badge.textContent = 'deploying'; badge.style.backgroundColor = 'rgba(255,165,0,0.15)'; badge.style.color = '#ffa502'; }
-                    btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true"></span> Deploying';
-                } else {
-                    if (window.appendInstanceLog) window.appendInstanceLog('[!] ' + (data.error || 'Deploy failed'));
-                    setBtnLoading(btn, false);
-                }
-            } catch (err) {
-                if (window.appendInstanceLog) window.appendInstanceLog('[!] Network error');
-                setBtnLoading(btn, false);
-            }
-        }
-
-        if (e.target.closest('.stop-deploy-btn')) {
-            const btn = e.target.closest('.stop-deploy-btn');
-            if (!confirm('Stop this instance?')) return;
-            setBtnLoading(btn, true);
-            if (window.appendInstanceLog) window.appendInstanceLog('[*] Queuing stop...');
-            try {
-                const res = await fetch('/api/instances/stop_instance', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'hash=' + encodeURIComponent(hash)
-                });
-                const data = await res.json();
-                if (data.status === 'success') {
-                    if (window.appendInstanceLog) window.appendInstanceLog('[✓] Stop queued.');
-                    const badge = document.getElementById('deployStatusBadge');
-                    if (badge) { badge.textContent = 'stopping'; badge.style.backgroundColor = 'rgba(255,107,107,0.15)'; badge.style.color = '#ff6b6b'; }
-                    btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true"></span> Stopping';
-                } else {
-                    if (window.appendInstanceLog) window.appendInstanceLog('[!] ' + (data.error || 'Stop failed'));
-                    setBtnLoading(btn, false);
-                }
-            } catch (err) {
-                if (window.appendInstanceLog) window.appendInstanceLog('[!] Network error');
-                setBtnLoading(btn, false);
-            }
-        }
-
-        if (e.target.closest('.start-deploy-btn')) {
-            const btn = e.target.closest('.start-deploy-btn');
-            setBtnLoading(btn, true);
-            if (window.appendInstanceLog) window.appendInstanceLog('[*] Queuing start...');
-            try {
-                const res = await fetch('/api/instances/start_instance', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'hash=' + encodeURIComponent(hash)
-                });
-                const data = await res.json();
-                if (data.status === 'success') {
-                    if (window.appendInstanceLog) window.appendInstanceLog('[✓] Start queued.');
-                    const badge = document.getElementById('deployStatusBadge');
-                    if (badge) { badge.textContent = 'starting'; badge.style.backgroundColor = 'rgba(255,165,0,0.15)'; badge.style.color = '#ffa502'; }
-                    btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-1" role="status" aria-hidden="true"></span> Starting';
-                } else {
-                    if (window.appendInstanceLog) window.appendInstanceLog('[!] ' + (data.error || 'Start failed'));
-                    setBtnLoading(btn, false);
-                }
-            } catch (err) {
-                if (window.appendInstanceLog) window.appendInstanceLog('[!] Network error');
-                setBtnLoading(btn, false);
-            }
-        }
-    });
-})();
-</script>

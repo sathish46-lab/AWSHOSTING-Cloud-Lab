@@ -56,6 +56,7 @@ class OAuth {
                     if (session_status() === PHP_SESSION_NONE) {
                         session_start();
                     }
+                    session_regenerate_id(true);
                     $this->username = $_SESSION['username'] = $this->data->username;
                     $_SESSION['token'] = $this->access_token;
                     return true;

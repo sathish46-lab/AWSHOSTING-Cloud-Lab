@@ -105,7 +105,10 @@
     const text = cm.getValue();
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
     statusEl.innerHTML =
-      "Ln " + line + ", Col " + col + " &nbsp;·&nbsp; " + words + " words &nbsp;·&nbsp; UTF-8";
+      '<span class="text-info">Ln ' + line + '</span>, ' +
+      '<span class="text-warning">Col ' + col + '</span> &nbsp;·&nbsp; ' +
+      '<span class="text-success">' + words + ' words</span> &nbsp;·&nbsp; ' +
+      '<span class="text-primary">UTF-8</span>';
   }
 
   cm.on("cursorActivity", updateStatus);
@@ -294,7 +297,7 @@
         if (deleteBtn) deleteBtn.disabled = false;
         activeFile = { path, name, modified: data.modified };
         metaEl.innerHTML =
-          '<span class="badge bg-secondary bg-opacity-25 text-secondary">Binary file</span>' +
+          '<span class="badge bg-primary rounded-pill px-2 py-1">Binary file</span>' +
           ' <span class="small text-secondary">' + humanSize(data.size || 0) + "</span>";
         showOverlay("Binary file — manage via MinIO.", "bx bx-file-blank");
         updateStatus();
@@ -310,8 +313,8 @@
       activeFile = { path, name, modified: data.modified };
       if (modifiedEl) modifiedEl.classList.toggle("d-none", !data.modified);
       metaEl.innerHTML = data.modified
-        ? '<span class="badge bg-warning bg-opacity-25 text-warning">Modified by you</span>'
-        : '<span class="badge bg-info bg-opacity-25 text-info">Base template</span>';
+        ? '<span class="badge bg-warning rounded-pill px-2 py-1">Modified by you</span>'
+        : '<span class="badge bg-info rounded-pill px-2 py-1">Base template</span>';
       cm.focus();
       updateStatus();
     } catch (e) {
@@ -339,7 +342,7 @@
         activeFile.modified = true;
         if (modifiedEl) modifiedEl.classList.remove("d-none");
         metaEl.innerHTML =
-          '<span class="badge bg-warning bg-opacity-25 text-warning">Modified by you</span>';
+          '<span class="badge bg-warning rounded-pill px-2 py-1">Modified by you</span>';
         showToast("Saved.", "success");
       } else {
         showToast("Save failed: " + (data.error || "unknown"), "danger");

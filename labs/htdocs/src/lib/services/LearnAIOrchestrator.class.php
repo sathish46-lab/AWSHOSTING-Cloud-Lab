@@ -176,7 +176,8 @@ class LearnAIOrchestrator {
 
         foreach ($labTemplates as $tmpl) {
             $hash = $this->sessionUser->getLabHash($tmpl['id']);
-            $data = $this->db->deployed_labs->findOne(['instance_hash' => $hash]);
+            $inst = $this->db->instances->findOne(['instance_hash' => $hash]);
+            $data = $inst ? ($inst['deploy'] ?? []) : null;
 
             $labInfo = [
                 'id'     => $tmpl['id'],
@@ -230,7 +231,8 @@ class LearnAIOrchestrator {
         $labs = [];
         foreach ($labTemplates as $tmpl) {
             $hash = $this->sessionUser->getLabHash($tmpl['id']);
-            $data = $this->db->deployed_labs->findOne(['instance_hash' => $hash]);
+            $inst = $this->db->instances->findOne(['instance_hash' => $hash]);
+            $data = $inst ? ($inst['deploy'] ?? []) : null;
 
             $labs[] = [
                 'id'          => $tmpl['id'],

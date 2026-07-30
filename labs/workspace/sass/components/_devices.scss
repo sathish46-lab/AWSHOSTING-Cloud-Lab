@@ -45,24 +45,56 @@
    Devices Page & Device Card Helper Classes
    ========================================================================== */
 .devices-header-title {
-  font-size: 1.8rem !important;
+  font-size: 1.5rem !important;
   letter-spacing: -0.5px !important;
+  color: var(--cui-body-color) !important;
 }
 
 .devices-header-desc {
-  font-size: 0.85rem !important;
   line-height: 1.7 !important;
   letter-spacing: 0.2px !important;
+  color: var(--cui-body-color) !important;
+  margin-bottom: 0 !important;
   
   a {
     text-decoration: none !important;
   }
 }
 
+.devices-header-link {
+  color: var(--cui-info) !important;
+  text-decoration: underline !important;
+  cursor: pointer !important;
+
+  &:hover {
+    color: var(--cui-info) !important;
+    text-decoration: none !important;
+  }
+}
+
 .btn-add-device {
-  font-size: 0.8rem !important;
-  height: 38px !important;
+  background: var(--cui-success) !important;
+  border-color: var(--cui-success) !important;
+  color: #fff !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  padding: 0.4rem 1.0rem !important;
+  border-radius: var(--cui-border-radius-pill) !important;
   white-space: nowrap !important;
+  text-decoration: none !important;
+
+  &:hover {
+    background: var(--cui-success) !important;
+    border-color: var(--cui-success) !important;
+    color: #fff !important;
+    text-decoration: none !important;
+  }
+}
+
+.device-limit-text {
+  font-size: 0.8rem !important;
+  color: var(--cui-secondary-color) !important;
+  font-weight: 500 !important;
 }
 
 .spinner-loader-icon {
