@@ -141,53 +141,118 @@
     <div class="container-fluid py-3 px-3">
         <div class="row g-4">
             <div class="col-lg-6">
-                <div class="card mb-4 border-0 shadow-sm blur rounded-4">
-                    <div class="card-header bg-transparent border-0 pt-4 px-4">
-                        <h6 class="fw-bold mb-0 text-body-emphasis">Lab Information <span
-                            class="small text-body-secondary ms-1">Readme</span></h6>
+                <div class="card mb-4 blur">
+                    <div class="card-header">
+                        <strong>Lab Information</strong>
+                        <span class="small ms-1">Readme</span>
                     </div>
-                    <div class="card-body p-4">
+                    <div class="card-body">
                         <?php if($isRunning && $creds): ?>
-                            <p class="text-body-secondary small mb-4 animate__animated animate__fadeIn">
-                                Access your lab environment using the credentials below. Ensure you are connected to VPN.
-                            </p>
+                        <p class="text-medium-emphasis small">
+                            This server is accessible through 
+                            <code>Code</code>
+                            or 
+                            <code>SSH</code>.
+                            <code>Code</code>
+                            is accessible under VPN in one click and you do not have to
+                            <code>SSH</code>
+                            into your lab, because 
+                            <code>Code</code>
+                            works on your browser without any additional setup. Just
+                            ensure you are connected to VPN.
+                            <code>Code</code>
+                            is an embedded VS Code
+                            that runs from within this lab and let you access
+                            your lab effortlessly over web. To keep you secure, this password changes during every redeploy. For
+                            a more convenient development experience, consider installing 
+                            <a href="https://code.visualstudio.com/download" target="_blank">Visual Studio Code Desktop</a>
+                            and connect via 
+                            <code>SSH</code>.
+                        </p>
 
-                            <!-- Lab configuration Load place  -->
-
-                            <div class="d-flex flex-column gap-3 animate__animated animate__fadeIn">
-                                <?php foreach($labConfig['fields'] as $field): ?>
-                                    <div class="row align-items-center">
-                                        <div class="col-4 text-body-emphasis small fw-bold">
-                                            <?php if(isset($field['icon'])): ?>
-                                                <i class='bx <?= $field['icon'] ?> me-1'></i>
-                                            <?php endif; ?>
-                                            <?= htmlspecialchars($field['label']) ?>
-                                        </div>
-                                        <div class="col-8">
-                                            <?php if($field['type'] === 'link'): ?>
-                                                <a href="<?= htmlspecialchars($field['value']) ?>" target="_blank" class="text-decoration-none small fw-bold">
-                                                    <?= htmlspecialchars($field['value']) ?> <i class='bx bx-link-external ms-1'></i>
-                                                </a>
-                                            <?php else: ?>
-                                                <div class="input-group input-group-sm">
-                                                    <input type="<?= $field['type'] === 'password' ? 'password' : 'text' ?>" 
-                                                        class="form-control rounded-pill border-secondary bg-body-tertiary text-body px-3 <?= isset($field['mono']) ? 'font-monospace' : '' ?>" 
-                                                        value="<?= htmlspecialchars($field['value']) ?>" 
-                                                        readonly class="input-readonly-opacity">
-                                                    
-                                                    <?php if(isset($field['copy']) && $field['copy']): ?>
-                                                        <button class="btn btn-outline-secondary ms-2 rounded-pill px-3" 
-                                                                data-copy="<?= htmlspecialchars($field['value']) ?>">
-                                                            <i class='bx bx-copy'></i>
-                                                        </button>
-                                                    <?php endif; ?>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
+                        <div class="form-group row mb-1">
+                            <label class="col-sm-4 col-form-label">Device IP</label>
+                            <div class="col-sm-8">
+                                <div class="input-group">
+                                    <input readonly type="text" class="form-control input-device-ip" value="<?= htmlspecialchars($deviceIp) ?>">
+                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($deviceIp) ?>">
+                                        <svg class="nav-icon" style="height: 15px; width: 15px;">
+                                            <use xlink:href="/assets/icons/free.svg#cil-copy"></use>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
+                        </div>
 
+                        <div class="form-group row mb-1">
+                            <label class="col-sm-4 col-form-label">SSH Command</label>
+                            <div class="col-sm-8">
+                                <div class="input-group">
+                                    <input readonly type="text" class="form-control input-ssh-command" value="<?= htmlspecialchars($sshCommand) ?>">
+                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($sshCommand) ?>">
+                                        <svg class="nav-icon" style="height: 15px; width: 15px;">
+                                            <use xlink:href="/assets/icons/free.svg#cil-copy"></use>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group row mb-1">
+                            <label class="col-sm-4 col-form-label">Username</label>
+                            <div class="col-sm-8">
+                                <div class="input-group">
+                                    <input readonly type="text" class="form-control input-username" value="<?= htmlspecialchars($currentUsername) ?>">
+                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($currentUsername) ?>">
+                                        <svg class="nav-icon" style="height: 15px; width: 15px;">
+                                            <use xlink:href="/assets/icons/free.svg#cil-copy"></use>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group row mb-1">
+                            <label class="col-sm-4 col-form-label">su Password</label>
+                            <div class="col-sm-8">
+                                <div class="input-group">
+                                    <input readonly type="password" class="form-control input-su-password" value="<?= htmlspecialchars($sudoPass) ?>">
+                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($sudoPass) ?>">
+                                        <svg class="nav-icon" style="height: 15px; width: 15px;">
+                                            <use xlink:href="/assets/icons/free.svg#cil-copy"></use>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group row mb-1">
+                            <label class="col-sm-4 col-form-label">code-server URL</label>
+                            <div class="col-sm-8">
+                                <div class="input-group">
+                                    <input readonly type="text" class="form-control input-cs-url" value="<?= htmlspecialchars($creds['code_server_url'] ?? 'Not running') ?>">
+                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($creds['code_server_url'] ?? '') ?>">
+                                        <svg class="nav-icon" style="height: 15px; width: 15px;">
+                                            <use xlink:href="/assets/icons/free.svg#cil-copy"></use>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group row mb-1">
+                            <label class="col-sm-4 col-form-label">code-server Password</label>
+                            <div class="col-sm-8">
+                                <div class="input-group">
+                                    <input readonly type="password" class="form-control input-cs-password" value="<?= htmlspecialchars($creds['code_server_password'] ?? '') ?>">
+                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($creds['code_server_password'] ?? '') ?>">
+                                        <svg class="nav-icon" style="height: 15px; width: 15px;">
+                                            <use xlink:href="/assets/icons/free.svg#cil-copy"></use>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                         <?php else: ?>
                             <p>This lab is not running, please deploy it to get the connection information.</p>
                         <?php endif; ?>
