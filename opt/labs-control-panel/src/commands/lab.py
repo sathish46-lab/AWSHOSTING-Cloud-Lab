@@ -557,6 +557,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
         # Phase: METADATA
         self.log("Finalizing routing metadata...")
         code_domain = args.flag("vsc_domain") or lab_data.get("code_domain") or f"code-{instance_id}.{self.cfg.code_domain}"
+        gui_domain = f"gui-{instance_id}.{self.cfg.code_domain}"
         credentials.update({
             "ssh": f"ssh {username}@{tunnel_ip}",
             "ssh_proxy": f'ssh -o "ProxyCommand=ssh -W %h:%p -i ~/.ssh/id_ed25519 root@127.0.0.1 -p 2222" {username}@{docker_ip}',
@@ -567,6 +568,8 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
             "su_pass": su_pass,
             "sshKey": ssh_enabled,
             "code_server_url": f"https://{code_domain}",
+            "gui_url": f"https://{gui_domain}",
+            "vnc_pass": dynamic_pass,
             "wg_pubkey": lab_pub_key,
             "wg_privkey": lab_priv_key,
         })
@@ -627,12 +630,13 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
             services += f"    {service_key}:\n"
             services += f"      loadBalancer:\n"
             services += f"        servers: [{{url: \"http://{docker_ip}:{port}\"}}]\n"
-            # WebSocket support for code-server
-            if svc_name == "code":
+            # WebSocket support for code-server and gui (noVNC)
+            if svc_name in ("code", "gui"):
                 services += f"        passHostHeader: true\n"
-                services += f"        healthCheck:\n"
-                services += f"          path: /\n"
-                services += f"          interval: 10s\n"
+                if svc_name == "code":
+                    services += f"        healthCheck:\n"
+                    services += f"          path: /\n"
+                    services += f"          interval: 10s\n"
 
         user_domains = lab_data.get("domains", [])
         if lab_data.get("expose_web") and user_domains and "web" in services_spec:

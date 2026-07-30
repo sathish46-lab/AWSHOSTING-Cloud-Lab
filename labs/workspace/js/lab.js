@@ -1371,6 +1371,28 @@ function launchService(btn, type) {
   }, 100);
 }
 /* ============================================================================
+ * GUI LAUNCH: Opens the noVNC GUI desktop in a new tab
+ * ============================================================================
+ */
+function launchGui(btn) {
+  Dashboard.toggleLoading(btn, true);
+  setTimeout(() => {
+    let guiUrl = "";
+    const labConfig = LabData.getConfig();
+    if (labConfig && labConfig.fields) {
+      const urlField = labConfig.fields.find(f => f.label === 'GUI URL');
+      if (urlField) guiUrl = urlField.value;
+    }
+    if (guiUrl) {
+      window.open(guiUrl, '_blank');
+    } else {
+      alert("GUI URL not found. Please redeploy.");
+    }
+    Dashboard.toggleLoading(btn, false);
+  }, 100);
+}
+
+/* ============================================================================
  * UTILITIES: Clipboard Handling
  * ============================================================================
  * All clipboard logic is now in /js/clipboard.js (loaded separately in _master.php).
@@ -1711,6 +1733,7 @@ window.onPageLoad( function() {
     window.launchCodeIDE = launchCodeIDE;
     window.selectAllDomains = selectAllDomains;
     window.launchService = launchService;
+    window.launchGui = launchGui;
     window.initChallengeSearch = initChallengeSearch;
     window.updateDomainAvailability = updateDomainAvailability;
     window.addDeployProxyRow = addDeployProxyRow;

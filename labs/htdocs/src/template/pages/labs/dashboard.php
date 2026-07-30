@@ -9,7 +9,6 @@
     );
     if ($inst) {
         $labData = $inst['deploy'] ?? [];
-        $labData['lab_type'] = $inst['lab_type'] ?? 'essentials';
     } else {
         $labData = null;
     }
@@ -25,6 +24,8 @@
         $labType = 'n8n';
     } elseif ($fullHash === $user->getLabHash('docker_lab')) {
         $labType = 'docker_lab';
+    } elseif ($fullHash === $user->getLabHash('gui_essentials')) {
+        $labType = 'gui_essentials';
     }
 
     if (!$labData) {
@@ -71,10 +72,30 @@
             'color'   => '#2496ed',
             'action'  => 'Code',
             'action_icon' => 'bx-code-alt'
+        ],
+        'gui_essentials' => [
+            'title'   => 'GUI Essentials Lab',
+            'desc'    => 'Ubuntu 24.10 with XFCE4 desktop, VNC GUI access, and code-server.',
+            'icon'    => 'bx-desktop',
+            'color'   => '#8b5cf6',
+            'action'  => 'Code',
+            'action_icon' => 'bx-code-alt'
         ]
     ];
 
-    $cfg = $uiConfigs[$labType] ?? $uiConfigs['essentials'];
+    if (!isset($uiConfigs[$labType])) {
+        $labTypeError = $labType;
+        $cfg = [
+            'title'   => 'Error: Unknown Lab Type',
+            'desc'    => 'Lab type "' . $labTypeError . '" is not configured.',
+            'icon'    => 'bx-error-circle',
+            'color'   => '#dc3545',
+            'action'  => 'N/A',
+            'action_icon' => 'bx-error'
+        ];
+    } else {
+        $cfg = $uiConfigs[$labType];
+    }
     $creds = $labData['credentials'] ?? null;
     $deviceIp = isset($labData['internal_ip']) ? $labData['internal_ip'] : "0.0.0.0";
     $sshCommand = ($isRunning && isset($creds['tunnel_ip'])) ? "ssh " . $currentUsername . "@" . $creds['tunnel_ip'] : "#";
@@ -138,6 +159,7 @@
 ?>
 
 <!-- Modals moved to lab_modals.php -->
+<?php if (empty($labTypeError)): ?>
     <div class="container-fluid py-3 px-3">
         <div class="row g-4">
             <div class="col-lg-6">
@@ -408,8 +430,20 @@
                         </div>
                     </div>
                 </div>
+        </div>
+    </div>
+<?php else: ?>
+    <!-- Empty state for unconfigured lab type -->
+    <div class="container-fluid py-5 px-3 text-center">
+        <div class="card border-0 shadow-sm blur rounded-4 mx-auto" style="max-width: 500px;">
+            <div class="card-body p-5">
+                <i class="bx bx-error-circle text-danger fs-1 mb-3"></i>
+                <h5 class="fw-bold text-white mb-2">Lab Type Not Available</h5>
+                <p class="text-muted mb-0">The lab type <code class="text-info"><?= htmlspecialchars($labTypeError) ?></code> is not configured or available.</p>
             </div>
         </div>
+    </div>
+<?php endif; ?>
 
 <?php include __DIR__ . '/partials/lab_modals.php'; ?>
 <?php include __DIR__ . '/partials/server_logs.php'; ?>

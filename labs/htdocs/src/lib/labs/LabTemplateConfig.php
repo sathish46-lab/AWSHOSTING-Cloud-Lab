@@ -72,6 +72,22 @@ class LabTemplateConfig {
                 ];
                 break;
 
+            case 'gui_essentials':
+                $codeServerUrl = $creds['code_server_url'] ?? "https://{$labData['instance_hash']}.tomweb.shop";
+                $guiUrl = $creds['gui_url'] ?? "https://gui-{$labData['instance_hash']}.tomweb.shop";
+                $vncPass = $creds['vnc_pass'] ?? $password;
+                $fields = [
+                    ['label' => 'Device IP', 'value' => $tunnelIp, 'type' => 'text', 'copy' => true],
+                    ['label' => 'SSH Command', 'value' => $sshCommand, 'type' => 'text', 'copy' => true, 'mono' => true],
+                    ['label' => 'Username', 'value' => $currentUser, 'type' => 'text', 'copy' => true],
+                    ['label' => 'su Password', 'value' => $suPassword, 'type' => 'password', 'copy' => true],
+                    ['label' => 'GUI URL', 'value' => $guiUrl, 'type' => 'text', 'copy' => true],
+                    ['label' => 'VNC Password', 'value' => $vncPass, 'type' => 'password', 'copy' => true],
+                    ['label' => 'Code-Server URL', 'value' => $codeServerUrl, 'type' => 'text', 'copy' => true],
+                    ['label' => 'Code-Server Password', 'value' => $codeServerPass, 'type' => 'password', 'copy' => true],
+                ];
+                break;
+
             case 'docker_lab':
             case 'essentials':
             default:

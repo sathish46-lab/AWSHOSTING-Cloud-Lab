@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# 1. Create the Linux user inside the container
+useradd -m -s /bin/bash "$USER"
+
+# 2. Setup SSH directory for the user
+mkdir -p /home/"$USER"/.ssh
+echo "$SSH_KEY" > /home/"$USER"/.ssh/authorized_keys
+chown -R "$USER":"$USER" /home/"$USER"/.ssh
+chmod 700 /home/"$USER"/.ssh
+chmod 600 /home/"$USER"/.ssh/authorized_keys
+
+# 3. Start SSH service
+mkdir /var/run/sshd
+/usr/sbin/sshd -D

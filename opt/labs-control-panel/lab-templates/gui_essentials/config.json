@@ -1,0 +1,32 @@
+{
+  "lab_name": "GUI Essentials Lab",
+  "lab_id": "gui_essentials",
+  "version": 1.0,
+  "stability": "beta",
+  "resources": {
+    "memory": "3g",
+    "cpus": "1.0",
+    "pids_limit": 150
+  },
+  "network": {
+    "hostname": "gui-essentials",
+    "exposed_ports": []
+  },
+  "storage": {
+    "mount_target": "/home/{user}"
+  },
+  "scripts": {
+    "linkuser": "/var/labsdata/scripts/linkuser.sh",
+    "entry": "/var/labsdata/scripts/entry.sh"
+  },
+  "services": {
+    "code": { "port": 8080, "middlewares": ["code-headers@file"] },
+    "gui":  { "port": 6080 },
+    "web":  { "port": 80 }
+  },
+  "credentials_template": {
+    "code_server_pass": "{password}",
+    "su_pass": "{su_pass}",
+    "vnc_pass": "{vnc_pass}"
+  }
+}

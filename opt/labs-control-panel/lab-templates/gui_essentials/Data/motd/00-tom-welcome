@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Define Colors for a professional look
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Get System Data
+USER_NAME=$(whoami)
+UPTIME=$(uptime -p)
+DISK_USAGE=$(df -h / | awk 'NR==2 {print $5}')
+MEM_USAGE=$(free -m | awk 'NR==2{printf "%.2f%%", $3*100/$2 }')
+
+echo -e "${CYAN}"
+echo "  _______  ____   __  __       _               ____  "
+echo " |__   __|/ __ \ |  \/  |     | |        /\   |  _ \ "
+echo "    | |  | |  | || \  / |     | |       /  \  | |_) |"
+echo "    | |  | |  | || |\/| |     | |      / /\ \ |  _ < "
+echo "    | |  | |__| || |  | |     | |____ / ____ \| |_) |"
+echo "    |_|   \____/ |_|  |_|     |______/_/    \_\____/ v2.0"
+echo -e "${NC}"
+
+echo -e "${GREEN}Welcome to your Tom Essentials Lab, ${YELLOW}${USER_NAME}${GREEN}!${NC}"
+echo "----------------------------------------------------------------"
+echo -e " ${CYAN}* Status:${NC}    System is up and ready."
+echo -e " ${CYAN}* Uptime:${NC}    ${UPTIME}"
+echo -e " ${CYAN}* Storage:${NC}   ${DISK_USAGE} used on root volume."
+echo -e " ${CYAN}* Memory:${NC}    ${MEM_USAGE} in use."
+echo "----------------------------------------------------------------"
+echo ""

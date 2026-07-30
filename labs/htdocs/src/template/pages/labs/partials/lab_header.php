@@ -85,6 +85,16 @@
                         <i class='bx bx-code-alt fs-6'></i>
                         <span class="small"><?= $cfg['action'] ?></span>
                     </button>
+                    
+                    <?php if($labType === 'gui_essentials'): ?>
+                    <button class="btn btn-lab-launch"
+                            onclick="launchGui(this)"
+                            data-tooltip="Launch GUI Desktop (noVNC)"
+                            data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
+                        <i class='bx bx-desktop fs-6'></i>
+                        <span class="small">GUI</span>
+                    </button>
+                    <?php endif; ?>
                 <?php endif; ?>
                 
                 <button class="btn btn-lab-deploy"

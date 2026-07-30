@@ -11,6 +11,7 @@ $db = DatabaseConnection::getDefaultDatabase();
 // 1. Define your Available Lab Templates professionally
 $labTemplates = [
     ['id' => 'essentials', 'name' => 'Essentials Lab', 'icon' => 'tux', 'badges' => ['free', 'beta']],
+    ['id' => 'gui_essentials', 'name' => 'GUI Essentials Lab', 'icon' => 'tux', 'badges' => ['gui', 'beta']],
     ['id' => 'minio', 'name' => 'MinIO S3 Storage', 'icon' => 'docker', 'badges' => ['S3', 'beta']],
     ['id' => 'n8n', 'name' => 'n8n Workflow Lab', 'icon' => 'git-repo-forked', 'badges' => ['workflow', 'beta']],
     ['id' => 'docker_lab', 'name' => 'Tom Docker Lab', 'icon' => 'docker', 'badges' => ['docker', 'beta']]
