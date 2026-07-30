@@ -556,7 +556,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
 
         # Phase: METADATA
         self.log("Finalizing routing metadata...")
-        code_domain = args.flag("vsc_domain") or lab_data.get("code_domain") or f"{instance_id}.{self.cfg.code_domain}"
+        code_domain = args.flag("vsc_domain") or lab_data.get("code_domain") or f"code-{instance_id}.{self.cfg.code_domain}"
         credentials.update({
             "ssh": f"ssh {username}@{tunnel_ip}",
             "ssh_proxy": f'ssh -o "ProxyCommand=ssh -W %h:%p -i ~/.ssh/id_ed25519 root@127.0.0.1 -p 2222" {username}@{docker_ip}',

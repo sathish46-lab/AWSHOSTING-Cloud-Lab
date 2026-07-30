@@ -184,7 +184,7 @@ class Lab(BaseOrchestrator):
     def generate_traefik_config(self, instance_id, docker_ip, lab_spec, lab_data):
         """Build Traefik config from template services definition."""
         services_spec = lab_spec.get('services', {})
-        base_domain = os.environ.get('CODE_DOMAIN', 'tomweb.fun')
+        base_domain = self.cfg.code_domain
         
         routers = ""
         services = ""
@@ -206,7 +206,7 @@ class Lab(BaseOrchestrator):
             elif svc_name == 'code':
                 # Code domain logic from arguments or DB
                 db_domain = lab_data.get('code_domain')
-                selected_code_domain = self.args.getFlagValue('vsc_domain') or db_domain or f"{instance_id}.{base_domain}"
+                selected_code_domain = self.args.getFlagValue('vsc_domain') or db_domain or f"code-{instance_id}.{base_domain}"
                 domain = selected_code_domain
             elif svc_name == 'web':
                 # Web domains are handled separately below from 'domains' array
@@ -516,7 +516,7 @@ class Lab(BaseOrchestrator):
             # Sanitize inputs
             if custom_n8n and (custom_n8n == 'default_n8n' or 'default' in custom_n8n):
                 custom_n8n = None
-            base_domain = os.environ.get('CODE_DOMAIN', 'tomweb.fun')
+        base_domain = self.cfg.code_domain
             selected_n8n_domain = custom_n8n if custom_n8n else f"n8n-{instance_id}.{base_domain}"
 
         # Pass email to linkuser.sh (8th argument)
@@ -568,7 +568,7 @@ class Lab(BaseOrchestrator):
         # Phase 9: METADATA
         self.log("[*] Finalizing routing metadata...", "info", "metadata")
         
-        base_domain = os.environ.get('CODE_DOMAIN', 'tomweb.fun')
+        base_domain = self.cfg.code_domain
         db_domain = lab_data.get('code_domain')
         selected_code_domain = self.args.getFlagValue('vsc_domain') or db_domain or f"{instance_id}.{base_domain}"
         code_server_url = f"https://{selected_code_domain}"
