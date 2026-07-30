@@ -35,12 +35,12 @@ class LabCmd(Command):
 
     def _get_deploy_data(self, instance_id):
         if self.db is not None:
-            doc = self.db.machine_labs.find_one({"instance_hash": instance_id})
-            if doc:
-                return doc
             doc = self.db.machine_labs.find_one({"deploy.instance_hash": instance_id})
             if doc:
                 return doc.get("deploy", {})
+            doc = self.db.machine_labs.find_one({"instance_hash": instance_id})
+            if doc:
+                return doc.get("deploy", doc)
         return None
 
     def _set_deploy_field(self, instance_id, field, value):

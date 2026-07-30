@@ -34,14 +34,14 @@ class Lab(BaseOrchestrator):
                 deploy['_instance_doc'] = doc
                 return deploy
             return None
-        # Try top-level instance_hash first
-        doc = self.db.machine_labs.find_one({"instance_hash": instance_id})
-        if doc:
-            return doc
-        # Fallback: UI stores hash inside deploy subdocument
+        # Try deploy.instance_hash first (current format)
         doc = self.db.machine_labs.find_one({"deploy.instance_hash": instance_id})
         if doc:
             return doc.get("deploy", {})
+        # Fallback: legacy top-level instance_hash
+        doc = self.db.machine_labs.find_one({"instance_hash": instance_id})
+        if doc:
+            return doc.get("deploy", doc)
         return None
 
     def _set_deploy_field(self, instance_id, field, value):

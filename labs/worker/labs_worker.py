@@ -160,7 +160,8 @@ def _run_job(job_data):
         else:
             cmd = ['sudo', '/usr/bin/python3', '/opt/labs-control-panel/labsctl.py',
                    'lab', action, f"--user={user}", f"--hash={instance_hash}"]
-            for flag, key in [("--minio-console-domain", "minio_console_domain"),
+            for flag, key in [("--vsc-domain", "vsc_domain"),
+                              ("--minio-console-domain", "minio_console_domain"),
                               ("--minio-api-domain", "minio_api_domain"),
                               ("--n8n-domain", "n8n_domain")]:
                 if key in job:

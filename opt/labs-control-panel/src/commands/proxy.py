@@ -54,6 +54,8 @@ class ProxyCmd(Command):
                 lab_data = lab_data.get('deploy', {})
             else:
                 lab_data = self.db.machine_labs.find_one({"instance_hash": instance_id})
+                if lab_data:
+                    lab_data = lab_data.get('deploy', lab_data)
         if not lab_data:
             self.log(f"Lab not found: {instance_id}", "error")
             return
@@ -101,6 +103,8 @@ class ProxyCmd(Command):
                 lab_data = lab_data.get('deploy', {})
             else:
                 lab_data = self.db.machine_labs.find_one({"instance_hash": instance_id})
+                if lab_data:
+                    lab_data = lab_data.get('deploy', lab_data)
         if not lab_data:
             self.log(f"Lab not found: {instance_id}", "error")
             return
