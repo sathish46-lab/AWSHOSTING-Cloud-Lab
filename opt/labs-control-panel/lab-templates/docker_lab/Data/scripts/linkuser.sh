@@ -179,7 +179,6 @@ sudo -u "$USER_NAME" -H bash -c "nohup code-server \
     --config $USER_CONFIG \
     --disable-telemetry \
     --disable-update-check \
-    --max-memory 512 \
     > $USER_HOME/.code-server.log 2>&1 &"
 sleep 2
 
