@@ -174,8 +174,13 @@ CODE_CONFIG
 chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME/.config"
 chmod 644 "$USER_CONFIG"
 
-# Start code-server
-sudo -u "$USER_NAME" -H bash -c "nohup code-server --config $USER_CONFIG > $USER_HOME/.code-server.log 2>&1 &"
+# Optimized code-server startup with performance flags
+sudo -u "$USER_NAME" -H bash -c "nohup code-server \
+    --config $USER_CONFIG \
+    --disable-telemetry \
+    --disable-update-check \
+    --max-memory 512 \
+    > $USER_HOME/.code-server.log 2>&1 &"
 sleep 2
 
 if pgrep -u "$USER_NAME" -f code-server > /dev/null; then

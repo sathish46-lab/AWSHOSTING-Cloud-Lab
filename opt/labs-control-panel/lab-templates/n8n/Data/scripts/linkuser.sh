@@ -109,7 +109,13 @@ cert: false
 CODE_CONFIG
 chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME/.config"
 
-sudo -u "$USER_NAME" -H bash -c "nohup code-server --config $USER_CONFIG > $USER_HOME/.code-server.log 2>&1 &"
+# Optimized code-server startup with performance flags
+sudo -u "$USER_NAME" -H bash -c "nohup code-server \
+    --config $USER_CONFIG \
+    --disable-telemetry \
+    --disable-update-check \
+    --max-memory 512 \
+    > $USER_HOME/.code-server.log 2>&1 &"
 echo "[✓] Code-server started"
 
 # 7. Persistent Linking (Clean Structure)

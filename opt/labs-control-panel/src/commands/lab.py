@@ -627,6 +627,12 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
             services += f"    {service_key}:\n"
             services += f"      loadBalancer:\n"
             services += f"        servers: [{{url: \"http://{docker_ip}:{port}\"}}]\n"
+            # WebSocket support for code-server
+            if svc_name == "code":
+                services += f"        passHostHeader: true\n"
+                services += f"        healthCheck:\n"
+                services += f"          path: /\n"
+                services += f"          interval: 10s\n"
 
         user_domains = lab_data.get("domains", [])
         if lab_data.get("expose_web") and user_domains and "web" in services_spec:
