@@ -152,7 +152,7 @@
                     
                     $isCustom = (strpos($dom, 'tomweb') === false && strpos($dom, 'selfmade') === false && strpos($dom, 'zeal') === false);
                     $domainBadgeClass = $isCustom ? 'bg-warning' : 'bg-primary';
-                    $domainBadgeLabel = $isCustom ? 'custom' : 'selfmade';
+                    $domainBadgeLabel = $isCustom ? 'custom' : 'tomlab';
                 ?>
                 <div class="col">
                     <div class="card blur h-100">
