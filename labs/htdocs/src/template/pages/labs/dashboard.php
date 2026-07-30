@@ -170,89 +170,26 @@
                             <code class="text-info">SSH</code>.
                         </p>
 
+                        <?php foreach($labConfig['fields'] as $field): ?>
                         <div class="form-group row mb-1">
-                            <label class="col-sm-4 col-form-label">Device IP</label>
+                            <label class="col-sm-4 col-form-label"><?= htmlspecialchars($field['label']) ?></label>
                             <div class="col-sm-8">
                                 <div class="d-flex align-items-center">
-                                    <input readonly type="text" class="form-control rounded-start-pill border-end-0 input-device-ip" value="<?= htmlspecialchars($deviceIp) ?>">
-                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($deviceIp) ?>">
+                                    <input readonly 
+                                        type="<?= ($field['type'] ?? 'text') === 'password' ? 'password' : 'text' ?>" 
+                                        class="form-control rounded-start-pill border-end-0 <?= isset($field['class']) ? $field['class'] : '' ?>" 
+                                        value="<?= htmlspecialchars($field['value']) ?>">
+                                    <?php if(!empty($field['copy'])): ?>
+                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($field['value']) ?>">
                                         <svg class="nav-icon" style="height: 15px; width: 15px;">
                                             <use xlink:href="/assets/icons/free.svg#cil-copy"></use>
                                         </svg>
                                     </button>
+                                    <?php endif; ?>
                                 </div>
                             </div>
                         </div>
-
-                        <div class="form-group row mb-1">
-                            <label class="col-sm-4 col-form-label">SSH Command</label>
-                            <div class="col-sm-8">
-                                <div class="d-flex align-items-center">
-                                    <input readonly type="text" class="form-control rounded-start-pill border-end-0 input-ssh-command" value="<?= htmlspecialchars($sshCommand) ?>">
-                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($sshCommand) ?>">
-                                        <svg class="nav-icon" style="height: 15px; width: 15px;">
-                                            <use xlink:href="/assets/icons/free.svg#cil-copy"></use>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-group row mb-1">
-                            <label class="col-sm-4 col-form-label">Username</label>
-                            <div class="col-sm-8">
-                                <div class="d-flex align-items-center">
-                                    <input readonly type="text" class="form-control rounded-start-pill border-end-0 input-username" value="<?= htmlspecialchars($currentUsername) ?>">
-                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($currentUsername) ?>">
-                                        <svg class="nav-icon" style="height: 15px; width: 15px;">
-                                            <use xlink:href="/assets/icons/free.svg#cil-copy"></use>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-group row mb-1">
-                            <label class="col-sm-4 col-form-label">su Password</label>
-                            <div class="col-sm-8">
-                                <div class="d-flex align-items-center">
-                                    <input readonly type="password" class="form-control rounded-start-pill border-end-0 input-su-password" value="<?= htmlspecialchars($sudoPass) ?>">
-                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($sudoPass) ?>">
-                                        <svg class="nav-icon" style="height: 15px; width: 15px;">
-                                            <use xlink:href="/assets/icons/free.svg#cil-copy"></use>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-group row mb-1">
-                            <label class="col-sm-4 col-form-label">code-server URL</label>
-                            <div class="col-sm-8">
-                                <div class="d-flex align-items-center">
-                                    <input readonly type="text" class="form-control rounded-start-pill border-end-0 input-cs-url" value="<?= htmlspecialchars($creds['code_server_url'] ?? 'Not running') ?>">
-                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($creds['code_server_url'] ?? '') ?>">
-                                        <svg class="nav-icon" style="height: 15px; width: 15px;">
-                                            <use xlink:href="/assets/icons/free.svg#cil-copy"></use>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="form-group row mb-1">
-                            <label class="col-sm-4 col-form-label">code-server Password</label>
-                            <div class="col-sm-8">
-                                <div class="d-flex align-items-center">
-                                    <input readonly type="password" class="form-control rounded-start-pill border-end-0 input-cs-password" value="<?= htmlspecialchars($creds['code_server_password'] ?? '') ?>">
-                                    <button class="btn clipboard btn-sm" data-clipboard-text="<?= htmlspecialchars($creds['code_server_password'] ?? '') ?>">
-                                        <svg class="nav-icon" style="height: 15px; width: 15px;">
-                                            <use xlink:href="/assets/icons/free.svg#cil-copy"></use>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+                        <?php endforeach; ?>
                         <?php else: ?>
                             <p>This lab is not running, please deploy it to get the connection information.</p>
                         <?php endif; ?>
