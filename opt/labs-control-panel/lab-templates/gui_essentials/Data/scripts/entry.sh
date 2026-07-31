@@ -32,7 +32,13 @@ if [ -f /etc/wireguard/wg0.conf ]; then
     ip route add ${TUNNEL_PREFIX}0/16 dev wg0 metric 10 2>/dev/null || true
 fi
 
-# 4. KasmVNC will be started by linkuser.sh after user configuration
+# 4. Start KasmVNC web server (nginx on port 6901 serves web client)
+#    kasmvncserver is started later by linkuser.sh with user config
+if [ -f /dockerstartup/vnc_startup.sh ]; then
+    echo "[*] Starting KasmVNC web server (nginx)..."
+    /dockerstartup/vnc_startup.sh &
+    sleep 2
+fi
 
 # Keep container running
 tail -f /dev/null

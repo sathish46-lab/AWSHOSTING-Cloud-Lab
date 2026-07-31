@@ -233,18 +233,23 @@ sleep 1
 # Clean stale X lock files
 rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 
-# Set VNC password for KasmVNC (different vncpasswd syntax)
-VNC_DIR="$USER_HOME/.kasmvnc"
+# Set VNC password for KasmVNC
+VNC_DIR="$USER_HOME/.vnc"
 mkdir -p "$VNC_DIR"
-echo -e "${VNC_PASSWORD}\n${VNC_PASSWORD}\n" | vncpasswd -u "$USER_NAME" "$VNC_DIR/passwd" 2>/dev/null || \
 echo -e "${VNC_PASSWORD}\n${VNC_PASSWORD}\n" | vncpasswd "$VNC_DIR/passwd" 2>/dev/null || true
 chmod 600 "$VNC_DIR/passwd" 2>/dev/null || true
 chown -R "$USER_NAME":"$USER_NAME" "$VNC_DIR"
 
-# Start KasmVNC server
-sudo -u "$USER_NAME" -H bash -c "nohup kasmvncserver :1 \
+# Set environment for KasmVNC
+echo "export KASMVNC_BASE_PORT=5900" >> "$USER_HOME/.bashrc"
+echo "export KASMVNC_WEBSOCKET_PORT=6901" >> "$USER_HOME/.bashrc"
+chown "$USER_NAME":"$USER_NAME" "$USER_HOME/.bashrc"
+
+# Start KasmVNC with web client on port 6901
+sudo -u "$USER_NAME" -H bash -c "DISPLAY=:1 nohup kasmvncserver :1 \
     -geometry 1280x720 \
     -depth 16 \
+    -rfbauth $VNC_DIR/passwd \
     > $USER_HOME/.kasmvnc.log 2>&1 &"
 sleep 3
 
@@ -252,11 +257,11 @@ sleep 3
 if ! pgrep -u "$USER_NAME" -f kasmvncserver > /dev/null && ! pgrep -u "$USER_NAME" -f Xvnc > /dev/null; then
     echo "[*] Trying Xvnc directly..."
     rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
-    sudo -u "$USER_NAME" -H bash -c "nohup Xvnc :1 \
+    sudo -u "$USER_NAME" -H bash -c "DISPLAY=:1 nohup Xvnc :1 \
         -geometry 1280x720 \
         -depth 16 \
         -rfbauth $VNC_DIR/passwd \
-        -rfbport 5901 \
+        -rfbport 5900 \
         -SecurityTypes VncAuth \
         > $USER_HOME/.kasmvnc.log 2>&1 &"
     sleep 3
