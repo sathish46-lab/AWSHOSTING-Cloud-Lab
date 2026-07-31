@@ -226,8 +226,7 @@ fi
 # ── 7. KasmVNC Server Setup ──────────────────────────────────
 echo "[*] Setting up KasmVNC..."
 pkill -9 -u "$USER_NAME" -f kasmvncserver 2>/dev/null || true
-pkill -9 -u "$USER_NAME" -f Xvnc 2>/dev/null || true
-pkill -9 -u "$USER_NAME" -f XvncProcess 2>/dev/null || true
+pkill -9 -f Xvnc 2>/dev/null || true
 sleep 1
 
 # Clean stale X lock files
@@ -240,31 +239,38 @@ echo -e "${VNC_PASSWORD}\n${VNC_PASSWORD}\n" | vncpasswd "$VNC_DIR/passwd" 2>/de
 chmod 600 "$VNC_DIR/passwd" 2>/dev/null || true
 chown -R "$USER_NAME":"$USER_NAME" "$VNC_DIR"
 
-# Set environment for KasmVNC
-echo "export KASMVNC_BASE_PORT=5900" >> "$USER_HOME/.bashrc"
-echo "export KASMVNC_WEBSOCKET_PORT=6901" >> "$USER_HOME/.bashrc"
-chown "$USER_NAME":"$USER_NAME" "$USER_HOME/.bashrc"
+# Generate SSL cert for KasmVNC
+mkdir -p "$VNC_DIR"
+if [ ! -f "$VNC_DIR/self.pem" ]; then
+    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+        -keyout "$VNC_DIR/self.pem" -out "$VNC_DIR/self.pem" \
+        -subj "/CN=localhost" 2>/dev/null || true
+    chmod 600 "$VNC_DIR/self.pem"
+    chown "$USER_NAME":"$USER_NAME" "$VNC_DIR/self.pem"
+fi
 
-# Start KasmVNC with web client on port 6901
-sudo -u "$USER_NAME" -H bash -c "DISPLAY=:1 nohup kasmvncserver :1 \
+# Start Xvnc directly with HTTP web client (no -sslOnly)
+sudo -u "$USER_NAME" -H bash -c "DISPLAY=:1 nohup Xvnc :1 \
     -geometry 1280x720 \
-    -depth 16 \
+    -depth 24 \
+    -httpd /usr/share/kasmvnc/www \
+    -websocketPort 6901 \
     -rfbauth $VNC_DIR/passwd \
+    -rfbport 5900 \
+    -SecurityTypes VncAuth \
+    -cert $VNC_DIR/self.pem \
+    -key $VNC_DIR/self.pem \
+    -BlacklistThreshold 0 \
+    -IdleTimeout 0 \
+    -AcceptSetDesktopSize 1 \
     > $USER_HOME/.kasmvnc.log 2>&1 &"
 sleep 3
 
-# Fallback: try Xvnc directly if kasmvncserver not found
-if ! pgrep -u "$USER_NAME" -f kasmvncserver > /dev/null && ! pgrep -u "$USER_NAME" -f Xvnc > /dev/null; then
-    echo "[*] Trying Xvnc directly..."
-    rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
-    sudo -u "$USER_NAME" -H bash -c "DISPLAY=:1 nohup Xvnc :1 \
-        -geometry 1280x720 \
-        -depth 16 \
-        -rfbauth $VNC_DIR/passwd \
-        -rfbport 5900 \
-        -SecurityTypes VncAuth \
-        > $USER_HOME/.kasmvnc.log 2>&1 &"
-    sleep 3
+if pgrep -f "Xvnc.*:1" > /dev/null; then
+    echo "[✓] KasmVNC started on port 6901 (web client)"
+else
+    echo "[!] KasmVNC failed to start"
+    cat "$USER_HOME/.kasmvnc.log" 2>/dev/null || true
 fi
 
 if pgrep -u "$USER_NAME" -f kasmvncserver > /dev/null || pgrep -u "$USER_NAME" -f Xvnc > /dev/null; then

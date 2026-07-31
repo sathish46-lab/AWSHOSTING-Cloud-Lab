@@ -46,6 +46,11 @@ RUN sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config &&
     sed -i 's/^#\?ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config && \
     sed -i 's/^#\?UsePAM.*/UsePAM yes/' /etc/ssh/sshd_config
 
+# KasmVNC: Remove -sslOnly so Traefik can connect via HTTP
+RUN sed -i 's/-sslOnly//g' /dockerstartup/vnc_startup.sh && \
+    sed -i 's/require_ssl.*true/require_ssl: false/g' /etc/kasmvnc/kasmvnc.yaml 2>/dev/null; \
+    echo 'network:\n  ssl:\n    pem_certificate: ${HOME}/.vnc/self.pem\n    pem_key: ${HOME}/.vnc/self.pem\n    require_ssl: false\n  udp:\n    public_ip: 127.0.0.1' > /etc/kasmvnc/kasmvnc.yaml
+
 RUN if [ -f /etc/apache2/mods-enabled/dir.conf ]; then \
     sed -ri 's/index.html index.cgi index.pl index.php index.xhtml index.htm/index.php index.cgi index.pl index.html index.xhtml index.htm/g' /etc/apache2/mods-enabled/dir.conf; \
     fi
