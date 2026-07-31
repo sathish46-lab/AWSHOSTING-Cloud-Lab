@@ -227,7 +227,11 @@ fi
 echo "[*] Setting up KasmVNC..."
 pkill -9 -u "$USER_NAME" -f kasmvncserver 2>/dev/null || true
 pkill -9 -u "$USER_NAME" -f Xvnc 2>/dev/null || true
+pkill -9 -u "$USER_NAME" -f XvncProcess 2>/dev/null || true
 sleep 1
+
+# Clean stale X lock files
+rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 
 # Set VNC password for KasmVNC (different vncpasswd syntax)
 VNC_DIR="$USER_HOME/.kasmvnc"
@@ -247,6 +251,7 @@ sleep 3
 # Fallback: try Xvnc directly if kasmvncserver not found
 if ! pgrep -u "$USER_NAME" -f kasmvncserver > /dev/null && ! pgrep -u "$USER_NAME" -f Xvnc > /dev/null; then
     echo "[*] Trying Xvnc directly..."
+    rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
     sudo -u "$USER_NAME" -H bash -c "nohup Xvnc :1 \
         -geometry 1280x720 \
         -depth 16 \
