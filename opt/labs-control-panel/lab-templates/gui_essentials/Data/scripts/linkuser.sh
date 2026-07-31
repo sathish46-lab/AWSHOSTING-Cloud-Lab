@@ -226,52 +226,18 @@ fi
 # ── 7. KasmVNC Server Setup ──────────────────────────────────
 echo "[*] Setting up KasmVNC..."
 pkill -9 -u "$USER_NAME" -f kasmvncserver 2>/dev/null || true
-pkill -9 -f Xvnc 2>/dev/null || true
 sleep 1
 
 # Clean stale X lock files
 rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 
-# Set VNC password for KasmVNC
-VNC_DIR="$USER_HOME/.vnc"
-mkdir -p "$VNC_DIR"
-echo -e "${VNC_PASSWORD}\n${VNC_PASSWORD}\n" | vncpasswd "$VNC_DIR/passwd" 2>/dev/null || true
-chmod 600 "$VNC_DIR/passwd" 2>/dev/null || true
-chown -R "$USER_NAME":"$USER_NAME" "$VNC_DIR"
-
-# Generate SSL cert for KasmVNC
-mkdir -p "$VNC_DIR"
-if [ ! -f "$VNC_DIR/self.pem" ]; then
-    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-        -keyout "$VNC_DIR/self.pem" -out "$VNC_DIR/self.pem" \
-        -subj "/CN=localhost" 2>/dev/null || true
-    chmod 600 "$VNC_DIR/self.pem"
-    chown "$USER_NAME":"$USER_NAME" "$VNC_DIR/self.pem"
-fi
-
-# Start Xvnc directly with HTTP web client (no -sslOnly)
-sudo -u "$USER_NAME" -H bash -c "DISPLAY=:1 nohup Xvnc :1 \
-    -geometry 1280x720 \
-    -depth 24 \
-    -httpd /usr/share/kasmvnc/www \
-    -websocketPort 6901 \
-    -rfbauth $VNC_DIR/passwd \
-    -rfbport 5900 \
-    -SecurityTypes VncAuth \
-    -cert $VNC_DIR/self.pem \
-    -key $VNC_DIR/self.pem \
-    -BlacklistThreshold 0 \
-    -IdleTimeout 0 \
-    -AcceptSetDesktopSize 1 \
-    > $USER_HOME/.kasmvnc.log 2>&1 &"
-sleep 3
-
-if pgrep -f "Xvnc.*:1" > /dev/null; then
-    echo "[✓] KasmVNC started on port 6901 (web client)"
-else
-    echo "[!] KasmVNC failed to start"
-    cat "$USER_HOME/.kasmvnc.log" 2>/dev/null || true
-fi
+# Set VNC password for KasmVNC using kasmvncpasswd (not vncpasswd)
+echo "[*] Setting KasmVNC password for $USER_NAME..."
+echo -e "${VNC_PASSWORD}\n${VNC_PASSWORD}\n" | kasmvncpasswd -u "$USER_NAME" -wo 2>/dev/null || true
+echo -e "${VNC_PASSWORD}\n${VNC_PASSWORD}\n" | kasmvncpasswd -u "kasm_user" -wo 2>/dev/null || true
+chown -R kasm-user:kasm-user /home/kasm-user/.kasmpasswd 2>/dev/null || true
+chmod 600 /home/kasm-user/.kasmpasswd 2>/dev/null || true
+echo "[✓] KasmVNC password configured"
 
 if pgrep -u "$USER_NAME" -f kasmvncserver > /dev/null || pgrep -u "$USER_NAME" -f Xvnc > /dev/null; then
     echo "[✓] KasmVNC started on port 6901 (web client)"
