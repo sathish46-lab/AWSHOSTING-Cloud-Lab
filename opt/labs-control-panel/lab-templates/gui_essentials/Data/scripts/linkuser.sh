@@ -242,29 +242,35 @@ echo "[✓] KasmVNC password configured"
 # Make desktop terminals open in lab user's home directory
 echo "[*] Configuring desktop for $USER_NAME..."
 
-# System-wide bashrc (always sourced by all shells)
+# System-wide bashrc (always sourced by all shells including KasmVNC terminal)
 cat <<BASHRC_EOF > /etc/bash.bashrc
 export HOME=$USER_HOME
 export USER=$USER_NAME
+export LOGNAME=$USER_NAME
 export DISPLAY=:1
 export TERM=xterm-256color
-cd $USER_HOME
+cd $USER_HOME 2>/dev/null || cd /root
 alias ls='ls --color=auto'
 alias ll='ls -alF'
-PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+PS1='\[\033[01;32m\]$USER_NAME@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 BASHRC_EOF
 
 # Root's bashrc too
 cat <<ROOT_BASHRC > /root/.bashrc
 export HOME=$USER_HOME
 export USER=$USER_NAME
+export LOGNAME=$USER_NAME
 export DISPLAY=:1
 export TERM=xterm-256color
-cd $USER_HOME
+cd $USER_HOME 2>/dev/null || cd /root
 alias ls='ls --color=auto'
 alias ll='ls -alF'
-PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+PS1='\[\033[01;32m\]$USER_NAME@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 ROOT_BASHRC
+
+# Also add to /etc/environment for non-shell processes
+echo "USER=$USER_NAME" >> /etc/environment
+echo "LOGNAME=$USER_NAME" >> /etc/environment
 
 echo "[✓] Desktop configured for $USER_NAME"
 
