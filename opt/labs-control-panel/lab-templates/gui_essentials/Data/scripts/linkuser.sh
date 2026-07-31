@@ -229,37 +229,33 @@ pkill -9 -u "$USER_NAME" -f kasmvncserver 2>/dev/null || true
 pkill -9 -u "$USER_NAME" -f Xvnc 2>/dev/null || true
 sleep 1
 
-# Set VNC password for KasmVNC
+# Set VNC password for KasmVNC (different vncpasswd syntax)
 VNC_DIR="$USER_HOME/.kasmvnc"
 mkdir -p "$VNC_DIR"
-echo "$VNC_PASSWORD" | vncpasswd -f > "$VNC_DIR/passwd"
-chmod 600 "$VNC_DIR/passwd"
+echo -e "${VNC_PASSWORD}\n${VNC_PASSWORD}\n" | vncpasswd -u "$USER_NAME" "$VNC_DIR/passwd" 2>/dev/null || \
+echo -e "${VNC_PASSWORD}\n${VNC_PASSWORD}\n" | vncpasswd "$VNC_DIR/passwd" 2>/dev/null || true
+chmod 600 "$VNC_DIR/passwd" 2>/dev/null || true
 chown -R "$USER_NAME":"$USER_NAME" "$VNC_DIR"
 
-# Create KasmVNC config
-cat <<KASM_CONFIG > "$VNC_DIR/kasmvnc.yaml"
-port: 5900
-websocket_port: 6901
-allow_blank_password: false
-allow_nolisten: true
-allow_shutdown: true
-session:
-  type: xfce
-  resolution:
-    width: 1280
-    height: 720
-    density: 96
-KASM_CONFIG
-
-chmod 644 "$VNC_DIR/kasmvnc.yaml"
-chown "$USER_NAME":"$USER_NAME" "$VNC_DIR/kasmvnc.yaml"
-
 # Start KasmVNC server
-sudo -u "$USER_NAME" -H bash -c "nohup kasmvncserver \
+sudo -u "$USER_NAME" -H bash -c "nohup kasmvncserver :1 \
     -geometry 1280x720 \
     -depth 16 \
     > $USER_HOME/.kasmvnc.log 2>&1 &"
 sleep 3
+
+# Fallback: try Xvnc directly if kasmvncserver not found
+if ! pgrep -u "$USER_NAME" -f kasmvncserver > /dev/null && ! pgrep -u "$USER_NAME" -f Xvnc > /dev/null; then
+    echo "[*] Trying Xvnc directly..."
+    sudo -u "$USER_NAME" -H bash -c "nohup Xvnc :1 \
+        -geometry 1280x720 \
+        -depth 16 \
+        -rfbauth $VNC_DIR/passwd \
+        -rfbport 5901 \
+        -SecurityTypes VncAuth \
+        > $USER_HOME/.kasmvnc.log 2>&1 &"
+    sleep 3
+fi
 
 if pgrep -u "$USER_NAME" -f kasmvncserver > /dev/null || pgrep -u "$USER_NAME" -f Xvnc > /dev/null; then
     echo "[✓] KasmVNC started on port 6901 (web client)"
