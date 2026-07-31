@@ -243,7 +243,10 @@ class LabCmd(Command):
             self._fail_deploy(instance_id, "Missing --user and no user in DB")
             return
 
-        template_name = lab_data.get("template_name") or lab_data.get("lab_type") or "essentials"
+        template_name = lab_data.get("template_name") or lab_data.get("lab_type")
+        if not template_name:
+            self._fail_deploy(instance_id, "Missing template_name/lab_type in DB record. Cannot determine lab image.")
+            return
 
         # Phase: INIT
         self.log(f"Deployment initiated (WireGuard Mesh Mode)...")
@@ -937,7 +940,10 @@ done
             self._fail_deploy(instance_id, f"Lab not found: {instance_id}")
             return
 
-        template_name = lab_data.get("template_name") or lab_data.get("lab_type") or "essentials"
+        template_name = lab_data.get("template_name") or lab_data.get("lab_type")
+        if not template_name:
+            self._fail_deploy(instance_id, "Missing template_name/lab_type in DB record.")
+            return
         image = lab_data.get("image", f"{template_name}:lab")
 
         self.log(f"Pulling latest image: {image}...")
