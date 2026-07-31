@@ -55,12 +55,18 @@ chmod 600 "$USER_HOME/.ssh/authorized_keys"
 chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME"
 
 echo "[*] Regenerating SSH host keys..."
+echo "[DEBUG] line 58: rm ssh_host"
 rm -f /etc/ssh/ssh_host_* 2>/dev/null || true
+echo "[DEBUG] line 60: ssh-keygen rsa"
 yes | ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q 2>/dev/null || true
+echo "[DEBUG] line 62: ssh-keygen ecdsa"
 yes | ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N "" -q 2>/dev/null || true
+echo "[DEBUG] line 64: ssh-keygen ed25519"
 yes | ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q 2>/dev/null || true
 
+echo "[DEBUG] line 66: sed StrictModes"
 sed -i 's/^#\?StrictModes .*/StrictModes no/' /etc/ssh/sshd_config 2>/dev/null || true
+echo "[DEBUG] line 68: service ssh"
 service ssh restart 2>/dev/null || /etc/init.d/ssh restart 2>/dev/null || true
 echo "[✓] SSH configured and restarted"
 
@@ -290,11 +296,30 @@ ROOT_BASHRC
 
 echo "[✓] Desktop configured for $USER_NAME (auto-switch enabled)"
 
-if pgrep -u "$USER_NAME" -f kasmvncserver > /dev/null || pgrep -u "$USER_NAME" -f Xvnc > /dev/null; then
+# ── 8. Start KasmVNC ──────────────────────────────────────────
+echo "[*] Starting KasmVNC server..."
+rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
+sleep 1
+
+# Start KasmVNC as root (it drops privs itself)
+/usr/bin/kasmvncserver :1 -geometry 1920x1080 -depth 24 -localhost no \
+    -Kasmpasswd /home/kasm-user/.kasmpasswd \
+    > /dev/null 2>&1 &
+
+sleep 3
+
+if pgrep -f Xvnc > /dev/null; then
     echo "[✓] KasmVNC started on port 6901 (web client)"
 else
-    echo "[!] KasmVNC failed to start"
-    cat "$USER_HOME/.kasmvnc.log" 2>/dev/null || true
+    echo "[!] KasmVNC failed to start, trying fallback..."
+    /dockerstartup/vnc_startup.sh &
+    sleep 3
+    if pgrep -f Xvnc > /dev/null; then
+        echo "[✓] KasmVNC started via fallback on port 6901"
+    else
+        echo "[!] KasmVNC failed to start"
+        cat "$USER_HOME/.kasmvnc.log" 2>/dev/null || true
+    fi
 fi
 
 echo "[✓] User configuration complete"
