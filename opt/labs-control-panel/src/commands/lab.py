@@ -509,11 +509,13 @@ service apache2 reload 2>/dev/null || true
             self.run(f"docker cp {host_scripts_dir}/. {instance_id}:/var/labsdata/scripts/")
             self.run(f"docker exec {instance_id} find /var/labsdata/scripts -name '*.sh' -exec chmod +x {{}} +")
 
+        vnc_pass = lab_data.get("credentials", {}).get("vnc_pass", dynamic_pass)
+
         link_cmd = (
             f'docker exec {instance_id} {link_script} '
             f'"{username}" "{escaped_auth}" "{docker_ip}" "{dynamic_pass}" '
             f'"{lab_priv_key}" "{tunnel_ip}" "{server_pub_key}" '
-            f'"{user_email}" "" "{vps_docker_ip}" "{su_pass}"'
+            f'"{user_email}" "" "{vps_docker_ip}" "{su_pass}" "{vnc_pass}"'
         )
         code, _ = self.run(link_cmd)
         if code != 0:
