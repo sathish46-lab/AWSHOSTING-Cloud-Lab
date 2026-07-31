@@ -605,6 +605,17 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
         """Generate Traefik YAML config."""
         services_spec = lab_spec.get("services", {})
         base_domain = self.cfg.code_domain
+        db_domain = lab_data.get("code_domain")
+        vsc_domain = (args.flag("vsc_domain") if args else None)
+        code_domain = vsc_domain or db_domain or f"code-{instance_id}.{base_domain}"
+
+        # Extract base domain from code_domain for gui (e.g. "x.tomweb.shop" → "tomweb.shop")
+        if db_domain and "." in db_domain:
+            parts = db_domain.split(".")
+            code_base = f"{parts[-2]}.{parts[-1]}"
+        else:
+            code_base = base_domain
+
         routers = ""
         services = ""
 
@@ -614,8 +625,9 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
             port = svc_spec["port"]
 
             if svc_name == "code":
-                db_domain = lab_data.get("code_domain")
-                domain = (args.flag("vsc_domain") if args else None) or db_domain or f"code-{instance_id}.{base_domain}"
+                domain = code_domain
+            elif svc_name == "gui":
+                domain = f"gui-{instance_id}.{code_base}"
             else:
                 domain = f"{svc_name}-{instance_id}.{base_domain}"
 
