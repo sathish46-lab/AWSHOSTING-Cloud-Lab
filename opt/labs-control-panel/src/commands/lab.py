@@ -416,7 +416,7 @@ class LabCmd(Command):
             "vps_docker_ip": vps_docker_ip,
             "tunnel_gw": tunnel_gw,
             "vpn_domain": vpn_domain,
-            "host_name": f"{lab_spec.get('network', {}).get('hostname', 'essentials')}.{instance_id}.{self.cfg.code_domain}",
+            "host_name": f"{lab_spec.get('network', {}).get('hostname', 'essentials')}.{instance_id}.{self.cfg.code_domain}"[:63],
             "network_name": docker_network,
         }
 
@@ -512,7 +512,9 @@ service apache2 reload 2>/dev/null || true
             self.run(f"docker cp {host_scripts_dir}/. {instance_id}:/var/labsdata/scripts/")
             self.run(f"docker exec {instance_id} find /var/labsdata/scripts -name '*.sh' -exec chmod +x {{}} +")
 
-        vnc_pass = lab_data.get("credentials", {}).get("vnc_pass", dynamic_pass)
+        # Read staged preferences for passwords (user may have set these in the UI)
+        staged = lab_data.get("staged_preferences", {})
+        vnc_pass = staged.get("vnc_pass") or lab_data.get("credentials", {}).get("vnc_pass") or dynamic_pass
 
         link_cmd = (
             f'docker exec {instance_id} {link_script} '
@@ -520,10 +522,17 @@ service apache2 reload 2>/dev/null || true
             f'"{lab_priv_key}" "{tunnel_ip}" "{server_pub_key}" '
             f'"{user_email}" "" "{vps_docker_ip}" "{su_pass}" "{vnc_pass}"'
         )
-        code, _ = self.run(link_cmd)
+        code, out = self.run(link_cmd)
         if code != 0:
             self._fail_deploy(instance_id, "linkuser.sh failed. Check output above for details.")
             return
+
+        # Capture generated VNC password from linkuser.sh output
+        import re
+        vnc_match = re.search(r'\[VNC_PASS_RESULT\](.+?)\[/VNC_PASS_RESULT\]', out or "")
+        if vnc_match:
+            dynamic_pass = vnc_match.group(1).strip()
+            self.log(f"Generated VNC password: {dynamic_pass}")
 
         # Phase: POST-LINK — WireGuard routing & DNS fix inside container
         if tunnel_ip:
@@ -562,7 +571,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
         # Phase: METADATA
         self.log("Finalizing routing metadata...")
         code_domain = args.flag("vsc_domain") or lab_data.get("code_domain") or f"code-{instance_id}.{self.cfg.code_domain}"
-        gui_domain = f"gui-{instance_id}.{self.cfg.code_domain}"
+        gui_domain = args.flag("gui_domain") or lab_data.get("gui_domain") or f"gui-{instance_id}.{self.cfg.code_domain}"
         credentials.update({
             "ssh": f"ssh {username}@{tunnel_ip}",
             "ssh_proxy": f'ssh -o "ProxyCommand=ssh -W %h:%p -i ~/.ssh/id_ed25519 root@127.0.0.1 -p 2222" {username}@{docker_ip}',
@@ -574,7 +583,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
             "sshKey": ssh_enabled,
             "code_server_url": f"https://{code_domain}",
             "gui_url": f"https://{gui_domain}",
-            "vnc_pass": dynamic_pass,
+            "vnc_pass": vnc_pass,
             "wg_pubkey": lab_pub_key,
             "wg_privkey": lab_priv_key,
         })
@@ -587,7 +596,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
                 "password": dynamic_pass,
                 "email": user_email,
                 "su_pass": su_pass,
-                "vnc_pass": dynamic_pass,
+            "vnc_pass": vnc_pass,
             }
             for key, val in cred_template.items():
                 if isinstance(val, str):
@@ -611,8 +620,11 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
         services_spec = lab_spec.get("services", {})
         base_domain = self.cfg.code_domain
         db_domain = lab_data.get("code_domain")
+        db_gui_domain = lab_data.get("gui_domain")
         vsc_domain = (args.flag("vsc_domain") if args else None)
+        gui_domain_arg = (args.flag("gui_domain") if args else None)
         code_domain = vsc_domain or db_domain or f"code-{instance_id}.{base_domain}"
+        gui_domain = gui_domain_arg or db_gui_domain or f"gui-{instance_id}.{base_domain}"
 
         # Extract base domain from code_domain for gui (e.g. "x.tomweb.shop" → "tomweb.shop")
         if db_domain and "." in db_domain:
@@ -632,7 +644,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
             if svc_name == "code":
                 domain = code_domain
             elif svc_name == "gui":
-                domain = f"gui-{instance_id}.{code_base}"
+                domain = gui_domain
             else:
                 domain = f"{svc_name}-{instance_id}.{base_domain}"
 

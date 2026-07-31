@@ -38,6 +38,7 @@ try {
         $expose_web = true;
     }
     $code_domain = (!empty($_POST['code_domain'])) ? $_POST['code_domain'] : ($instanceHash . ".tomweb.shop");
+    $gui_domain = (!empty($_POST['gui_domain_selector'])) ? $_POST['gui_domain_selector'] : ("gui-" . $instanceHash . ".tomweb.shop");
     
     // HTTP Proxies
     $httpProxies = $existing['http_proxies'] ?? [];
@@ -74,6 +75,7 @@ try {
                 'deploy.internal_ip'   => $internalIp, 
                 'deploy.domains'       => $user_domains,
                 'deploy.code_domain'   => $code_domain,
+                'deploy.gui_domain'    => $gui_domain,
                 'deploy.expose_web'    => $expose_web,
                 'deploy.http_proxies'  => $httpProxies,
                 'deploy.status'        => 'deploying',
@@ -113,6 +115,7 @@ try {
                 'deploy.domains'     => $user_domains, 
                 'deploy.expose_web'  => $expose_web,
                 'deploy.code_domain' => $code_domain,
+                'deploy.gui_domain'  => $gui_domain,
                 'deploy.http_proxies'=> $httpProxies,
                 'deploy.storage_path'=> "/var/labsstorage/" . $user->getUsername(),
                 'deploy.status'      => 'deploying'
@@ -156,7 +159,8 @@ try {
         'lab' => $labName, 
         'hash' => $instanceHash, 
         'user' => $user->getUsername(),
-        'vsc_domain' => $code_domain
+        'vsc_domain' => $code_domain,
+        'gui_domain' => $gui_domain
     ];
 
     // Capture MinIO specific domains if present

@@ -103,6 +103,13 @@ try {
             $changes['passwords'] = true;
         }
     }
+    if (isset($input['vnc_pass'])) {
+        $setFields['deploy.staged_preferences.vnc_pass'] = trim((string)$input['vnc_pass']);
+        $currentVncPass = $existing['staged_preferences']['vnc_pass'] ?? $existing['credentials']['vnc_pass'] ?? '';
+        if ($currentVncPass !== trim((string)$input['vnc_pass'])) {
+            $changes['passwords'] = true;
+        }
+    }
 
     $col->updateOne(
         ['deploy.instance_hash' => $instanceHash],

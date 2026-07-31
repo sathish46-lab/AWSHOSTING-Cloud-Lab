@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from src.router import Command
 
 
@@ -96,26 +97,36 @@ class SystemCmd(Command):
         RESET = "\033[0m"
 
         print("\n  Lab Images:")
-        print("  " + "-" * 65)
-        print(f"  {'Template':<20} {'Image Tag':<20} {'Status':<18} {'Size':<12}")
-        print("  " + "-" * 65)
+        print("  " + "-" * 85)
+        print(f"  {'Template':<20} {'Image Tag':<20} {'Status':<18} {'Size':<12} {'Last Built'}")
+        print("  " + "-" * 85)
 
         for t in templates:
             tag = f"{t}:lab"
             exists = self.docker_image_exists(tag)
             size = ""
+            last_built = ""
             if exists:
                 _, size_out = self.run(f"docker image inspect {tag} --format '{{{{.Size}}}}'", capture=True)
                 if size_out and size_out.strip().isdigit():
                     size_bytes = int(size_out.strip())
                     size = f"{size_bytes / 1048576:.1f}MB"
+                _, created_out = self.run(f"docker image inspect {tag} --format '{{{{.Created}}}}'", capture=True)
+                if created_out and created_out.strip():
+                    try:
+                        created_str = created_out.strip()
+                        dt = datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+                        ist = dt.strftime("%d %b %I:%M %p")
+                        last_built = ist
+                    except Exception:
+                        last_built = created_out.strip()[:16]
             if exists:
                 status = f"{GREEN}✓ Built{RESET}"
             else:
                 status = f"{RED}✗ Missing{RESET}"
-            print(f"  {t:<20} {tag:<20} {status:<28} {size:<12}")
+            print(f"  {t:<20} {tag:<20} {status:<28} {size:<12} {last_built}")
 
-        print("  " + "-" * 65 + "\n")
+        print("  " + "-" * 85 + "\n")
 
     def _db(self, args):
         if not self.db:

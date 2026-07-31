@@ -658,15 +658,17 @@ const LabData = {
  * Adding a new lab type = add ONE entry here. No more if/else chains.
  * ========================================================================== */
 const LAB_FIELD_CONFIG = {
-  minio:   { minio: 'block', n8n: 'none', vsc: 'none', expose: 'none', domainSel: 'none', proxies: 'none' },
-  n8n:     { minio: 'none', n8n: 'block', vsc: 'none', expose: 'none', domainSel: 'none', proxies: 'none' },
+  minio:   { minio: 'block', n8n: 'none', vsc: 'none', gui: 'none', expose: 'none', domainSel: 'none', proxies: 'none' },
+  n8n:     { minio: 'none', n8n: 'block', vsc: 'none', gui: 'none', expose: 'none', domainSel: 'none', proxies: 'none' },
+  gui_essentials: { minio: 'none', n8n: 'none', vsc: 'flex', gui: 'flex', expose: 'none', domainSel: 'none', proxies: 'none' },
   // default covers essentials, docker, kali, zephyr, etc.
-  default: { minio: 'none', n8n: 'none', vsc: 'flex', expose: 'flex', proxies: 'block' },
+  default: { minio: 'none', n8n: 'none', vsc: 'flex', gui: 'none', expose: 'flex', proxies: 'block' },
 };
 
 const LAB_FORM_CONFIG = {
   minio:   ['minio_console_domain', 'minio_api_domain'],
   n8n:     ['n8n_domain'],
+  gui_essentials: ['gui_domain_selector'],
   default: [],
 };
 
@@ -690,6 +692,7 @@ function setLabFieldVisibility(type) {
     minio: 'minio_domain_wrapper',
     n8n: 'n8n_domain_wrapper',
     vsc: 'vsc_domain_wrapper',
+    gui: 'gui_domain_wrapper',
     expose: 'expose_web_wrapper',
     proxies: 'http_proxies_wrapper',
   };
@@ -722,7 +725,7 @@ async function handleDeploy(btn, labType) {
     const hash = window.SESSION_HASH;
 
     // 1. Fetch modal content on-demand
-    const response = await fetch(`/api/labs/redeploy?hash=${hash}`, {
+    const response = await fetch(`/api/labs/redeploy?hash=${hash}&_t=${Date.now()}`, {
       credentials: 'same-origin'
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);

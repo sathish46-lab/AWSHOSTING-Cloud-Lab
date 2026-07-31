@@ -76,10 +76,10 @@
         'gui_essentials' => [
             'title'   => 'GUI Essentials Lab',
             'desc'    => 'Ubuntu 24.10 with XFCE4 desktop, VNC GUI access, and code-server.',
-            'icon'    => 'bxl-ubuntu',
+            'icon'    => 'bx-desktop',
             'color'   => '#8b5cf6',
-            'action'  => 'Code',
-            'action_icon' => 'bx-code-alt'
+            'action'  => 'VNC',
+            'action_icon' => 'bx-desktop'
         ]
     ];
 

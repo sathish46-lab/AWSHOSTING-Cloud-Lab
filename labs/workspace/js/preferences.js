@@ -129,9 +129,10 @@ function collectPreferencesData() {
         initScript = document.getElementById('init-script-editor')?.value || '#!/bin/bash\n';
     }
 
-    // Sudo and Code-Server passwords
+    // Sudo, Code-Server, and VNC passwords
     const suPass = document.getElementById('sudo-pass-input')?.value || '';
     const codeServerPass = document.getElementById('code-server-pass-input')?.value || '';
+    const vncPass = document.getElementById('vnc-pass-input')?.value || '';
 
     return {
         hash: window.SESSION_HASH,
@@ -140,7 +141,8 @@ function collectPreferencesData() {
         always_on: alwaysOn,
         init_script: initScript,
         su_pass: suPass,
-        code_server_pass: codeServerPass
+        code_server_pass: codeServerPass,
+        vnc_pass: vncPass
     };
 }
 

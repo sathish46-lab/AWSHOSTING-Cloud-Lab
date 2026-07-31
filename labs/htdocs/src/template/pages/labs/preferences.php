@@ -83,8 +83,8 @@
             'desc'    => 'Ubuntu 24.10 with XFCE4 desktop, VNC GUI access, and code-server.',
             'icon'    => 'bx-desktop',
             'color'   => '#8b5cf6',
-            'action'  => 'Code',
-            'action_icon' => 'bx-code-alt'
+            'action'  => 'VNC',
+            'action_icon' => 'bx-desktop'
         ]
     ];
 
@@ -188,7 +188,8 @@
 
                         <?php 
                             $codeServerPass = $creds['code_server_pass'] ?? $creds['password'] ?? null;
-                            if($codeServerPass): 
+                            $showCodeServerPass = $codeServerPass && $labType !== 'gui_essentials';
+                            if($showCodeServerPass): 
                                 $codeServerPassInput = $staged['code_server_pass'] ?? '';
                                 if (isset($staged['code_server_pass']) && $staged['code_server_pass'] !== $codeServerPass) {
                                     $stagedPasswordNames[] = '<span class="fw-bold text-cyan">Code-Server Password</span>';
@@ -220,6 +221,44 @@
                                 </div>
                             </div>
                             <div class="form-text small opacity-50 mt-2 ms-2"><i class='bx bx-info-circle me-1'></i>Password for the web-based VS Code environment. Leave blank to auto-generate a fresh one on each redeploy.</div>
+                        </div>
+                        <?php endif; ?>
+
+                        <?php 
+                            $vncPass = $creds['vnc_pass'] ?? null;
+                            $hasVncField = \TomLabs\Labs\LabTemplateConfig::supportsFeature($labType, 'vnc_password');
+                            if($hasVncField): 
+                                $vncPassInput = $staged['vnc_pass'] ?? '';
+                                if (isset($staged['vnc_pass']) && $staged['vnc_pass'] !== $vncPass) {
+                                    $stagedPasswordNames[] = '<span class="fw-bold text-purple">VNC Password</span>';
+                                }
+                        ?>
+                        <div class="mb-4">
+                            <label class="small fw-bold text-secondary mb-2 text-uppercase ls-1">VNC Password</label>
+                            <div class="input-group p-1 bg-dark bg-opacity-50 rounded-pill border border-secondary border-opacity-25">
+                                <span class="input-group-text bg-transparent border-0 text-secondary ps-3"><i class='bx bx-desktop'></i></span>
+                                <input type="password" id="vnc-pass-input" class="form-control bg-transparent border-0 text-white fw-bold font-monospace" value="<?= htmlspecialchars($vncPassInput) ?>" placeholder="Auto-generate random password">
+                                <div class="d-flex align-items-center gap-1 pe-1">
+                                    <button type="button" class="btn btn-link text-secondary p-0 d-flex align-items-center justify-content-center" 
+                                            class="pref-icon-link"
+                                            onclick="togglePasswordVisibility('vnc-pass-input', this)">
+                                        <i class='bx bx-hide fs-5'></i>
+                                    </button>
+                                    <div class="vr bg-secondary opacity-25 pref-vr-line"></div>
+                                    <button type="button" class="btn btn-link text-secondary p-0 d-flex align-items-center justify-content-center" 
+                                            class="pref-icon-link"
+                                            onclick="generateNewPassword('vnc-pass-input')">
+                                        <i class='bx bx-refresh fs-5'></i>
+                                    </button>
+                                    <div class="vr bg-secondary opacity-25 pref-vr-line"></div>
+                                    <button type="button" class="btn btn-link text-secondary p-0 d-flex align-items-center justify-content-center" 
+                                            class="pref-icon-link"
+                                            onclick="copyFromInput('vnc-pass-input')">
+                                        <i class='bx bx-copy fs-5'></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="form-text small opacity-50 mt-2 ms-2"><i class='bx bx-info-circle me-1'></i>Password for KasmVNC desktop login. Leave blank to auto-generate a fresh one on each redeploy.</div>
                         </div>
                         <?php endif; ?>
 

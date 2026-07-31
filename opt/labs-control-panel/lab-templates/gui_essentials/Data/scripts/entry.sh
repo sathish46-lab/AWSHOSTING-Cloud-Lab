@@ -1,38 +1,107 @@
 #!/bin/bash
-# entry.sh - Container startup for GUI Essentials Lab (KasmVNC)
+# entry.sh — Container startup for GUI Essentials Lab
+# Starts SSH immediately, waits for user deploy, then starts services
 
-# 1. Regenerate unique SSH host keys
-echo "[*] Regenerating SSH host keys..."
+echo "[*] Starting GUI Essentials Lab..."
+
+# ── 0. Service Flags ──────────────────────────────────────────
+# Set to "true" to enable, "false" to disable
+# To re-enable code-server: set ENABLE_CODESERVER=true
+# To re-enable Apache: set ENABLE_APACHE=true
+mkdir -p /var/labsdata
+cat <<'ENVFLAGS' > /var/labsdata/.service_flags
+ENABLE_CODESERVER=false
+ENABLE_APACHE=false
+ENVFLAGS
+chmod 644 /var/labsdata/.service_flags
+echo "[*] Service flags loaded (code-server=off, apache=off)"
+
+# ── 1. SSH Host Keys ──────────────────────────────────────────
 rm -f /etc/ssh/ssh_host_*
-yes | ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q
-yes | ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N "" -q
-yes | ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q
-echo "[✓] SSH host keys regenerated"
+yes | ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q 2>/dev/null || true
+yes | ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N "" -q 2>/dev/null || true
+yes | ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q 2>/dev/null || true
+service ssh start 2>/dev/null || true
+echo "[✓] SSH started"
 
-# 2. Start SSH
-service ssh start
-
-# 3. Configure WireGuard if config exists
-if [ -f /etc/wireguard/wg0.conf ]; then
-    echo "[*] Starting WireGuard..."
-    ip link delete dev wg0 2>/dev/null || true
-
-    for i in {1..5}; do
-        if wg-quick up wg0 2>/dev/null; then
-            echo "[+] WireGuard started successfully on attempt $i."
-            break
-        else
-            echo "[-] WireGuard attempt $i failed, retrying in 2s..."
-            ip link delete dev wg0 2>/dev/null || true
-            sleep 2
-        fi
-    done
-
-    TUNNEL_PREFIX=$(echo "${VPS_DOCKER_IP:-172.30.0.1}" | awk -F. '{print $1"."$2"."$3"."}')
-    ip route add ${TUNNEL_PREFIX}0/16 dev wg0 metric 10 2>/dev/null || true
+# ── 2. SSL cert ───────────────────────────────────────────────
+if [ ! -f /root/.vnc/self.pem ]; then
+    mkdir -p /root/.vnc
+    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+        -keyout /root/.vnc/self.pem -out /root/.vnc/self.pem \
+        -subj "/CN=localhost" 2>/dev/null
 fi
 
-# 4. KasmVNC will be started by linkuser.sh after user configuration
+# ── 3. Wait for deploy (linkuser.sh) then start services ──────
+# On first boot, linkuser.sh creates user + kasmpasswd + starts services
+# On container restart, we start services directly
+[ -f /var/labsdata/.service_flags ] && source /var/labsdata/.service_flags
+MAX_WAIT=60
+WAITED=0
+while [ $WAITED -lt $MAX_WAIT ]; do
+    if [ -f /root/.kasmpasswd ] && id sathish47 &>/dev/null; then
+        break
+    fi
+    sleep 1
+    WAITED=$((WAITED + 1))
+done
 
-# Keep container running
+if [ $WAITED -ge $MAX_WAIT ]; then
+    echo "[!] Timed out waiting for deploy, starting services anyway"
+fi
+
+# Only start services if linkuser.sh hasn't already
+if ! pgrep -f Xvnc > /dev/null 2>&1; then
+    echo "[*] Starting KasmVNC..."
+    rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
+    /usr/bin/kasmvncserver :1 -geometry 1920x1080 -depth 24 \
+        -websocketPort 8444 -httpd /usr/share/kasmvnc/www \
+        -interface 0.0.0.0 -noxstartup -select-de xfce \
+        -SecurityTypes None -KasmPasswordFile /root/.kasmpasswd \
+        -auth /root/.Xauthority > /dev/null 2>&1 &
+    sleep 2
+    pgrep -f Xvnc > /dev/null && echo "[✓] KasmVNC started" || echo "[!] KasmVNC failed"
+fi
+
+if ! pgrep -f xfce4-session > /dev/null 2>&1; then
+    echo "[*] Starting XFCE..."
+    export DISPLAY=:1
+    eval $(dbus-launch --sh-syntax)
+    nohup xfwm4 --replace --compositor=off > /dev/null 2>&1 &
+    sleep 1
+    nohup xfdesktop > /dev/null 2>&1 &
+    sleep 1
+    nohup xfce4-panel > /dev/null 2>&1 &
+    sleep 1
+    nohup xfce4-session > /dev/null 2>&1 &
+    sleep 2
+    echo "[✓] XFCE started"
+fi
+
+LAB_USER=$(awk -F: '$3 >= 1000 && $3 < 65534 && $1 != "nobody" {print $1; exit}' /etc/passwd 2>/dev/null)
+if [ "${ENABLE_CODESERVER:-true}" = "true" ] && [ -n "$LAB_USER" ] && ! pgrep -u "$LAB_USER" -f code-server > /dev/null 2>&1; then
+    echo "[*] Starting code-server..."
+    USER_HOME=$(eval echo "~$LAB_USER")
+    mkdir -p "$USER_HOME/.config/code-server"
+    # Extract VNC password from kasmpasswd (first line of kasmvncpasswd -o output)
+if [ -f /root/.kasmpasswd ]; then
+    CODE_PASS=$(kasmvncpasswd -o < /root/.kasmpasswd 2>/dev/null | head -1 || echo "${LAB_USER}@098")
+else
+    CODE_PASS="${LAB_USER}@098"
+fi
+cat <<EOF > "$USER_HOME/.config/code-server/config.yaml"
+bind-addr: 0.0.0.0:8080
+auth: password
+password: ${CODE_PASS}
+cert: false
+EOF
+    chown -R "$LAB_USER:$LAB_USER" "$USER_HOME/.config"
+    sudo -u "$LAB_USER" -H bash -c "nohup code-server --config $USER_HOME/.config/code-server/config.yaml --disable-telemetry --disable-update-check > $USER_HOME/.code-server.log 2>&1 &"
+    sleep 2
+    pgrep -u "$LAB_USER" -f code-server > /dev/null && echo "[✓] Code-server started" || echo "[!] Code-server failed"
+else
+    echo "[*] Code-server disabled — skipping"
+fi
+
+echo "[✓] GUI Essentials Lab ready — SSH(22) KasmVNC(8444)"
 tail -f /dev/null

@@ -79,22 +79,12 @@
             <div class="btn-group shadow-sm rounded-pill overflow-hidden me-5" role="group">
                 <?php if($isRunning): ?>
                     <button class="btn btn-lab-launch"
-                            onclick="launchService(this, '<?= $labType ?>')"
-                            data-tooltip="Launch Cloud IDE / Code Server"
+                            onclick="<?= $labType === 'gui_essentials' ? 'launchGui(this)' : "launchService(this, '$labType')" ?>"
+                            data-tooltip="<?= $labType === 'gui_essentials' ? 'Launch VNC Desktop' : 'Launch Cloud IDE / Code Server' ?>"
                             data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
-                        <i class='bx bx-code-alt fs-6'></i>
+                        <i class='bx <?= $labType === 'gui_essentials' ? 'bx-desktop' : 'bx-code-alt' ?> fs-6'></i>
                         <span class="small"><?= $cfg['action'] ?></span>
                     </button>
-                    
-                    <?php if($labType === 'gui_essentials'): ?>
-                    <button class="btn btn-lab-launch"
-                            onclick="launchGui(this)"
-                            data-tooltip="Launch GUI Desktop (noVNC)"
-                            data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
-                        <i class='bx bx-desktop fs-6'></i>
-                        <span class="small">GUI</span>
-                    </button>
-                    <?php endif; ?>
                 <?php endif; ?>
                 
                 <button class="btn btn-lab-deploy"

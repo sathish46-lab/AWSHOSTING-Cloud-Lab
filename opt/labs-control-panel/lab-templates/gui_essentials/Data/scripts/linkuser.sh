@@ -1,11 +1,14 @@
 #!/bin/bash
-# linkuser.sh — Full user setup for GUI Essentials: password, SSH, WireGuard, storage, code-server, KasmVNC
+# linkuser.sh — User setup for GUI Essentials: password, SSH, WireGuard, storage, bash config
 # $1=Username, $2=PublicKeys, $3=DockerIP, $4=CodePassword
 # $5=LabPrivateKey, $6=TunnelIP, $7=ServerPublicKey
 # $8=UserEmail, $9=N8nDomain, $10=VPSDockerIP, $11=SuPass, $12=VncPass
 
 set -e
 trap 'echo "[!] linkuser.sh failed at line $LINENO: $BASH_COMMAND"' ERR
+
+# Source service flags (set by entry.sh)
+[ -f /var/labsdata/.service_flags ] && source /var/labsdata/.service_flags
 
 USER_NAME=$1
 PUB_KEYS=$2
@@ -19,7 +22,14 @@ SU_PASS=${11}
 VNC_PASS=${12}
 
 SYSTEM_PASS="${SU_PASS:-${USER_NAME}@098}"
-VNC_PASSWORD="${VNC_PASS:-${USER_NAME}@098}"
+# Use user-set VNC password if provided, otherwise generate random
+if [ -n "$VNC_PASS" ]; then
+    VNC_PASSWORD="$VNC_PASS"
+    echo "[*] Using user-set VNC password"
+else
+    VNC_PASSWORD=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12)
+    echo "[*] Generated random VNC password: $VNC_PASSWORD"
+fi
 
 echo "[*] Starting user configuration..."
 echo "[*] Username: $USER_NAME"
@@ -42,6 +52,15 @@ fi
 echo "$USER_NAME:$SYSTEM_PASS" | chpasswd 2>/dev/null || true
 echo "[✓] System password set"
 
+# Allow sudo without password
+echo "$USER_NAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/"$USER_NAME"
+chmod 440 /etc/sudoers.d/"$USER_NAME"
+
+# Lock /root — normal user should not access (industry standard)
+chmod 700 /root 2>/dev/null || true
+
+echo "[✓] Sudo configured"
+
 # ── 1b. Cleanup KasmVNC defaults ──────────────────────────────
 rm -rf /home/kasm-user /home/kasm-default-profile 2>/dev/null || true
 echo "[✓] Cleaned up KasmVNC default directories"
@@ -55,18 +74,12 @@ chmod 600 "$USER_HOME/.ssh/authorized_keys"
 chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME"
 
 echo "[*] Regenerating SSH host keys..."
-echo "[DEBUG] line 58: rm ssh_host"
 rm -f /etc/ssh/ssh_host_* 2>/dev/null || true
-echo "[DEBUG] line 60: ssh-keygen rsa"
 yes | ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q 2>/dev/null || true
-echo "[DEBUG] line 62: ssh-keygen ecdsa"
 yes | ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N "" -q 2>/dev/null || true
-echo "[DEBUG] line 64: ssh-keygen ed25519"
 yes | ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q 2>/dev/null || true
 
-echo "[DEBUG] line 66: sed StrictModes"
 sed -i 's/^#\?StrictModes .*/StrictModes no/' /etc/ssh/sshd_config 2>/dev/null || true
-echo "[DEBUG] line 68: service ssh"
 service ssh restart 2>/dev/null || /etc/init.d/ssh restart 2>/dev/null || true
 echo "[✓] SSH configured and restarted"
 
@@ -119,13 +132,13 @@ EOF
         echo "[✓] WireGuard configured: $ACTUAL_IP"
     else
         echo "[!] WireGuard failed to start"
-        exit 1
     fi
 else
     echo "[!] Missing WireGuard parameters, skipping tunnel setup"
 fi
 
-# ── 5. Persistent Storage Links ───────────────────────────────
+# ── 5. Persistent Storage Links (Apache) ────────────────────────
+if [ "${ENABLE_APACHE:-true}" = "true" ]; then
 HTDOCS="$USER_HOME/htdocs"
 HTCONFIG="$USER_HOME/htconfig"
 
@@ -200,69 +213,33 @@ chmod -R 755 "$HTCONFIG"
 
 a2ensite 000-default.conf 2>/dev/null || true
 service apache2 restart || true
-echo "[✓] Storage links configured"
-
-# ── 6. Code-Server Setup ──────────────────────────────────────
-echo "[*] Setting up Code-Server..."
-pkill -9 -u "$USER_NAME" -f code-server 2>/dev/null || true
-fuser -k 8080/tcp 2>/dev/null || true
-sleep 2
-
-USER_CONFIG="$USER_HOME/.config/code-server/config.yaml"
-mkdir -p "$(dirname "$USER_CONFIG")"
-
-cat <<CODE_CONFIG > "$USER_CONFIG"
-bind-addr: 0.0.0.0:8080
-auth: password
-password: $CODE_PASS
-cert: false
-CODE_CONFIG
-
-chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME/.config"
-chmod 644 "$USER_CONFIG"
-
-# Optimized code-server startup
-sudo -u "$USER_NAME" -H bash -c "nohup code-server \
-    --config $USER_CONFIG \
-    --disable-telemetry \
-    --disable-update-check \
-    > $USER_HOME/.code-server.log 2>&1 &"
-sleep 2
-
-if pgrep -u "$USER_NAME" -f code-server > /dev/null; then
-    echo "[✓] Code-server started"
+echo "[✓] Apache/storage links configured"
 else
-    echo "[!] Code-server failed to start"
+    echo "[*] Apache disabled — skipping storage links"
 fi
 
-# ── 7. KasmVNC Server Setup ──────────────────────────────────
-echo "[*] Setting up KasmVNC..."
-pkill -9 -u "$USER_NAME" -f kasmvncserver 2>/dev/null || true
-sleep 1
-
-# Clean stale X lock files
-rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
-
-# Set VNC password for KasmVNC using kasmvncpasswd (not vncpasswd)
+# ── 6. KasmVNC Password ──────────────────────────────────────
 echo "[*] Setting KasmVNC password for $USER_NAME..."
-echo -e "${VNC_PASSWORD}\n${VNC_PASSWORD}\n" | kasmvncpasswd -u "$USER_NAME" -wo 2>/dev/null || true
-echo -e "${VNC_PASSWORD}\n${VNC_PASSWORD}\n" | kasmvncpasswd -u "kasm_user" -wo 2>/dev/null || true
-chown -R kasm-user:kasm-user /home/kasm-user/.kasmpasswd 2>/dev/null || true
-chmod 600 /home/kasm-user/.kasmpasswd 2>/dev/null || true
-echo "[✓] KasmVNC password configured"
+mkdir -p /root/.vnc
+rm -f /root/.kasmpasswd 2>/dev/null
+TMP_KASMPW=$(mktemp)
+printf '%s\n%s\n' "$VNC_PASSWORD" "$VNC_PASSWORD" > "$TMP_KASMPW"
+kasmvncpasswd -u "$USER_NAME" -wo /root/.kasmpasswd < "$TMP_KASMPW" 2>/dev/null || true
+printf '%s\n%s\n' "$VNC_PASSWORD" "$VNC_PASSWORD" > "$TMP_KASMPW"
+kasmvncpasswd -u "kasm_user" -wo /root/.kasmpasswd < "$TMP_KASMPW" 2>/dev/null || true
+rm -f "$TMP_KASMPW"
+chmod 600 /root/.kasmpasswd 2>/dev/null || true
+echo "[✓] KasmVNC password configured (random: $VNC_PASSWORD)"
+echo "[VNC_PASS_RESULT]$VNC_PASSWORD[/VNC_PASS_RESULT]"
 
-# Make desktop terminals open in lab user's home directory
+# ── 7. Desktop Bash Config ────────────────────────────────────
 echo "[*] Configuring desktop for $USER_NAME..."
-
-# ── KasmVNC User Switching ────────────────────────────────────
-# KasmVNC desktop runs as root. We exec into the lab user so whoami returns correctly.
-# The user's own bashrc at /home/$USER_NAME/.bashrc does NOT have exec (no loop).
 
 # System-wide bashrc — auto-switch to lab user
 cat <<'BASHRC_EOF' > /etc/bash.bashrc
 BASHRC_EOF
 
-# User's own bashrc (read after exec switch — no exec here)
+# User's own bashrc
 cat <<USER_BASHRC > "$USER_HOME/.bashrc"
 export force_color_prompt=yes
 export TERM=xterm-256color
@@ -275,6 +252,7 @@ USER_BASHRC
 chown "$USER_NAME":"$USER_NAME" "$USER_HOME/.bashrc"
 
 # KasmVNC root bashrc — exec into the lab user
+mkdir -p /home/kasm-user
 cat <<KASM_BASHRC > /home/kasm-user/.bashrc
 export DISPLAY=:1
 export TERM=xterm-256color
@@ -288,38 +266,97 @@ chown root:root /home/kasm-user/.bashrc
 cat <<ROOT_BASHRC > /root/.bashrc
 export DISPLAY=:1
 export TERM=xterm-256color
-if [ "\$(id -u)" -eq 0 ] && id "$USER_NAME" &>/dev/null && [ -z "\$_LAB_SHELL" ]; then
-    export _LAB_SHELL=1
-    exec sudo -u "$USER_NAME" env HOME=$USER_HOME DISPLAY=:1 TERM=xterm-256color /bin/bash --login
+if [ -z "\$_SWITCHED" ] && [ "\$(id -u)" -eq 0 ] && id "$USER_NAME" &>/dev/null && [ -z "\$SUDO_USER" ]; then
+    export _SWITCHED=1
+    cd $USER_HOME && exec sudo -u "$USER_NAME" env HOME=$USER_HOME /bin/bash --login
 fi
+PS1="\u@\h:\w# "
 ROOT_BASHRC
 
 echo "[✓] Desktop configured for $USER_NAME (auto-switch enabled)"
 
-# ── 8. Start KasmVNC ──────────────────────────────────────────
-echo "[*] Starting KasmVNC server..."
+# ── 7b. XFCE Terminal Default Directory ────────────────────────
+mkdir -p "$USER_HOME/.config/xfce4/terminal"
+cat <<TERMRC > "$USER_HOME/.config/xfce4/terminal/terminalrc"
+[Configuration]
+MiscDefaultWorkingDir=$USER_HOME
+MiscMenubarVisible=true
+MiscShowUnsafePasteDialog=false
+TERMRC
+mkdir -p /etc/xdg/xfce4/terminal
+cat <<XDGTERMRC > /etc/xdg/xfce4/terminal/terminalrc
+[Configuration]
+MiscDefaultWorkingDir=$USER_HOME
+MiscMenubarVisible=true
+MiscShowUnsafePasteDialog=false
+XDGTERMRC
+chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/.config/xfce4"
+echo "[✓] Terminal configured to open as $USER_NAME in $USER_HOME"
+
+# ── 7c. Thunar File Manager ───────────────────────────────────
+mkdir -p "$USER_HOME/.config/Thunar"
+cat <<THUNAR_EOF > "$USER_HOME/.config/Thunar/thunar-prefs.xml"
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <property name="last-show-hidden" type="bool" value="true"/>
+</configuration>
+THUNAR_EOF
+sed -i "s|Exec=thunar|Exec=thunar $USER_HOME|" /usr/share/applications/thunar.desktop 2>/dev/null || true
+sed -i "s|Exec=xfce4-file-manager|Exec=thunar $USER_HOME|" /usr/share/applications/xfce4-file-manager.desktop 2>/dev/null || true
+chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/.config/Thunar"
+echo "[✓] File manager configured to open in $USER_HOME"
+
+# ── 8. Start Services ─────────────────────────────────────────
+echo "[*] Starting services..."
+
+# Kill any stale Xvnc
+pkill -f Xvnc 2>/dev/null || true
 rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 2>/dev/null || true
 sleep 1
 
-# Start KasmVNC as root (it drops privs itself)
-/usr/bin/kasmvncserver :1 -geometry 1920x1080 -depth 24 -localhost no \
-    -Kasmpasswd /home/kasm-user/.kasmpasswd \
-    > /dev/null 2>&1 &
-
-sleep 3
+# Start kasmvncserver with XFCE
+/usr/bin/kasmvncserver :1 -geometry 1920x1080 -depth 24 \
+    -websocketPort 8444 -httpd /usr/share/kasmvnc/www \
+    -interface 0.0.0.0 -noxstartup -select-de xfce \
+    -SecurityTypes None -KasmPasswordFile /root/.kasmpasswd \
+    -auth /root/.Xauthority > /dev/null 2>&1 &
+sleep 2
 
 if pgrep -f Xvnc > /dev/null; then
-    echo "[✓] KasmVNC started on port 6901 (web client)"
+    echo "[✓] KasmVNC started on port 8444"
 else
-    echo "[!] KasmVNC failed to start, trying fallback..."
-    /dockerstartup/vnc_startup.sh &
-    sleep 3
-    if pgrep -f Xvnc > /dev/null; then
-        echo "[✓] KasmVNC started via fallback on port 6901"
-    else
-        echo "[!] KasmVNC failed to start"
-        cat "$USER_HOME/.kasmvnc.log" 2>/dev/null || true
-    fi
+    echo "[!] KasmVNC failed to start"
+fi
+
+# Start XFCE desktop
+export DISPLAY=:1
+eval $(dbus-launch --sh-syntax)
+/usr/bin/startxfce4 --replace > /dev/null 2>&1 &
+sleep 5
+echo "[✓] XFCE desktop started"
+
+# Start code-server
+if [ "${ENABLE_CODESERVER:-true}" = "true" ]; then
+CODE_CONFIG="$USER_HOME/.config/code-server/config.yaml"
+mkdir -p "$(dirname "$CODE_CONFIG")"
+cat <<CODE_CONFIG_EOF > "$CODE_CONFIG"
+bind-addr: 0.0.0.0:8080
+auth: password
+password: ${VNC_PASSWORD}
+cert: false
+CODE_CONFIG_EOF
+chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/.config"
+
+sudo -u "$USER_NAME" -H bash -c "nohup code-server --config $CODE_CONFIG --disable-telemetry --disable-update-check > $USER_HOME/.code-server.log 2>&1 &"
+sleep 2
+
+if pgrep -u "$USER_NAME" -f code-server > /dev/null; then
+    echo "[✓] Code-server started on port 8080"
+else
+    echo "[!] Code-server failed to start"
+fi
+else
+    echo "[*] Code-server disabled — skipping"
 fi
 
 echo "[✓] User configuration complete"

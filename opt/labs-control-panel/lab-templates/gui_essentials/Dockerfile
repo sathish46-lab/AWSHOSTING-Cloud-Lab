@@ -3,18 +3,28 @@ USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# 1. Base dependencies
-RUN apt-get update && apt-get install -y \
-    net-tools procps curl wget ca-certificates \
-    apache2 openssh-server build-essential nano htop vim \
-    software-properties-common python3-dev stress iputils-ping \
-    speedtest-cli sudo apt-utils \
-    wireguard-tools iproute2 mysql-client \
-    php php-mysql libapache2-mod-php && \
-    update-ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+# 1. Fix corrupted GPG keyring — keep insecure until all apt installs done
+RUN rm -f /etc/dpkg/dpkg.cfg.d/excludes && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm -f /etc/apt/sources.list.d/* && \
+    echo 'Acquire::AllowInsecureRepositories "true";' > /etc/apt/apt.conf.d/99insecure
 
-# 2. STABLE CODE-SERVER INSTALL (v4.95.3)
+# 2. All apt installs — use /tmp for apt cache (KasmVNC base has tiny /var/cache)
+RUN rm -rf /var/lib/apt/lists/* && \
+    apt-get update -o Acquire::AllowInsecureRepositories=true && \
+    apt-get install -y --allow-unauthenticated --no-install-recommends \
+    -o Dir::Cache::Archives=/tmp \
+    ca-certificates sudo net-tools procps curl wget \
+    openssh-server nano htop vim \
+    build-essential python3-dev \
+    iputils-ping wireguard-tools iproute2 \
+    apache2 php libapache2-mod-php php-mysql && \
+    rm -rf /var/lib/apt/lists/* /tmp/*.deb
+
+# 3. Remove insecure config now that packages are installed
+RUN rm -f /etc/apt/apt.conf.d/99insecure
+
+# 4. CODE-SERVER INSTALL (v4.95.3)
 RUN STABLE_VER="4.95.3" && \
     ARCH=$(dpkg --print-architecture) && \
     wget -O code-server.deb \
@@ -46,17 +56,20 @@ RUN sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config &&
     sed -i 's/^#\?ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config && \
     sed -i 's/^#\?UsePAM.*/UsePAM yes/' /etc/ssh/sshd_config
 
-# KasmVNC: Remove -sslOnly so Traefik can connect via HTTP
-RUN sed -i 's/-sslOnly//g' /dockerstartup/vnc_startup.sh && \
-    sed -i 's/require_ssl.*true/require_ssl: false/g' /etc/kasmvnc/kasmvnc.yaml 2>/dev/null; \
-    echo 'network:\n  ssl:\n    pem_certificate: ${HOME}/.vnc/self.pem\n    pem_key: ${HOME}/.vnc/self.pem\n    require_ssl: false\n  udp:\n    public_ip: 127.0.0.1' > /etc/kasmvnc/kasmvnc.yaml
+# KasmVNC config
+RUN printf 'network:\n  ssl:\n    pem_certificate: ${HOME}/.vnc/self.pem\n    pem_key: ${HOME}/.vnc/self.pem\n    require_ssl: false\n  udp:\n    public_ip: 127.0.0.1\n' > /etc/kasmvnc/kasmvnc.yaml
 
 RUN if [ -f /etc/apache2/mods-enabled/dir.conf ]; then \
     sed -ri 's/index.html index.cgi index.pl index.php index.xhtml index.htm/index.php index.cgi index.pl index.html index.xhtml index.htm/g' /etc/apache2/mods-enabled/dir.conf; \
     fi
 
 RUN systemctl enable ssh
-RUN mkdir -p /var/labsstorage /var/run/sshd /root/.ssh
+RUN mkdir -p /var/labsstorage /var/run/sshd /root/.ssh /root/.vnc
+
+# Generate self-signed SSL cert for KasmVNC
+RUN openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+    -keyout /root/.vnc/self.pem -out /root/.vnc/self.pem \
+    -subj "/CN=localhost" 2>/dev/null
 
 WORKDIR /root
 COPY ./Data /var/labsdata
@@ -80,7 +93,7 @@ RUN echo 'export PS1="\\[\\033[01;32m\\]\\u@\\h\\[\\033[00m\\]:\\[\\033[01;34m\\
 ENV HOME=/root
 ENV USER=root
 
-EXPOSE 22 8080 6901
+EXPOSE 22 8080 8444
 
 RUN chmod +x /var/labsdata/scripts/entry.sh
-CMD ["/var/labsdata/scripts/entry.sh"]
+ENTRYPOINT ["/var/labsdata/scripts/entry.sh"]

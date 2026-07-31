@@ -16,6 +16,7 @@ namespace TomLabs\Labs;
  *   always_on       — Keep instance running permanently (no auto-expire)
  *   http_proxies    — Reverse-proxy ports to custom domains over HTTP
  *   startup_script  — Run a custom init.sh on every (re)deploy
+ *   vnc_password    — Show VNC Password field in Preferences (gui_essentials)
  */
 class LabFeatures {
 
@@ -26,7 +27,8 @@ class LabFeatures {
         'essentials' => ['always_on', 'http_proxies', 'startup_script', 'expose_web'],
         'minio'      => ['always_on', 'startup_script'],
         'n8n'        => ['always_on', 'startup_script'],
-        'docker_lab' => ['always_on', 'startup_script']
+        'docker_lab' => ['always_on', 'startup_script'],
+        'gui_essentials' => ['always_on', 'startup_script', 'vnc_password']
     ];
 
     private const FALLBACK_DEFAULT = ['always_on'];

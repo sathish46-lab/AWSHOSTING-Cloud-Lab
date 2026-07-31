@@ -24,7 +24,7 @@ $inst = $db->machine_labs->findOne(
 );
 if ($inst) {
     $labData = $inst['deploy'] ?? [];
-    $labData['lab_type'] = $inst['lab_type'] ?? 'essentials';
+    $labData['lab_type'] = $labData['lab_type'] ?? $inst['lab_type'] ?? 'essentials';
     $labData['lab_name'] = $inst['lab_name'] ?? '';
     $labData['user_id'] = $inst['user_id'] ?? null;
 } else {
@@ -103,8 +103,29 @@ ob_start();
                     </div>
                 </div>
 
+                <div id="gui_domain_wrapper" class="row mb-3 align-items-center" style="display:none;">
+                    <label class="col-sm-4 small fw-bold text-secondary">Domain for VNC GUI</label>
+                    <div class="col-sm-8">
+                        <select id="gui_domain_selector" class="form-select bg-transparent border-secondary border-opacity-25 shadow-none rounded-pill px-3 text-white" onchange="updateDomainAvailability()">
+                            <?php 
+                                $currentGuiDomain = $labData['gui_domain'] ?? ("gui-{$fullHash}.tomweb.shop");
+                                $isGuiDefault = ($currentGuiDomain === ("gui-{$fullHash}.tomweb.shop"));
+                            ?>
+                            <option value="gui-<?= htmlspecialchars($fullHash) ?>.tomweb.shop" <?= $isGuiDefault ? 'selected' : '' ?>>
+                                gui-<?= htmlspecialchars($fullHash) ?>.tomweb.shop
+                            </option>
+                            <?php foreach($userDomainsList as $d): ?>
+                                <?php $isSelectedGui = ($currentGuiDomain === $d['domain']); ?>
+                                <option value="<?= htmlspecialchars($d['domain']) ?>" <?= $isSelectedGui ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($d['domain']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
                 <?php $isExposed = (isset($labData['expose_web']) && $labData['expose_web'] === true); ?>
-                <?php if (\TomLabs\Labs\LabFeatures::supports($labType, 'expose_web')): ?>
+                <?php if (\TomLabs\Labs\LabFeatures::supports($labType, 'expose_web') && $labType !== 'gui_essentials'): ?>
                 
                 <p class="mb-2 mt-3 modal-section-title">PUBLIC EXPOSURE</p>
 
@@ -233,7 +254,7 @@ ob_start();
                 </div>
 
                 <!-- HTTP Proxies -->
-                <?php if (\TomLabs\Labs\LabFeatures::supports($labType, 'http_proxies')): ?>
+                <?php if (\TomLabs\Labs\LabFeatures::supports($labType, 'http_proxies') && $labType !== 'gui_essentials'): ?>
                 <div id="http_proxies_wrapper">
                     <p class="mb-2 mt-3 modal-section-title">HTTP PROXIES</p>
                     <div class="form-text small opacity-50 mb-3 px-1">Reverse-proxy any port to one or more of your domains over HTTP.</div>
