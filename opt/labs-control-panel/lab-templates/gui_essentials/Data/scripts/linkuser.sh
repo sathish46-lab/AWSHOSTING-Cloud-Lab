@@ -5,6 +5,7 @@
 # $8=UserEmail, $9=N8nDomain, $10=VPSDockerIP, $11=SuPass, $12=VncPass
 
 set -e
+trap 'echo "[!] linkuser.sh failed at line $LINENO: $BASH_COMMAND"' ERR
 
 USER_NAME=$1
 PUB_KEYS=$2
