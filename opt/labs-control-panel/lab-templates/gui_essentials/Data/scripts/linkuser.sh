@@ -40,6 +40,10 @@ fi
 echo "$USER_NAME:$SYSTEM_PASS" | chpasswd
 echo "[✓] System password set"
 
+# ── 1b. Cleanup KasmVNC defaults ──────────────────────────────
+rm -rf /home/kasm-user /home/kasm-default-profile 2>/dev/null || true
+echo "[✓] Cleaned up KasmVNC default directories"
+
 # ── 2. SSH Keys ───────────────────────────────────────────────
 USER_HOME="/home/$USER_NAME"
 mkdir -p "$USER_HOME/.ssh"
