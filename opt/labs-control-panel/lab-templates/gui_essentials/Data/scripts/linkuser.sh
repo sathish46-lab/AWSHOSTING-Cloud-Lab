@@ -239,6 +239,33 @@ chown -R kasm-user:kasm-user /home/kasm-user/.kasmpasswd 2>/dev/null || true
 chmod 600 /home/kasm-user/.kasmpasswd 2>/dev/null || true
 echo "[✓] KasmVNC password configured"
 
+# Configure KasmVNC desktop to auto-login as lab user
+echo "[*] Configuring KasmVNC desktop for $USER_NAME..."
+
+# Set environment so terminals and desktop use the lab user's home
+cat <<ENVEOF > /etc/profile.d/kasm-user.sh
+export HOME=/home/$USER_NAME
+export USER=$USER_NAME
+cd /home/$USER_NAME 2>/dev/null || true
+ENVEOF
+chmod +x /etc/profile.d/kasm-user.sh
+
+# Also set in kasm-user's profile
+cat <<BASHRC_EOF > /home/kasm-user/.bashrc
+export HOME=/home/$USER_NAME
+export USER=$USER_NAME
+export DISPLAY=:1
+export TERM=xterm-256color
+cd /home/$USER_NAME 2>/dev/null || true
+BASHRC_EOF
+chown kasm-user:kasm-user /home/kasm-user/.bashrc
+
+# Set root's HOME too so terminal inherits
+echo "export HOME=/home/$USER_NAME" >> /root/.bashrc
+echo "cd /home/$USER_NAME" >> /root/.bashrc
+
+echo "[✓] Desktop configured for $USER_NAME"
+
 if pgrep -u "$USER_NAME" -f kasmvncserver > /dev/null || pgrep -u "$USER_NAME" -f Xvnc > /dev/null; then
     echo "[✓] KasmVNC started on port 6901 (web client)"
 else
