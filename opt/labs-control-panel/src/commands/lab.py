@@ -631,7 +631,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
             services += f"    {service_key}:\n"
             services += f"      loadBalancer:\n"
             services += f"        servers: [{{url: \"http://{docker_ip}:{port}\"}}]\n"
-            # WebSocket support for code-server and gui (noVNC)
+            # WebSocket support for code-server and gui (KasmVNC)
             if svc_name in ("code", "gui"):
                 services += f"        passHostHeader: true\n"
                 if svc_name == "code":
