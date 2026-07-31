@@ -1,5 +1,5 @@
 #!/bin/bash
-# linkuser.sh — Full user setup for GUI Essentials: password, SSH, WireGuard, storage, code-server, VNC
+# linkuser.sh — Full user setup for GUI Essentials: password, SSH, WireGuard, storage, code-server, KasmVNC
 # $1=Username, $2=PublicKeys, $3=DockerIP, $4=CodePassword
 # $5=LabPrivateKey, $6=TunnelIP, $7=ServerPublicKey
 # $8=UserEmail, $9=N8nDomain, $10=VPSDockerIP, $11=SuPass, $12=VncPass
@@ -28,9 +28,9 @@ echo "[*] Tunnel IP: $TUNNEL_IP"
 # ── 1. User Setup ─────────────────────────────────────────────
 if ! id "$USER_NAME" &>/dev/null; then
     if id -u ubuntu >/dev/null 2>&1; then userdel -r ubuntu || true; fi
+    if id -u kasm-user >/dev/null 2>&1; then userdel -r kasm-user || true; fi
     useradd -m -s /bin/bash -u 1000 "$USER_NAME" 2>/dev/null || useradd -m -s /bin/bash "$USER_NAME"
     usermod -aG sudo "$USER_NAME"
-    # Add to video group for VNC
     usermod -aG video "$USER_NAME"
     echo "[*] User $USER_NAME created"
 else
@@ -48,8 +48,14 @@ chmod 700 "$USER_HOME/.ssh"
 chmod 600 "$USER_HOME/.ssh/authorized_keys"
 chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME"
 
+echo "[*] Regenerating SSH host keys..."
+rm -f /etc/ssh/ssh_host_*
+yes | ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q
+yes | ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N "" -q
+yes | ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q
+
 sed -i 's/^#\?StrictModes .*/StrictModes no/' /etc/ssh/sshd_config
-service ssh restart || systemctl restart ssh || /etc/init.d/ssh restart || true
+service ssh restart 2>/dev/null || /etc/init.d/ssh restart 2>/dev/null || true
 echo "[✓] SSH configured and restarted"
 
 # ── 3. Bash Configuration ─────────────────────────────────────
@@ -92,7 +98,7 @@ EOF
 
     chmod 600 /etc/wireguard/wg0.conf
 
-    wg-quick down wg0 2>/dev/null || true
+    ip link delete dev wg0 2>/dev/null || true
     sleep 1
     wg-quick up wg0
 
@@ -217,56 +223,49 @@ else
     echo "[!] Code-server failed to start"
 fi
 
-# ── 7. VNC Server Setup ───────────────────────────────────────
-echo "[*] Setting up VNC Server..."
-pkill -9 -u "$USER_NAME" -f vncserver 2>/dev/null || true
+# ── 7. KasmVNC Server Setup ──────────────────────────────────
+echo "[*] Setting up KasmVNC..."
+pkill -9 -u "$USER_NAME" -f kasmvncserver 2>/dev/null || true
 pkill -9 -u "$USER_NAME" -f Xvnc 2>/dev/null || true
 sleep 1
 
-# Create VNC password file
-VNC_DIR="$USER_HOME/.vnc"
+# Set VNC password for KasmVNC
+VNC_DIR="$USER_HOME/.kasmvnc"
 mkdir -p "$VNC_DIR"
 echo "$VNC_PASSWORD" | vncpasswd -f > "$VNC_DIR/passwd"
 chmod 600 "$VNC_DIR/passwd"
 chown -R "$USER_NAME":"$USER_NAME" "$VNC_DIR"
 
-# Create xstartup for XFCE4
-cat <<XSTARTUP > "$VNC_DIR/xstartup"
-#!/bin/bash
-export USER=$USER_NAME
-export HOME=$USER_HOME
-export DISPLAY=:1
-export XDG_SESSION_DESKTOP=XFCE
-export XDG_CURRENT_DESKTOP=XFCE
-export XDG_SESSION_TYPE=x11
-export XDG_RUNTIME_DIR=/tmp/runtime-$USER_NAME
-mkdir -p \$XDG_RUNTIME_DIR
-chmod 700 \$XDG_RUNTIME_DIR
-dbus-launch --exit-with-session startxfce4 &
-XSTARTUP
+# Create KasmVNC config
+cat <<KASM_CONFIG > "$VNC_DIR/kasmvnc.yaml"
+port: 5900
+websocket_port: 6901
+allow_blank_password: false
+allow_nolisten: true
+allow_shutdown: true
+session:
+  type: xfce
+  resolution:
+    width: 1280
+    height: 720
+    density: 96
+KASM_CONFIG
 
-chmod +x "$VNC_DIR/xstartup"
-chown "$USER_NAME":"$USER_NAME" "$VNC_DIR/xstartup"
+chmod 644 "$VNC_DIR/kasmvnc.yaml"
+chown "$USER_NAME":"$USER_NAME" "$VNC_DIR/kasmvnc.yaml"
 
-# Start VNC server on display :1 (port 5901)
-sudo -u "$USER_NAME" -H bash -c "vncserver :1 -geometry 1280x720 -depth 16 -localhost no" 2>/dev/null || true
-sleep 2
+# Start KasmVNC server
+sudo -u "$USER_NAME" -H bash -c "nohup kasmvncserver \
+    -geometry 1280x720 \
+    -depth 16 \
+    > $USER_HOME/.kasmvnc.log 2>&1 &"
+sleep 3
 
-if pgrep -u "$USER_NAME" -f Xvnc > /dev/null; then
-    echo "[✓] VNC server started on display :1 (port 5901)"
+if pgrep -u "$USER_NAME" -f kasmvncserver > /dev/null || pgrep -u "$USER_NAME" -f Xvnc > /dev/null; then
+    echo "[✓] KasmVNC started on port 6901 (web client)"
 else
-    echo "[!] VNC server failed to start"
-fi
-
-# Start noVNC (web-based access on port 6080)
-echo "[*] Starting noVNC web client..."
-nohup websockify --web=/usr/share/novnc 6080 localhost:5901 > /tmp/novnc.log 2>&1 &
-sleep 2
-
-if pgrep -f websockify > /dev/null; then
-    echo "[✓] noVNC started on port 6080"
-else
-    echo "[!] noVNC failed to start"
+    echo "[!] KasmVNC failed to start"
+    cat "$USER_HOME/.kasmvnc.log" 2>/dev/null || true
 fi
 
 echo "[✓] User configuration complete"

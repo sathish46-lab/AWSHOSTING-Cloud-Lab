@@ -21,7 +21,7 @@
   },
   "services": {
     "code": { "port": 8080, "middlewares": ["code-headers@file"] },
-    "gui":  { "port": 6080 },
+    "gui":  { "port": 6901 },
     "web":  { "port": 80 }
   },
   "credentials_template": {

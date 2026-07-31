@@ -1,10 +1,7 @@
-FROM ubuntu:22.04
-ENV DEBIAN_FRONTEND=noninteractive
+FROM kasmweb/core-ubuntu-jammy:1.15.0
+USER root
 
-RUN rm /etc/dpkg/dpkg.cfg.d/excludes
-RUN apt-get update && \ 
-    dpkg -l | grep ^ii | cut -d' ' -f3 | xargs apt-get install -y --reinstall && \
-    rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
 
 # 1. Base dependencies
 RUN apt-get update && apt-get install -y \
@@ -13,23 +10,11 @@ RUN apt-get update && apt-get install -y \
     software-properties-common python3-dev stress iputils-ping \
     speedtest-cli sudo apt-utils \
     wireguard-tools iproute2 mysql-client \
-    php php-mysql libapache2-mod-php dbus-x11 && \
+    php php-mysql libapache2-mod-php && \
     update-ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# 2. XFCE4 Desktop Environment (lightweight)
-RUN apt-get update && apt-get install -y \
-    xfce4 xfce4-goodies xfce4-terminal \
-    thunar file-roller xterm && \
-    rm -rf /var/lib/apt/lists/*
-
-# 3. TigerVNC Server + noVNC (web-based access)
-RUN apt-get update && apt-get install -y \
-    tigervnc-standalone-server tigervnc-common \
-    novnc websockify xfonts-base xfonts-100dpi xfonts-75dpi && \
-    rm -rf /var/lib/apt/lists/*
-
-# 4. STABLE CODE-SERVER INSTALL (v4.95.3)
+# 2. STABLE CODE-SERVER INSTALL (v4.95.3)
 RUN STABLE_VER="4.95.3" && \
     ARCH=$(dpkg --print-architecture) && \
     wget -O code-server.deb \
@@ -44,13 +29,14 @@ RUN LOGIN_PAGE=$(find /usr/lib/code-server -name "login.html" | head -n 1) && \
         CUSTOM_MSG="With great power, comes great responsibility. Check your lab dashboard for the password. Happy Learning" && \
         sed -i "s|{{I18N_LOGIN_BELOW}} {{PASSWORD_MSG}}|$CUSTOM_MSG|g" "$LOGIN_PAGE"; \
     fi
-    
+
 COPY ./Data/welcome.html /var/www/html/index.html
 RUN chown -R www-data:www-data /var/www/html && chmod 644 /var/www/html/index.html
 RUN mkdir -p /etc/apache2/sites-available /var/www/html
 
 # Enable color prompt
 RUN sed -i 's/#force_color_prompt=yes/force_color_prompt=yes/' /etc/skel/.bashrc
+RUN sed -i 's/#force_color_prompt=yes/force_color_prompt=yes/' /home/kasm-user/.bashrc 2>/dev/null || true
 
 # SSH Hardening: Key-only access
 RUN sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config && \
@@ -59,7 +45,7 @@ RUN sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config &&
     sed -i 's/^#\?KbdInteractiveAuthentication.*/KbdInteractiveAuthentication no/' /etc/ssh/sshd_config && \
     sed -i 's/^#\?ChallengeResponseAuthentication.*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config && \
     sed -i 's/^#\?UsePAM.*/UsePAM yes/' /etc/ssh/sshd_config
-    
+
 RUN if [ -f /etc/apache2/mods-enabled/dir.conf ]; then \
     sed -ri 's/index.html index.cgi index.pl index.php index.xhtml index.htm/index.php index.cgi index.pl index.html index.xhtml index.htm/g' /etc/apache2/mods-enabled/dir.conf; \
     fi
@@ -82,8 +68,7 @@ RUN chmod +x /var/labsdata/scripts/* && \
 RUN cp /var/labsdata/ssh_host_keys/* /etc/ssh/ 2>/dev/null || true && \
     chmod 600 /etc/ssh/ssh_host* 2>/dev/null || true
 
-EXPOSE 22 8080 6080 5901
-RUN update-rc.d dbus defaults
+EXPOSE 22 8080 6901
 
 RUN chmod +x /var/labsdata/scripts/entry.sh
 CMD ["/var/labsdata/scripts/entry.sh"]
