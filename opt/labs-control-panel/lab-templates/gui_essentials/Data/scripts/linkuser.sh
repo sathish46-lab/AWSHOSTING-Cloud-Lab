@@ -27,8 +27,9 @@ echo "[*] Tunnel IP: $TUNNEL_IP"
 
 # ── 1. User Setup ─────────────────────────────────────────────
 if ! id "$USER_NAME" &>/dev/null; then
+    rm -rf /home/kasm-user /home/kasm-default-profile 2>/dev/null || true
     if id -u ubuntu >/dev/null 2>&1; then userdel -r ubuntu || true; fi
-    if id -u kasm-user >/dev/null 2>&1; then userdel -r kasm-user || true; fi
+    if id -u kasm-user >/dev/null 2>&1; then userdel kasm-user || true; fi
     useradd -m -s /bin/bash -u 1000 "$USER_NAME" 2>/dev/null || useradd -m -s /bin/bash "$USER_NAME"
     usermod -aG sudo "$USER_NAME"
     usermod -aG video "$USER_NAME"
