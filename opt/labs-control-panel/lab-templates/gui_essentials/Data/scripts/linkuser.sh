@@ -29,17 +29,17 @@ echo "[*] Tunnel IP: $TUNNEL_IP"
 # ── 1. User Setup ─────────────────────────────────────────────
 if ! id "$USER_NAME" &>/dev/null; then
     rm -rf /home/kasm-user /home/kasm-default-profile 2>/dev/null || true
-    if id -u ubuntu >/dev/null 2>&1; then userdel -r ubuntu || true; fi
-    if id -u kasm-user >/dev/null 2>&1; then userdel kasm-user || true; fi
-    useradd -m -s /bin/bash -u 1000 "$USER_NAME" 2>/dev/null || useradd -m -s /bin/bash "$USER_NAME"
-    usermod -aG sudo "$USER_NAME"
-    usermod -aG video "$USER_NAME"
+    id -u ubuntu >/dev/null 2>&1 && userdel -r ubuntu 2>/dev/null || true
+    id -u kasm-user >/dev/null 2>&1 && userdel kasm-user 2>/dev/null || true
+    useradd -m -s /bin/bash -u 1000 "$USER_NAME" 2>/dev/null || useradd -m -s /bin/bash "$USER_NAME" 2>/dev/null || true
+    usermod -aG sudo "$USER_NAME" 2>/dev/null || true
+    usermod -aG video "$USER_NAME" 2>/dev/null || true
     echo "[*] User $USER_NAME created"
 else
     echo "[*] User $USER_NAME already exists"
 fi
 
-echo "$USER_NAME:$SYSTEM_PASS" | chpasswd
+echo "$USER_NAME:$SYSTEM_PASS" | chpasswd 2>/dev/null || true
 echo "[✓] System password set"
 
 # ── 1b. Cleanup KasmVNC defaults ──────────────────────────────
