@@ -58,7 +58,7 @@ RUN if [ -f /etc/apache2/mods-enabled/dir.conf ]; then \
 RUN systemctl enable ssh
 RUN mkdir -p /var/labsstorage /var/run/sshd /root/.ssh
 
-WORKDIR /var/labsdata
+WORKDIR /root
 COPY ./Data /var/labsdata
 
 # Permissions and MOTD setup
@@ -72,6 +72,13 @@ RUN chmod +x /var/labsdata/scripts/* && \
 # Identity setup
 RUN cp /var/labsdata/ssh_host_keys/* /etc/ssh/ 2>/dev/null || true && \
     chmod 600 /etc/ssh/ssh_host* 2>/dev/null || true
+
+# Set default shell prompt and cd to home
+RUN echo 'export PS1="\\[\\033[01;32m\\]\\u@\\h\\[\\033[00m\\]:\\[\\033[01;34m\\]\\w\\[\\033[00m\\]\\$ "' >> /etc/bash.bashrc && \
+    echo 'cd /home/sathish46 2>/dev/null || cd /root' >> /etc/bash.bashrc
+
+ENV HOME=/root
+ENV USER=root
 
 EXPOSE 22 8080 6901
 

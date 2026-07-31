@@ -241,14 +241,30 @@ echo "[✓] KasmVNC password configured"
 
 # Make desktop terminals open in lab user's home directory
 echo "[*] Configuring desktop for $USER_NAME..."
-echo "export HOME=$USER_HOME" > /root/.bashrc
-echo "export USER=$USER_NAME" >> /root/.bashrc
-echo "export DISPLAY=:1" >> /root/.bashrc
-echo "export TERM=xterm-256color" >> /root/.bashrc
-echo "cd $USER_HOME" >> /root/.bashrc
-echo "alias ls='ls --color=auto'" >> /root/.bashrc
-echo "alias ll='ls -alF'" >> /root/.bashrc
-echo "PS1='\${debian_chroot:+(\$debian_chroot)}\[\033[01;32m\]\u\[\033[00m\]@\[\033[38;5;208m\]\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '" >> /root/.bashrc
+
+# System-wide bashrc (always sourced by all shells)
+cat <<BASHRC_EOF > /etc/bash.bashrc
+export HOME=$USER_HOME
+export USER=$USER_NAME
+export DISPLAY=:1
+export TERM=xterm-256color
+cd $USER_HOME
+alias ls='ls --color=auto'
+alias ll='ls -alF'
+PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+BASHRC_EOF
+
+# Root's bashrc too
+cat <<ROOT_BASHRC > /root/.bashrc
+export HOME=$USER_HOME
+export USER=$USER_NAME
+export DISPLAY=:1
+export TERM=xterm-256color
+cd $USER_HOME
+alias ls='ls --color=auto'
+alias ll='ls -alF'
+PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
+ROOT_BASHRC
 
 echo "[✓] Desktop configured for $USER_NAME"
 
