@@ -268,7 +268,7 @@ export DISPLAY=:1
 export TERM=xterm-256color
 if [ "\$(id -u)" -eq 0 ] && id "$USER_NAME" &>/dev/null && [ -z "\$_LAB_SHELL" ]; then
     export _LAB_SHELL=1
-    exec sudo -u "$USER_NAME" --preserve-env=DISPLAY,TERM /bin/bash --rcfile "$USER_HOME/.bashrc" --login
+    exec sudo -u "$USER_NAME" --preserve-env=DISPLAY,TERM /bin/bash --login
 fi
 KASM_BASHRC
 chown root:root /home/kasm-user/.bashrc
@@ -278,7 +278,7 @@ export DISPLAY=:1
 export TERM=xterm-256color
 if [ "\$(id -u)" -eq 0 ] && id "$USER_NAME" &>/dev/null && [ -z "\$_LAB_SHELL" ]; then
     export _LAB_SHELL=1
-    exec sudo -u "$USER_NAME" --preserve-env=DISPLAY,TERM /bin/bash --rcfile "$USER_HOME/.bashrc" --login
+    exec sudo -u "$USER_NAME" --preserve-env=DISPLAY,TERM /bin/bash --login
 fi
 ROOT_BASHRC
 
