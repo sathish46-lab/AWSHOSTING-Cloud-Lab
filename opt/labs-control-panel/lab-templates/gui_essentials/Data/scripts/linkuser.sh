@@ -54,12 +54,12 @@ chmod 600 "$USER_HOME/.ssh/authorized_keys"
 chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME"
 
 echo "[*] Regenerating SSH host keys..."
-rm -f /etc/ssh/ssh_host_*
-yes | ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q
-yes | ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N "" -q
-yes | ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q
+rm -f /etc/ssh/ssh_host_* 2>/dev/null || true
+yes | ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q 2>/dev/null || true
+yes | ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N "" -q 2>/dev/null || true
+yes | ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q 2>/dev/null || true
 
-sed -i 's/^#\?StrictModes .*/StrictModes no/' /etc/ssh/sshd_config
+sed -i 's/^#\?StrictModes .*/StrictModes no/' /etc/ssh/sshd_config 2>/dev/null || true
 service ssh restart 2>/dev/null || /etc/init.d/ssh restart 2>/dev/null || true
 echo "[✓] SSH configured and restarted"
 
