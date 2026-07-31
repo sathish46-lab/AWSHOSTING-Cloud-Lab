@@ -239,30 +239,16 @@ chown -R kasm-user:kasm-user /home/kasm-user/.kasmpasswd 2>/dev/null || true
 chmod 600 /home/kasm-user/.kasmpasswd 2>/dev/null || true
 echo "[✓] KasmVNC password configured"
 
-# Configure KasmVNC desktop to auto-login as lab user
-echo "[*] Configuring KasmVNC desktop for $USER_NAME..."
-
-# Set environment so terminals and desktop use the lab user's home
-cat <<ENVEOF > /etc/profile.d/kasm-user.sh
-export HOME=/home/$USER_NAME
-export USER=$USER_NAME
-cd /home/$USER_NAME 2>/dev/null || true
-ENVEOF
-chmod +x /etc/profile.d/kasm-user.sh
-
-# Also set in kasm-user's profile
-cat <<BASHRC_EOF > /home/kasm-user/.bashrc
-export HOME=/home/$USER_NAME
-export USER=$USER_NAME
-export DISPLAY=:1
-export TERM=xterm-256color
-cd /home/$USER_NAME 2>/dev/null || true
-BASHRC_EOF
-chown kasm-user:kasm-user /home/kasm-user/.bashrc
-
-# Set root's HOME too so terminal inherits
-echo "export HOME=/home/$USER_NAME" >> /root/.bashrc
-echo "cd /home/$USER_NAME" >> /root/.bashrc
+# Make desktop terminals open in lab user's home directory
+echo "[*] Configuring desktop for $USER_NAME..."
+echo "export HOME=$USER_HOME" > /root/.bashrc
+echo "export USER=$USER_NAME" >> /root/.bashrc
+echo "export DISPLAY=:1" >> /root/.bashrc
+echo "export TERM=xterm-256color" >> /root/.bashrc
+echo "cd $USER_HOME" >> /root/.bashrc
+echo "alias ls='ls --color=auto'" >> /root/.bashrc
+echo "alias ll='ls -alF'" >> /root/.bashrc
+echo "PS1='\${debian_chroot:+(\$debian_chroot)}\[\033[01;32m\]\u\[\033[00m\]@\[\033[38;5;208m\]\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '" >> /root/.bashrc
 
 echo "[✓] Desktop configured for $USER_NAME"
 
