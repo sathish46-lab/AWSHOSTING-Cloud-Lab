@@ -242,48 +242,47 @@ echo "[✓] KasmVNC password configured"
 # Make desktop terminals open in lab user's home directory
 echo "[*] Configuring desktop for $USER_NAME..."
 
-# System-wide bashrc (always sourced by all shells including KasmVNC terminal)
-# KasmVNC desktop runs as root with HOME=/home/kasm-user
-cat <<BASHRC_EOF > /etc/bash.bashrc
-export HOME=$USER_HOME
-export USER=$USER_NAME
-export LOGNAME=$USER_NAME
-export DISPLAY=:1
-export TERM=xterm-256color
-cd $USER_HOME 2>/dev/null || cd /root
-alias ls='ls --color=auto'
-alias ll='ls -alF'
-PS1='$USER_NAME@\h:\w\$ '
+# ── KasmVNC User Switching ────────────────────────────────────
+# KasmVNC desktop runs as root. We exec into the lab user so whoami returns correctly.
+# The user's own bashrc at /home/$USER_NAME/.bashrc does NOT have exec (no loop).
+
+# System-wide bashrc — auto-switch to lab user
+cat <<'BASHRC_EOF' > /etc/bash.bashrc
 BASHRC_EOF
 
-# Root's bashrc
-cat <<ROOT_BASHRC > /root/.bashrc
-export HOME=$USER_HOME
-export USER=$USER_NAME
-export LOGNAME=$USER_NAME
-export DISPLAY=:1
+# User's own bashrc (read after exec switch — no exec here)
+cat <<USER_BASHRC > "$USER_HOME/.bashrc"
+export force_color_prompt=yes
 export TERM=xterm-256color
-cd $USER_HOME 2>/dev/null || cd /root
+export DISPLAY=:1
+PS1='${debian_chroot:+($debian_chroot)}\[\033[01;32m\]\u\[\033[00m\]@\[\033[38;5;208m\]\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '
 alias ls='ls --color=auto'
 alias ll='ls -alF'
-PS1='$USER_NAME@\h:\w\$ '
+export PATH="$HOME/.local/bin:$PATH"
+USER_BASHRC
+chown "$USER_NAME":"$USER_NAME" "$USER_HOME/.bashrc"
+
+# KasmVNC root bashrc — exec into the lab user
+cat <<KASM_BASHRC > /home/kasm-user/.bashrc
+export DISPLAY=:1
+export TERM=xterm-256color
+if [ "\$(id -u)" -eq 0 ] && id "$USER_NAME" &>/dev/null && [ -z "\$_LAB_SHELL" ]; then
+    export _LAB_SHELL=1
+    exec sudo -u "$USER_NAME" --preserve-env=DISPLAY,TERM /bin/bash --rcfile "$USER_HOME/.bashrc" --login
+fi
+KASM_BASHRC
+chown root:root /home/kasm-user/.bashrc
+
+cat <<ROOT_BASHRC > /root/.bashrc
+export DISPLAY=:1
+export TERM=xterm-256color
+if [ "\$(id -u)" -eq 0 ] && id "$USER_NAME" &>/dev/null && [ -z "\$_LAB_SHELL" ]; then
+    export _LAB_SHELL=1
+    exec sudo -u "$USER_NAME" --preserve-env=DISPLAY,TERM /bin/bash --rcfile "$USER_HOME/.bashrc" --login
+fi
 ROOT_BASHRC
 
-# KasmVNC desktop .bashrc — this is what the terminal actually reads
-cat <<KASM_BASHRC > /home/kasm-user/.bashrc
-export HOME=$USER_HOME
-export USER=$USER_NAME
-export LOGNAME=$USER_NAME
-export DISPLAY=:1
-export TERM=xterm-256color
-cd $USER_HOME 2>/dev/null || cd /root
-alias ls='ls --color=auto'
-alias ll='ls -alF'
-PS1='$USER_NAME@\h:\w\$ '
-KASM_BASHRC
-chown kasm-user:kasm-user /home/kasm-user/.bashrc 2>/dev/null || true
-
-echo "[✓] Desktop configured for $USER_NAME"
+echo "[✓] Desktop configured for $USER_NAME (auto-switch enabled)"
 
 if pgrep -u "$USER_NAME" -f kasmvncserver > /dev/null || pgrep -u "$USER_NAME" -f Xvnc > /dev/null; then
     echo "[✓] KasmVNC started on port 6901 (web client)"
