@@ -20559,18 +20559,22 @@ async function executeRedeploy(labType) {
   );
 
   // 1. Collect form data
-  const vscDomain = document.getElementById("vsc_domain_selector").value;
+  const cfg = getLabFieldConfig(type);
+  const vscEl = document.getElementById("vsc_domain_selector");
+  const guiEl = document.getElementById("gui_domain_selector");
+  const vscDomain = (cfg.vsc !== 'none' && vscEl) ? vscEl.value : "";
+  const guiDomain = (cfg.gui !== 'none' && guiEl) ? guiEl.value : "";
   const exposeToggleEl = document.getElementById("expose_web_toggle");
   const exposeWeb = exposeToggleEl ? exposeToggleEl.value : "false";
   const checkedDomains = modalEl.querySelectorAll(".domain-selector:checked");
   const domains = Array.from(checkedDomains).map((cb) => cb.value);
 
-  // Collect lab-specific domain fields (config-driven)
+  // Collect lab-specific domain fields (config-driven, only visible)
   const labFields = getLabFormFields(type);
   const labFormData = {};
   labFields.forEach(fieldId => {
     const el = document.getElementById(fieldId);
-    if (el) labFormData[fieldId] = el.value;
+    if (el && el.offsetParent !== null) labFormData[fieldId] = el.value;
   });
 
   // Collect proxy inputs if present
