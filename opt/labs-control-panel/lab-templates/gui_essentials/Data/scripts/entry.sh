@@ -58,6 +58,7 @@ if ! pgrep -f Xvnc > /dev/null 2>&1; then
         -websocketPort 8444 -httpd /usr/share/kasmvnc/www \
         -interface 0.0.0.0 -noxstartup -select-de xfce \
         -SecurityTypes None -KasmPasswordFile /root/.kasmpasswd \
+        -cert /root/.vnc/self.pem -key /root/.vnc/self.pem -sslOnly 1 \
         -auth /root/.Xauthority > /dev/null 2>&1 &
     sleep 2
     pgrep -f Xvnc > /dev/null && echo "[✓] KasmVNC started" || echo "[!] KasmVNC failed"

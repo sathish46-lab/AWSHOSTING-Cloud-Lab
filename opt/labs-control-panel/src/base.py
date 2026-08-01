@@ -248,9 +248,9 @@ class Base:
             if lab_type == "gui_essentials":
                 entry += f"    RewriteCond %{{HTTP_HOST}} ^gui-{instance_id}\\.tomweb\\.shop$ [NC]\n"
                 entry += f"    RewriteCond %{{HTTP:Upgrade}} =websocket [NC]\n"
-                entry += f"    RewriteRule ^/(.*)$ ws://{docker_ip}:8444/$1 [P,L]\n"
+                entry += f"    RewriteRule ^/(.*)$ wss://{docker_ip}:8444/$1 [P,L]\n"
                 entry += f"    RewriteCond %{{HTTP_HOST}} ^gui-{instance_id}\\.tomweb\\.shop$ [NC]\n"
-                entry += f"    RewriteRule ^/(.*)$ http://{docker_ip}:8444/$1 [P,L]\n"
+                entry += f"    RewriteRule ^/(.*)$ https://{docker_ip}:8444/$1 [P,L]\n"
 
             if self.CODE_ROUTE_START in content:
                 lines = content.split("\n")
