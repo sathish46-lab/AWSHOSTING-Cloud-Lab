@@ -25,12 +25,19 @@ service ssh start 2>/dev/null || true
 echo "[✓] SSH started"
 
 # ── 2. SSL cert ───────────────────────────────────────────────
-if [ ! -f /root/.vnc/self.pem ]; then
-    mkdir -p /root/.vnc
+# Generate in user's home for security (not root)
+LAB_USER=$(awk -F: '$3 >= 1000 && $3 < 65534 && $1 != "nobody" {print $1; exit}' /etc/passwd 2>/dev/null || echo "sathish46")
+USER_HOME=$(eval echo "~$LAB_USER")
+mkdir -p "$USER_HOME/.vnc"
+if [ ! -f "$USER_HOME/.vnc/self.pem" ]; then
     openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
-        -keyout /root/.vnc/self.pem -out /root/.vnc/self.pem \
+        -keyout "$USER_HOME/.vnc/self.pem" -out "$USER_HOME/.vnc/self.pem" \
         -subj "/CN=localhost" 2>/dev/null
+    chown -R "$LAB_USER:$LAB_USER" "$USER_HOME/.vnc"
 fi
+# Also keep in /root for backward compatibility
+mkdir -p /root/.vnc
+cp "$USER_HOME/.vnc/self.pem" /root/.vnc/self.pem 2>/dev/null || true
 
 # ── 3. Wait for deploy (linkuser.sh) then start services ──────
 # On first boot, linkuser.sh creates user + kasmpasswd + starts services
@@ -58,7 +65,7 @@ if ! pgrep -f Xvnc > /dev/null 2>&1; then
         -websocketPort 8444 -httpd /usr/share/kasmvnc/www \
         -interface 0.0.0.0 -noxstartup -select-de xfce \
         -SecurityTypes None -KasmPasswordFile /root/.kasmpasswd \
-        -cert /root/.vnc/self.pem -key /root/.vnc/self.pem -sslOnly 1 \
+        -cert "$USER_HOME/.vnc/self.pem" -key "$USER_HOME/.vnc/self.pem" -sslOnly 1 \
         -auth /root/.Xauthority > /dev/null 2>&1 &
     sleep 2
     pgrep -f Xvnc > /dev/null && echo "[✓] KasmVNC started" || echo "[!] KasmVNC failed"
