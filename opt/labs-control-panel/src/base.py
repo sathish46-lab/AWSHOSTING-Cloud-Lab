@@ -225,3 +225,39 @@ class Base:
                 self.log(f"Traefik config removed: {instance_id}", "success")
             except Exception as e:
                 self.log(f"Traefik remove failed: {e}", "warn")
+
+    # ── Apache code_server_map.txt ────────────────────────────────
+    CODE_SERVER_MAP = "/etc/apache2/code_server_map.txt"
+
+    def write_code_server_map(self, instance_id, docker_ip, prefix=""):
+        """Write hash → docker_ip mapping to Apache code_server_map.txt."""
+        key = f"{prefix}{instance_id}" if prefix else instance_id
+        entry = f"{key} {docker_ip}\n"
+        try:
+            lines = []
+            if os.path.exists(self.CODE_SERVER_MAP):
+                with open(self.CODE_SERVER_MAP, "r") as f:
+                    lines = f.readlines()
+            # Remove existing entry for this key
+            lines = [l for l in lines if not l.startswith(f"{key} ")]
+            lines.append(entry)
+            with open(self.CODE_SERVER_MAP, "w") as f:
+                f.writelines(lines)
+            self.log(f"code_server_map updated: {key} → {docker_ip}", "success")
+        except Exception as e:
+            self.log(f"code_server_map write failed: {e}", "error")
+
+    def remove_code_server_map(self, instance_id, prefix=""):
+        """Remove hash entry from Apache code_server_map.txt."""
+        key = f"{prefix}{instance_id}" if prefix else instance_id
+        try:
+            if not os.path.exists(self.CODE_SERVER_MAP):
+                return
+            with open(self.CODE_SERVER_MAP, "r") as f:
+                lines = f.readlines()
+            lines = [l for l in lines if not l.startswith(f"{key} ")]
+            with open(self.CODE_SERVER_MAP, "w") as f:
+                f.writelines(lines)
+            self.log(f"code_server_map entry removed: {key}", "success")
+        except Exception as e:
+            self.log(f"code_server_map remove failed: {e}", "error")
