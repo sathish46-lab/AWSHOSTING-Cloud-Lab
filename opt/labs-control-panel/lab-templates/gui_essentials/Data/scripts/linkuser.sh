@@ -319,6 +319,30 @@ sed -i "s|Exec=xfce4-file-manager|Exec=thunar $USER_HOME|" /usr/share/applicatio
 chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/.config/Thunar"
 echo "[✓] File manager configured to open in $USER_HOME"
 
+# ── 7d. Custom Wallpaper & Branding ──────────────────────────
+ASSETS_DIR="/opt/labs-control-panel/lab-templates/gui_essentials/Data/assets"
+if [ -d "$ASSETS_DIR" ] && [ "$(ls -A "$ASSETS_DIR" 2>/dev/null)" ]; then
+    mkdir -p "$USER_HOME/.config/wallpaper"
+    cp -r "$ASSETS_DIR"/* "$USER_HOME/.config/wallpaper/" 2>/dev/null || true
+    chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/.config/wallpaper"
+
+    # Set wallpaper if image exists
+    WALLPAPER=$(find "$USER_HOME/.config/wallpaper" -type f \( -name "*.png" -o -name "*.jpg" -o -name "*.jpeg" -o -name "*.svg" \) | head -1)
+    if [ -n "$WALLPAPER" ]; then
+        DISPLAY=:1 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/last-image -s "$WALLPAPER" 2>/dev/null || true
+        DISPLAY=:1 xfconf-query -c xfce4-desktop -p /backdrop/screen0/monitor0/workspace0/image-style -s 5 2>/dev/null || true
+        echo "[✓] Wallpaper set: $(basename "$WALLPAPER")"
+    fi
+
+    # Replace KasmVNC logo if custom logo exists
+    if [ -f "$USER_HOME/.config/wallpaper/kasm-logo.png" ]; then
+        cp "$USER_HOME/.config/wallpaper/kasm-logo.png" /usr/share/kasmvnc/www/images/kasm_logo.png 2>/dev/null || true
+        echo "[✓] KasmVNC logo replaced"
+    fi
+else
+    echo "[*] No custom assets found, using defaults"
+fi
+
 # ── 8. Start Services ─────────────────────────────────────────
 echo "[*] Starting services..."
 
