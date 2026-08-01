@@ -373,6 +373,12 @@ eval $(dbus-launch --sh-syntax)
 sleep 5
 echo "[✓] XFCE desktop started"
 
+# ── 8b. XFCE Desktop Layout ──────────────────────────────────
+XFCE_SETUP="/opt/labs-control-panel/lab-templates/gui_essentials/Data/scripts/xfce-desktop-setup.sh"
+if [ -f "$XFCE_SETUP" ]; then
+    bash "$XFCE_SETUP" "$USER_NAME" 2>/dev/null || echo "[!] XFCE layout setup skipped"
+fi
+
 # Start code-server
 if [ "${ENABLE_CODESERVER:-true}" = "true" ]; then
 CODE_CONFIG="$USER_HOME/.config/code-server/config.yaml"
