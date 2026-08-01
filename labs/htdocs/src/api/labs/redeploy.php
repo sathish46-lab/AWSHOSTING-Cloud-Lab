@@ -125,7 +125,7 @@ ob_start();
                 </div>
 
                 <?php $isExposed = (isset($labData['expose_web']) && $labData['expose_web'] === true); ?>
-                <?php if (\TomLabs\Labs\LabFeatures::supports($labType, 'expose_web') && $labType !== 'gui_essentials'): ?>
+                <?php if (\TomLabs\Labs\LabFeatures::supports($labType, 'expose_web')): ?>
                 
                 <p class="mb-2 mt-3 modal-section-title">PUBLIC EXPOSURE</p>
 
@@ -254,7 +254,7 @@ ob_start();
                 </div>
 
                 <!-- HTTP Proxies -->
-                <?php if (\TomLabs\Labs\LabFeatures::supports($labType, 'http_proxies') && $labType !== 'gui_essentials'): ?>
+                <?php if (\TomLabs\Labs\LabFeatures::supports($labType, 'http_proxies')): ?>
                 <div id="http_proxies_wrapper">
                     <p class="mb-2 mt-3 modal-section-title">HTTP PROXIES</p>
                     <div class="form-text small opacity-50 mb-3 px-1">Reverse-proxy any port to one or more of your domains over HTTP.</div>

@@ -20439,7 +20439,7 @@ const LabData = {
 const LAB_FIELD_CONFIG = {
   minio:   { minio: 'block', n8n: 'none', vsc: 'none', gui: 'none', expose: 'none', domainSel: 'none', proxies: 'none' },
   n8n:     { minio: 'none', n8n: 'block', vsc: 'none', gui: 'none', expose: 'none', domainSel: 'none', proxies: 'none' },
-  gui_essentials: { minio: 'none', n8n: 'none', vsc: 'flex', gui: 'flex', expose: 'none', domainSel: 'none', proxies: 'none' },
+  gui_essentials: { minio: 'none', n8n: 'none', vsc: 'none', gui: 'flex', expose: 'none', domainSel: 'none', proxies: 'none' },
   // default covers essentials, docker, kali, zephyr, etc.
   default: { minio: 'none', n8n: 'none', vsc: 'flex', gui: 'none', expose: 'flex', proxies: 'block' },
 };
