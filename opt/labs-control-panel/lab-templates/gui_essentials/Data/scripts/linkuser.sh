@@ -374,7 +374,7 @@ sleep 5
 echo "[✓] XFCE desktop started"
 
 # ── 8b. XFCE Desktop Layout ──────────────────────────────────
-XFCE_SETUP="/opt/labs-control-panel/lab-templates/gui_essentials/Data/scripts/xfce-desktop-setup.sh"
+XFCE_SETUP="/var/labsdata/scripts/xfce-desktop-setup.sh"
 if [ -f "$XFCE_SETUP" ]; then
     bash "$XFCE_SETUP" "$USER_NAME" 2>/dev/null || echo "[!] XFCE layout setup skipped"
 fi
