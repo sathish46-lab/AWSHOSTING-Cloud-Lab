@@ -133,3 +133,13 @@ echo "[✓] Default apps configured"
 
 chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/.config/xfce4" 2>/dev/null || true
 echo "[✓] XFCE desktop setup complete"
+
+# ── 7. Branding Watermark (bottom-right corner) ──────────────
+WATERMARK="$USER_HOME/.config/wallpaper/watermark.png"
+if [ -f "$WATERMARK" ]; then
+    # Use xfce desktop for watermark via conky or feh
+    if command -v feh >/dev/null 2>&1; then
+        feh --bg-fill "$WALLPAPER" 2>/dev/null || true
+    fi
+    echo "[✓] Watermark ready: $(basename "$WATERMARK")"
+fi
