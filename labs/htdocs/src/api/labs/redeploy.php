@@ -78,7 +78,12 @@ ob_start();
                 <div class="row mb-2 align-items-center">
                     <label class="col-sm-4 small fw-bold text-secondary">Reallocate IP</label>
                     <div class="col-sm-8">
-                        <input type="text" class="form-control bg-transparent border-secondary border-opacity-25 shadow-none rounded-pill px-3 text-white" value="<?= htmlspecialchars($deviceIp) ?>" readonly>
+                        <select id="reallocate_ip_selector" class="form-select bg-transparent border-secondary border-opacity-25 shadow-none rounded-pill px-3 text-white">
+                            <option value="new" selected>Assign New IP Address</option>
+                            <?php if (!empty($deviceIp) && $deviceIp !== '0.0.0.0'): ?>
+                            <option value="<?= htmlspecialchars($deviceIp) ?>"><?= htmlspecialchars($deviceIp) ?> (current)</option>
+                            <?php endif; ?>
+                        </select>
                     </div>
                 </div>
 
