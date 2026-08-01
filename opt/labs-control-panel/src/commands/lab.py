@@ -568,15 +568,9 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
         self.write_traefik(instance_id, traefik_yaml)
         self.log("Traefik configuration written.", "success")
 
-        # Phase: APACHE CODE_SERVER_MAP (for cloudflared tunnel routing)
+        # Phase: APACHE ROUTES (for cloudflared tunnel routing)
         lab_type = lab_data.get("lab_type", "essentials")
-        gui_domain = args.flag("gui_domain") if args else None
-        gui_domain = gui_domain or lab_data.get("gui_domain") or f"gui-{instance_id}.{self.cfg.code_domain}"
-        # For gui_essentials, write gui-{hash} entry so Apache proxies to KasmVNC port
-        if lab_type == "gui_essentials":
-            self.write_code_server_map(instance_id, docker_ip, prefix="gui-")
-        # Always write the base hash entry for code-server routing
-        self.write_code_server_map(instance_id, docker_ip)
+        self.write_apache_routes(instance_id, docker_ip, lab_type)
 
         # Phase: METADATA
         self.log("Finalizing routing metadata...")
@@ -771,8 +765,7 @@ done
             self.log("No container found, skipping stop.")
 
         self.remove_traefik(instance_id)
-        self.remove_code_server_map(instance_id)
-        self.remove_code_server_map(instance_id, prefix="gui-")
+        self.remove_apache_routes(instance_id)
         self.log(f"Lab {instance_id} is now offline. IP remains reserved.", "success")
 
     # ── Start ───────────────────────────────────────────────────

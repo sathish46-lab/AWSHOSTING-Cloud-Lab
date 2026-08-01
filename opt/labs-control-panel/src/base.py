@@ -226,38 +226,90 @@ class Base:
             except Exception as e:
                 self.log(f"Traefik remove failed: {e}", "warn")
 
-    # ── Apache code_server_map.txt ────────────────────────────────
-    CODE_SERVER_MAP = "/etc/apache2/code_server_map.txt"
+    # ── Apache code.conf dynamic routes ──────────────────────────
+    CODE_CONF = "/etc/apache2/sites-available/code.conf"
+    CODE_ROUTE_START = "# === BEGIN LAB ROUTES ==="
+    CODE_ROUTE_END = "# === END LAB ROUTES ==="
 
-    def write_code_server_map(self, instance_id, docker_ip, prefix=""):
-        """Write hash → docker_ip mapping to Apache code_server_map.txt."""
-        key = f"{prefix}{instance_id}" if prefix else instance_id
-        entry = f"{key} {docker_ip}\n"
+    def write_apache_routes(self, instance_id, docker_ip, lab_type="essentials"):
+        """Write Apache rewrite rules for a lab into code.conf."""
         try:
-            lines = []
-            if os.path.exists(self.CODE_SERVER_MAP):
-                with open(self.CODE_SERVER_MAP, "r") as f:
-                    lines = f.readlines()
-            # Remove existing entry for this key
-            lines = [l for l in lines if not l.startswith(f"{key} ")]
-            lines.append(entry)
-            with open(self.CODE_SERVER_MAP, "w") as f:
-                f.writelines(lines)
-            self.log(f"code_server_map updated: {key} → {docker_ip}", "success")
-        except Exception as e:
-            self.log(f"code_server_map write failed: {e}", "error")
-
-    def remove_code_server_map(self, instance_id, prefix=""):
-        """Remove hash entry from Apache code_server_map.txt."""
-        key = f"{prefix}{instance_id}" if prefix else instance_id
-        try:
-            if not os.path.exists(self.CODE_SERVER_MAP):
+            if not os.path.exists(self.CODE_CONF):
                 return
-            with open(self.CODE_SERVER_MAP, "r") as f:
-                lines = f.readlines()
-            lines = [l for l in lines if not l.startswith(f"{key} ")]
-            with open(self.CODE_SERVER_MAP, "w") as f:
-                f.writelines(lines)
-            self.log(f"code_server_map entry removed: {key}", "success")
+            with open(self.CODE_CONF, "r") as f:
+                content = f.read()
+
+            entry = f"    RewriteCond %{{HTTP_HOST}} ^{instance_id}\\.tomweb\\.shop$ [NC]\n"
+            entry += f"    RewriteCond %{{HTTP:Upgrade}} =websocket [NC]\n"
+            entry += f"    RewriteRule ^/(.*)$ ws://{docker_ip}:8080/$1 [P,L]\n"
+            entry += f"    RewriteCond %{{HTTP_HOST}} ^{instance_id}\\.tomweb\\.shop$ [NC]\n"
+            entry += f"    RewriteRule ^/(.*)$ http://{docker_ip}:8080/$1 [P,L]\n"
+
+            if lab_type == "gui_essentials":
+                entry += f"    RewriteCond %{{HTTP_HOST}} ^gui-{instance_id}\\.tomweb\\.shop$ [NC]\n"
+                entry += f"    RewriteCond %{{HTTP:Upgrade}} =websocket [NC]\n"
+                entry += f"    RewriteRule ^/(.*)$ ws://{docker_ip}:8444/$1 [P,L]\n"
+                entry += f"    RewriteCond %{{HTTP_HOST}} ^gui-{instance_id}\\.tomweb\\.shop$ [NC]\n"
+                entry += f"    RewriteRule ^/(.*)$ http://{docker_ip}:8444/$1 [P,L]\n"
+
+            if self.CODE_ROUTE_START in content:
+                lines = content.split("\n")
+                new_lines = []
+                skip_until_end = False
+                for line in lines:
+                    if line.strip() == self.CODE_ROUTE_START:
+                        new_lines.append(line)
+                        new_lines.append(entry.rstrip())
+                        skip_until_end = True
+                        continue
+                    if skip_until_end and line.strip() == self.CODE_ROUTE_END:
+                        new_lines.append(line)
+                        skip_until_end = False
+                        continue
+                    if not skip_until_end:
+                        new_lines.append(line)
+                content = "\n".join(new_lines)
+            else:
+                content = content.replace(
+                    "</VirtualHost>",
+                    f"{self.CODE_ROUTE_START}\n{entry.rstrip()}\n{self.CODE_ROUTE_END}\n\n</VirtualHost>"
+                )
+
+            with open(self.CODE_CONF, "w") as f:
+                f.write(content)
+
+            self.run("service apache2 reload", timeout=10)
+            self.log(f"Apache routes added: {instance_id} → {docker_ip}", "success")
         except Exception as e:
-            self.log(f"code_server_map remove failed: {e}", "error")
+            self.log(f"Apache route write failed: {e}", "error")
+
+    def remove_apache_routes(self, instance_id):
+        """Remove Apache rewrite rules for a lab from code.conf."""
+        try:
+            if not os.path.exists(self.CODE_CONF):
+                return
+            with open(self.CODE_CONF, "r") as f:
+                content = f.read()
+
+            lines = content.split("\n")
+            new_lines = []
+            skip = False
+            for line in lines:
+                if line.strip() == self.CODE_ROUTE_START:
+                    skip = True
+                    continue
+                if skip and line.strip() == self.CODE_ROUTE_END:
+                    skip = False
+                    continue
+                if skip and instance_id in line:
+                    continue
+                if not skip:
+                    new_lines.append(line)
+
+            with open(self.CODE_CONF, "w") as f:
+                f.write("\n".join(new_lines))
+
+            self.run("service apache2 reload", timeout=10)
+            self.log(f"Apache routes removed: {instance_id}", "success")
+        except Exception as e:
+            self.log(f"Apache route remove failed: {e}", "error")
