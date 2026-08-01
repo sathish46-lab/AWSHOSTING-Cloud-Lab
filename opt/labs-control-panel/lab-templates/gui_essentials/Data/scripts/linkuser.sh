@@ -232,6 +232,19 @@ chmod 600 /root/.kasmpasswd 2>/dev/null || true
 echo "[✓] KasmVNC password configured (random: $VNC_PASSWORD)"
 echo "[VNC_PASS_RESULT]$VNC_PASSWORD[/VNC_PASS_RESULT]"
 
+# ── 6b. SSL Cert in user home ────────────────────────────────
+echo "[*] Generating SSL cert in $USER_HOME/.vnc/..."
+mkdir -p "$USER_HOME/.vnc"
+if [ ! -f "$USER_HOME/.vnc/self.pem" ]; then
+    openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+        -keyout "$USER_HOME/.vnc/self.pem" -out "$USER_HOME/.vnc/self.pem" \
+        -subj "/CN=localhost" 2>/dev/null
+    chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/.vnc"
+    echo "[✓] SSL cert generated in $USER_HOME/.vnc/"
+else
+    echo "[✓] SSL cert already exists in $USER_HOME/.vnc/"
+fi
+
 # ── 7. Desktop Bash Config ────────────────────────────────────
 echo "[*] Configuring desktop for $USER_NAME..."
 
@@ -319,6 +332,7 @@ sleep 1
     -websocketPort 8444 -httpd /usr/share/kasmvnc/www \
     -interface 0.0.0.0 -noxstartup -select-de xfce \
     -SecurityTypes None -KasmPasswordFile /root/.kasmpasswd \
+    -cert "$USER_HOME/.vnc/self.pem" -key "$USER_HOME/.vnc/self.pem" -sslOnly 1 \
     -auth /root/.Xauthority > /dev/null 2>&1 &
 sleep 2
 

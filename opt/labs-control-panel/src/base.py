@@ -278,7 +278,7 @@ class Base:
             with open(self.CODE_CONF, "w") as f:
                 f.write(content)
 
-            self.run("service apache2 reload", timeout=10)
+            self.run("service apache2 reload")
             self.log(f"Apache routes added: {instance_id} → {docker_ip}", "success")
         except Exception as e:
             self.log(f"Apache route write failed: {e}", "error")
@@ -309,7 +309,7 @@ class Base:
             with open(self.CODE_CONF, "w") as f:
                 f.write("\n".join(new_lines))
 
-            self.run("service apache2 reload", timeout=10)
+            self.run("service apache2 reload")
             self.log(f"Apache routes removed: {instance_id}", "success")
         except Exception as e:
             self.log(f"Apache route remove failed: {e}", "error")
