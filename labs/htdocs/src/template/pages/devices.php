@@ -114,3 +114,23 @@ $defaultIp = !empty($resources) ? end($resources)['ip_addr'] : "";
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="confirmUnreserveModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content shadow-lg rounded-4 border-0 blur glass-modal-content">
+        <div class="modal-header border-0 pb-2">
+            <h4 class="modal-title fw-bold m-0">Unreserve IP: <span id="unreserveModalIp" class="text-warning font-monospace"></span></h4>
+        </div>
+        <div class="modal-body py-3 border-top border-bottom border-translucent">
+            <p class="mb-0 opacity-75" style="line-height:1.6;">
+                You are about to remove the reservation of the IP Address: <strong id="unreserveModalIpBold" class="text-white font-monospace"></strong>. 
+                You will lose this address and this cannot be undone. Are you sure to continue?
+            </p>
+        </div>
+        <div class="modal-footer border-0 pt-3 pb-1 d-flex justify-content-end gap-3">
+            <button type="button" class="btn px-4 rounded-pill fw-bold border-0 shadow-sm btn-modal-cancel" data-coreui-dismiss="modal">Cancel</button>
+            <button type="button" class="btn text-white px-4 rounded-pill fw-bold border-0" style="background:#e74c3c;" id="confirmUnreserveBtn" onclick="confirmUnreserveAction()">Unreserve</button>
+        </div>
+    </div>
+  </div>
+</div>

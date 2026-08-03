@@ -45,6 +45,9 @@ RewriteRule ^home$ app/home.php [L,QSA]
 # 8. Services Routing
 RewriteRule ^services$ app/services.php [L,QSA]
 
+# Network Interfaces
+RewriteRule ^network/interfaces/?$ app/network/interfaces.php [L,QSA]
+
 # MySQL
 RewriteRule ^services/mysql$ app/services/mysql/dashboard.php [L,QSA]
 RewriteRule ^services/mysql/database$ app/services/mysql/database.php [L,QSA]
@@ -81,7 +84,10 @@ RewriteRule ^learn/lesson/([^/]+)/chapter/([^/]+)$ app/learnAI/course_view.php?i
 # 8. System User Files Routing (Avatar & Private)
 RewriteRule ^system/user/(avatar|private)/([a-zA-Z0-9_-]+)/(.+)$ src/api/system/user_files.php?type=$1&user_id=$2&filename=$3 [L,QSA]
 
-# 9. Instances Routing
+# 9. Network Interfaces Routing
+RewriteRule ^network/interfaces/?$ app/network/interfaces.php [L,QSA]
+
+# 10. Instances Routing
 RewriteRule ^instances$ instances/templates [L,QSA]
 RewriteRule ^instances/templates$ app/instances/dashboard.php [L,QSA]
 RewriteRule ^instances/trash$ app/instances/dashboard.php [L,QSA]

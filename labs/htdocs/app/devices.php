@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__ . '/../src/load.php';
-require_once __DIR__ . '/../src/lib/core/VPN.class.php';
 
 if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
     Session::$pageTitle = "Devices";
@@ -15,15 +14,17 @@ $db = DatabaseConnection::getDefaultDatabase();
 $kernelData = VPN::request('wg', 'get_peers', ['device' => 'wg0']);
 $livePeers = $kernelData['peers'] ?? [];
 
-// 2. Fetch User reserved IPs from tom_labs_vpn
-$dbResources = VPN::request('ip', 'all', ['device' => 'wg0']);
-$allNodes = $dbResources['nodes'] ?? [];
-
+// 2. Fetch User reserved IPs from ip_registry
+$ipReg = $db->ip_registry;
+$myIPs = $ipReg->find(['email' => $user->getEmail(), 'status' => 'reserved']);
 $reservedIps = [];
-foreach ($allNodes as $node) {
-    if (isset($node['email']) && $node['email'] === $user->getEmail() && $node['allocated'] == false) {
-        $reservedIps[] = $node;
-    }
+foreach ($myIPs as $ip) {
+    $reservedIps[] = [
+        'ip_addr'  => $ip['ip_addr'],
+        'email'    => $ip['email'],
+        'reserved' => true,
+        'allocated'=> false,
+    ];
 }
 
 // 3. Fetch active device metadata from tom_labs_db

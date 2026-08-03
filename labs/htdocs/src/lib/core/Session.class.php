@@ -305,10 +305,10 @@ class Session
                 echo "<title>" . htmlspecialchars(self::$pageTitle) . "</title>";
             }
 
-            // Send breadcrumb data via OOB for client-side update
-            echo '<ol id="main-breadcrumb" class="breadcrumb my-0" hx-swap-oob="true">';
-            include __DIR__ . '/../../template/partials/_breadcrumb.php';
-            echo '</ol>';
+            // Breadcrumb removed — new header uses greeting text instead
+            // echo '<ol id="main-breadcrumb" class="breadcrumb my-0" hx-swap-oob="true">';
+            // include __DIR__ . '/../../template/partials/_breadcrumb.php';
+            // echo '</ol>';
 
             // Send footer data via OOB so HTMX transitions and reloads update the footer cleanly
             if (!self::get('footer', false) && !defined('IS_HOME_PAGE') && !self::get('show_session_expired', false)) {

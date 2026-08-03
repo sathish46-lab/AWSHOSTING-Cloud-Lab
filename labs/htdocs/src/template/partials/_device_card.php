@@ -1,30 +1,42 @@
 <?php
     $dbId = is_array($device['_id']) ? ($device['_id']['$oid'] ?? '') : (string)$device['_id'];
-    $displayStatus = ucfirst(strtolower($device['status'] ?? 'offline')); 
+    $displayStatus = ucfirst(strtolower($device['status'] ?? 'offline'));
+    $assignedIp = $device['assigned_ip'] ?? null;
+    $isReserved = false;
+    if ($assignedIp) {
+        $db = DatabaseConnection::getDefaultDatabase();
+        $isReserved = $db->ip_registry->countDocuments(['ip_addr' => $assignedIp, 'status' => 'reserved']) > 0;
+    }
 ?>
 <div class="col-12 col-md-4 device-row card-entrance" id="device-card-<?= $dbId ?>" data-pubkey="<?= $device['public_key'] ?>">
-    <div class="card rounded-4 overflow-hidden border-0 blur h-100">
+    <div class="card rounded-4 border-0 blur h-100 device-card-inner">
         <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-start">
                 <h5 class="fw-bold m-0 text-truncate device-card-title">
                     <?= htmlspecialchars($device['device_name']) ?></h5>
                 <div class="dropdown">
-                    <button class="action-dots p-0 opacity-50 shadow-none border-0 d-flex align-items-center justify-content-center" 
+                    <button class="btn btn-transparent p-0" type="button" 
                             data-coreui-toggle="dropdown" 
                             >
-                        <i class='bx bx-dots-vertical-rounded fs-4' ></i>
+                        <i class='bx bx-dots-vertical-rounded fs-4'></i>
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0" >
-                        <li><a class="dropdown-item rounded-3 mb-1 px-2 py-1" href="javascript:void(0)" 
-                                onclick="openVPNConnectionModal('<?= $dbId ?>', '<?= htmlspecialchars($device['device_name']) ?>')"><i
-                                    class='bx bx-qr-scan me-2 text-primary'></i> Config</a></li>
-                        <li><a class="dropdown-item rounded-3 mb-1 px-2 py-1" href="javascript:void(0)" 
-                                onclick="downloadTunnel('<?= htmlspecialchars($device['device_name']) ?>', '<?= $dbId ?>')"><i
-                                    class='bx bx-download me-2 text-info'></i> Download</a></li>
-                        <li><a class="dropdown-item text-danger rounded-3 px-2 py-1" href="javascript:void(0)" 
-                                onclick="deleteDevice('<?= $dbId ?>', '<?= $device['public_key'] ?>', '<?= htmlspecialchars($device['device_name'], ENT_QUOTES) ?>', '<?= $device['assigned_ip'] ?? 'N/A' ?>')"><i
-                                    class='bx bx-trash me-2'></i> Delete</a></li>
-                    </ul>
+                    <div class="dropdown-menu dropdown-menu-end blur">
+                        <a class="dropdown-item btn-config-device blur-item" href="javascript:void(0)"
+                                onclick="openVPNConnectionModal('<?= $dbId ?>', '<?= htmlspecialchars($device['device_name']) ?>')">Config</a>
+                        <a class="dropdown-item btn-config-download blur-item" href="javascript:void(0)"
+                                onclick="downloadTunnel('<?= htmlspecialchars($device['device_name']) ?>', '<?= $dbId ?>')">Download</a>
+                        <?php if ($assignedIp): ?>
+                        <?php if ($isReserved): ?>
+                        <a class="dropdown-item btn-unreserve-ip blur-item" href="javascript:void(0)"
+                                onclick="toggleReserveIp('<?= $dbId ?>', '<?= $assignedIp ?>', '<?= htmlspecialchars($device['device_name'], ENT_QUOTES) ?>', 'unreserve', this)">Unreserve IP</a>
+                        <?php else: ?>
+                        <a class="dropdown-item btn-reserve-ip blur-item" href="javascript:void(0)"
+                                onclick="toggleReserveIp('<?= $dbId ?>', '<?= $assignedIp ?>', '<?= htmlspecialchars($device['device_name'], ENT_QUOTES) ?>', 'reserve', this)">Reserve IP</a>
+                        <?php endif; ?>
+                        <?php endif; ?>
+                        <a class="dropdown-item btn-delete-device blur-item" href="javascript:void(0)"
+                                onclick="deleteDevice('<?= $dbId ?>', '<?= $device['public_key'] ?>', '<?= htmlspecialchars($device['device_name'], ENT_QUOTES) ?>', '<?= $device['assigned_ip'] ?? 'N/A' ?>')">Delete</a>
+                    </div>
                 </div>
             </div>
             <div class="d-flex gap-1 flex-wrap mb-2">
@@ -42,12 +54,17 @@
                 <span class="badge <?= $typeClass ?> fw-bold" >
                     <i class='bx <?= $typeIcon ?> me-1'></i> <?= $type ?>
                 </span>
+                <?php if ($isReserved): ?>
+                <span class="badge bg-warning fw-bold" >
+                    <i class='bx bx-lock me-1'></i> Reserved
+                </span>
+                <?php endif; ?>
                 <?php 
                     $status = strtolower($device['status'] ?? 'offline');
                     $statusClass = ($status === 'online') ? 'bg-success' : 'bg-danger';
                     $statusIcon = ($status === 'online') ? 'bx-wifi' : 'bx-wifi-off';
                 ?>
-                <span class="badge <?= $statusClass ?> fw-bold" >
+                <span class="badge status-pill <?= $statusClass ?> fw-bold" >
                     <i class='bx <?= $statusIcon ?> me-1'></i> <?= $status ?>
                 </span>
             </div>

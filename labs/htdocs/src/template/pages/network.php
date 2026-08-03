@@ -1,5 +1,4 @@
 <?php
-// Retrieve the merged device data from the Session
 $resources = Session::get('network_resources', []); 
 Session::addCustomJs('/assets/js/network.js');
 ?>
@@ -10,8 +9,24 @@ Session::addCustomJs('/assets/js/network.js');
             <div class="col">
                 <h1 class="fw-bold theme-text m-0 network-header-title">Network</h1>
                 <p class="text-secondary opacity-75 mt-2 mb-0 network-header-desc">
-                    My Network is a section where you can manage IP Address Reservation for your devices. When you reserve an IP address, you will not lose it unless you delete the reservation.
+                    My Network is a section where you can manage IP Address Reservation for your devices and labs.
                 </p>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col">
+                <ul class="nav nav-tabs lab-nav-tabs border-0" id="networkTabs">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/network">
+                            <i class='bx bx-network-chart me-1'></i> IP Addresses
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/network/interfaces">
+                            <i class='bx bx-link-alt me-1'></i> WG Interfaces
+                        </a>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>
@@ -19,37 +34,29 @@ Session::addCustomJs('/assets/js/network.js');
 
 <div class="container-fluid px-4">
     <div class="row g-4 mb-4">
-    <?php foreach ($resources as $res): 
-        $isAllocated = ($res['allocated'] == true);
-        // Determine the label
-        $serviceType = $res['service_type'] ?? 'vpn_device';
-        $label = $res['label'] ?? (($res['service_type'] == 'essential_lab') ? 'Essential Lab' : 'VPN Device');
-    ?>
+    <?php foreach ($resources as $res): ?>
     <div class="col-12 col-md-4 col-xl-3 card-entrance" id="ip-card-<?= str_replace('.', '-', $res['ip_addr']) ?>">
-        <div class="card shadow-lg rounded-4 p-3 border-0 blur h-100">
+        <div class="card rounded-4 p-3 blur h-100">
             <div class="mb-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
+                <div class="d-flex align-items-center gap-2 mb-2">
                     <h5 class="fw-bold m-0 font-monospace ip-card-title"><?= htmlspecialchars($res['ip_addr']) ?></h5>
-                    <span class="badge rounded-pill fw-bold border badge-ip-label"><?= $label ?></span>
+                    <span class="badge rounded-pill fw-bold text-white" style="font-size:10px; padding:4px 10px; background: rgba(255,255,255,0.1);">
+                        <?= htmlspecialchars($res['iface'] ?? 'wg0') ?>
+                    </span>
                 </div>
-                
-                <span class="badge rounded-pill bg-<?= $isAllocated ? 'success' : 'danger' ?> fw-bold badge-ip-status">
-                    <?= $isAllocated ? 'Active' : 'Reserved' ?>
-                </span>
-            </div>
-
-            <div class="mt-auto d-flex justify-content-end">
-                <?php if ($isAllocated): ?>
-                    <button class="btn btn-sm btn-outline-secondary border-0 fw-bold opacity-50 btn-ip-action" disabled 
-                            title="This IP is in use. Delete the associated device or lab first.">
-                        <i class='bx bx-lock-alt me-1'></i> In Use
-                    </button>
-                <?php else: ?>
-                    <button class="btn btn-sm btn-outline-danger border-0 fw-bold btn-ip-action"
-                        onclick="releaseIp('<?= $res['ip_addr'] ?>', '<?= $serviceType ?>', '<?= str_replace('.', '-', $res['ip_addr']) ?>', this)">
-                        <i class='bx bx-trash-alt me-1'></i> Release IP
-                    </button>
+                <?php if (!empty($res['tag'])): ?>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge rounded-pill fw-bold <?= htmlspecialchars($res['tag_bg']) ?> border-0 text-white" style="font-size:10px; padding:4px 10px;">
+                        <?= htmlspecialchars($res['tag']) ?>
+                    </span>
+                </div>
                 <?php endif; ?>
+            </div>
+            <div class="mt-auto d-flex justify-content-end">
+                <button class="btn btn-sm btn-danger fw-bold btn-ip-action rounded-pill"
+                    onclick="releaseIp('<?= $res['ip_addr'] ?>', 'vpn', '<?= str_replace('.', '-', $res['ip_addr']) ?>', this)">
+                    <i class='bx bx-trash-alt me-1'></i> Delete
+                </button>
             </div>
         </div>
     </div>
@@ -65,8 +72,8 @@ Session::addCustomJs('/assets/js/network.js');
         </div>
         <div class="modal-body py-3 border-top border-bottom border-translucent">
             <p class="mb-0 opacity-75 modal-body-desc">
-                You are about to delete the IP address: <span id="deleteModalIp" class="text-info fw-bold font-monospace"></span>. 
-                You will lose this IP address and it will be allocated to someone else on demand. But this is not a bad thing :)
+                You are about to release the IP address: <span id="deleteModalIp" class="text-info fw-bold font-monospace"></span>. 
+                It will become available for anyone to use.
             </p>
         </div>
         <div class="modal-footer border-0 pt-3 pb-1 d-flex justify-content-end gap-3">

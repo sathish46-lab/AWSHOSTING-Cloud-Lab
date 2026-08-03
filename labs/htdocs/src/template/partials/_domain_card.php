@@ -19,7 +19,7 @@
                             >
                         <i class='bx bx-dots-vertical-rounded fs-4' ></i>
                     </button>
-                    <ul class="dropdown-menu dropdown-menu-end shadow border-0" >
+                    <ul class="dropdown-menu dropdown-menu-end border-0" >
                         <li>
                             <a class="dropdown-item rounded-3 mb-1 px-2 py-1" href="javascript:void(0)" onclick="if(window.TomNotify) window.TomNotify.show('Manage features coming soon!', 'Info', 'info', 3000);" >
                                 <i class='bx bx-cog me-2 text-primary'></i> Manage

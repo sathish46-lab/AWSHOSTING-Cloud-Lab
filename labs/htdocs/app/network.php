@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/../src/load.php';
-require_once __DIR__ . '/../src/lib/core/VPN.class.php';
-// Auth Protection: Ensures layout loads instead of blank page
+
 if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
     Session::$pageTitle = "My Network";
     Session::loadMaster();
@@ -10,54 +9,106 @@ if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
 
 $user = Session::getUser();
 $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
+$instDb = DatabaseConnection::getClient()->selectDatabase('tom_labs_instances_db');
 
-// 1. Fetch Standard VPN nodes
-$apiResponse = VPN::request('ip', 'all', ['device' => 'wg0']); 
-$allVpnResources = $apiResponse['nodes'] ?? [];
+// 1. Get all user-reserved IPs
+$myIPs = $db->ip_registry->find(['email' => $user->getEmail(), 'status' => 'reserved'])->toArray();
 
-// Filter VPN resources by user email
-$vpnResources = array_filter($allVpnResources, function($node) use ($user) {
-    return isset($node['email']) && $node['email'] === $user->getEmail();
-});
-
-// Normalize VPN resources to ensure they have a 'service_type'
-$normalizedVpn = array_map(function($item) {
-    if (!isset($item['service_type'])) {
-        $item['service_type'] = 'vpn_device';
-    }
-    return $item;
-}, (array)$vpnResources);
-
-// 2. Fetch Essential Lab IPs from our new inventory
-$labIps = $db->lab_ips->find([
-    'email' => $user->getEmail(),
-    'status' => 'allocated'
-]);
-$myLabResources = iterator_to_array($labIps);
-
-// 3. Fetch User Devices to get their assigned IPs
-$devices = $db->devices->find(['user_id' => $user->getUserId()])->toArray();
-$deviceResources = array_map(function($dev) {
-    return [
-        'ip_addr' => $dev['assigned_ip'],
-        'service_type' => 'vpn_device',
-        'label' => 'VPN Device: ' . $dev['device_name'],
-        'allocated' => true
+$allResources = [];
+foreach ($myIPs as $ip) {
+    $allResources[] = [
+        'ip_addr' => $ip['ip_addr'],
+        'iface'   => 'wg0',
+        'tag'     => '',
+        'tag_bg'  => '',
     ];
-}, $devices);
+}
 
-// 4. Merge them into one list
-$allResources = array_merge((array)$normalizedVpn, $myLabResources, $deviceResources);
-
-// Final de-duplication by IP (preferring device entries)
-$finalResources = [];
-foreach ($allResources as $res) {
-    if (isset($res['ip_addr'])) {
-        $finalResources[$res['ip_addr']] = $res;
+// 2. Find what's actually using each IP
+// Machine labs
+$labs = $db->machine_labs->find(['deploy.email' => $user->getEmail()])->toArray();
+foreach ($labs as $lab) {
+    $ip = $lab['deploy']['internal_ip'] ?? null;
+    if (!$ip) continue;
+    foreach ($allResources as &$res) {
+        if ($res['ip_addr'] === $ip) {
+            $labType = $lab['deploy']['lab_type'] ?? $lab['template'] ?? 'Lab';
+            $res['tag'] = ucfirst($labType);
+            $res['tag_bg'] = 'bg-primary';
+        }
     }
 }
-$allResources = array_values($finalResources);
+unset($res);
+
+// Instances
+$instances = $instDb->instances->find(['email' => $user->getEmail()])->toArray();
+foreach ($instances as $inst) {
+    $ip = $inst['deploy']['internal_ip'] ?? null;
+    if (!$ip) continue;
+    foreach ($allResources as &$res) {
+        if ($res['ip_addr'] === $ip && empty($res['tag'])) {
+            $tpl = $inst['template'] ?? 'Instance';
+            $res['tag'] = ucfirst($tpl);
+            $res['tag_bg'] = 'bg-info';
+        }
+    }
+}
+unset($res);
+
+// Devices
+$devices = $db->devices->find(['user_id' => $user->getUserId()])->toArray();
+foreach ($devices as $dev) {
+    $ip = $dev['assigned_ip'] ?? null;
+    if (!$ip) continue;
+    foreach ($allResources as &$res) {
+        if ($res['ip_addr'] === $ip && empty($res['tag'])) {
+            $res['tag'] = $dev['device_name'] ?? 'Device';
+            $res['tag_bg'] = 'bg-success';
+        }
+    }
+}
+unset($res);
+
+// 3. Auto-reserve IPs from labs/instances that aren't in ip_registry yet
+$found = [];
+foreach ($myIPs as $ip) { $found[$ip['ip_addr']] = true; }
+
+foreach ($labs as $lab) {
+    $ip = $lab['deploy']['internal_ip'] ?? null;
+    if ($ip && !isset($found[$ip])) {
+        $db->ip_registry->updateOne(
+            ['ip_addr' => $ip],
+            ['$set' => ['status' => 'reserved', 'email' => $user->getEmail(), 'user_id' => $user->getUserId()]],
+            ['upsert' => true]
+        );
+        $labType = $lab['deploy']['lab_type'] ?? $lab['template'] ?? 'Lab';
+        $allResources[] = [
+            'ip_addr' => $ip,
+            'iface'   => 'wg0',
+            'tag'     => ucfirst($labType),
+            'tag_bg'  => 'bg-primary',
+        ];
+    }
+}
+
+foreach ($instances as $inst) {
+    $ip = $inst['deploy']['internal_ip'] ?? null;
+    if ($ip && !isset($found[$ip])) {
+        $db->ip_registry->updateOne(
+            ['ip_addr' => $ip],
+            ['$set' => ['status' => 'reserved', 'email' => $user->getEmail(), 'user_id' => $user->getUserId()]],
+            ['upsert' => true]
+        );
+        $tpl = $inst['template'] ?? 'Instance';
+        $allResources[] = [
+            'ip_addr' => $ip,
+            'iface'   => 'wg0',
+            'tag'     => ucfirst($tpl),
+            'tag_bg'  => 'bg-info',
+        ];
+    }
+}
 
 Session::$pageTitle = "My Network"; 
-Session::set('network_resources', array_values($allResources));
+Session::set('network_resources', $allResources);
 Session::loadMaster();
