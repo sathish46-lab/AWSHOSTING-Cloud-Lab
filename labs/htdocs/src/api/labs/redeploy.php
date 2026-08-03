@@ -38,7 +38,40 @@ $labType = $labData['lab_type'] ?? 'essentials';
 $status = $labData['status'] ?? 'not_deployed';
 $isRunning = ($status === 'running');
 $creds = $labData['credentials'] ?? null;
+
+// Get device IP from ip_registry (unified source)
 $deviceIp = $labData['internal_ip'] ?? '0.0.0.0';
+
+// Get all user's reserved IPs (not in use by other labs/instances/devices)
+$ipReg = $db->ip_registry;
+$myIPs = $ipReg->find(['email' => $user->getEmail(), 'status' => 'reserved'])->toArray();
+
+// Find IPs in use by other labs
+$inUseIps = [];
+$labs = $db->machine_labs->find(['deploy.email' => $user->getEmail()])->toArray();
+foreach ($labs as $l) {
+    $ip = $l['deploy']['internal_ip'] ?? null;
+    if ($ip) $inUseIps[$ip] = true;
+}
+$instDb = DatabaseConnection::getClient()->selectDatabase('tom_labs_instances_db');
+$instances = $instDb->instances->find(['email' => $user->getEmail()])->toArray();
+foreach ($instances as $inst) {
+    $ip = $inst['deploy']['internal_ip'] ?? null;
+    if ($ip) $inUseIps[$ip] = true;
+}
+$devices = $db->devices->find(['user_id' => $user->getUserId()])->toArray();
+foreach ($devices as $dev) {
+    $ip = $dev['assigned_ip'] ?? null;
+    if ($ip) $inUseIps[$ip] = true;
+}
+
+// Available IPs = reserved but not in use by anything
+$availableIPs = [];
+foreach ($myIPs as $ip) {
+    if (!isset($inUseIps[$ip['ip_addr']]) || $ip['ip_addr'] === $deviceIp) {
+        $availableIPs[] = $ip['ip_addr'];
+    }
+}
 
 $sysConsole = "s3-{$fullHash}.tomweb.shop";
 $sysApi = "api-{$fullHash}.tomweb.shop";
@@ -79,10 +112,15 @@ ob_start();
                     <label class="col-sm-4 small fw-bold text-secondary">Reallocate IP</label>
                     <div class="col-sm-8">
                         <select id="reallocate_ip_selector" class="form-select bg-transparent border-secondary border-opacity-25 shadow-none rounded-pill px-3 text-white">
-                            <option value="new" selected>Assign New IP Address</option>
                             <?php if (!empty($deviceIp) && $deviceIp !== '0.0.0.0'): ?>
-                            <option value="<?= htmlspecialchars($deviceIp) ?>"><?= htmlspecialchars($deviceIp) ?> (current)</option>
+                            <option value="<?= htmlspecialchars($deviceIp) ?>" selected><?= htmlspecialchars($deviceIp) ?></option>
                             <?php endif; ?>
+                            <?php foreach ($availableIPs as $availIp): ?>
+                                <?php if ($availIp !== $deviceIp): ?>
+                                <option value="<?= htmlspecialchars($availIp) ?>"><?= htmlspecialchars($availIp) ?></option>
+                                <?php endif; ?>
+                            <?php endforeach; ?>
+                            <option value="new">Assign New IP Address</option>
                         </select>
                     </div>
                 </div>

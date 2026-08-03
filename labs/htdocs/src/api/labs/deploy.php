@@ -61,8 +61,13 @@ try {
     // error_log("PHPLOG: User selected domain: " . $code_domain);
 
     if (!$existing || empty($existing['internal_ip'])) {
-        // PASS LAB TYPE to IP manager
-        $internalIp = $ipManager->getNextIPForUser($email, $instanceHash, $labName);
+        // Reserve IP for this lab — use selected IP if provided, otherwise auto-assign
+        $selectedIp = $_POST['internal_ip'] ?? null;
+        if ($selectedIp && $selectedIp !== 'new') {
+            $internalIp = $ipManager->reserve($email, $user->getUserId(), $selectedIp);
+        } else {
+            $internalIp = $ipManager->reserve($email, $user->getUserId());
+        }
         
         $updateResult = $col->updateOne(
             ['deploy.instance_hash' => $instanceHash],
@@ -104,9 +109,6 @@ try {
         
     } else {
         $internalIp = $existing['internal_ip'];
-        
-        // Update service_type in IP pool if lab type changed
-        $ipManager->updateServiceType($instanceHash, $labName);
         
         // Update domains, expose_web, AND code_domain on redeploy
         $col->updateOne(

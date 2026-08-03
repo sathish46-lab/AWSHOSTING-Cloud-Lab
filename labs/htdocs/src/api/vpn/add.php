@@ -35,7 +35,19 @@ $response = VPN::request('wg', 'add_peer', [
 if (isset($response['result']) && $response['result'] !== false) {
     $assignedIp = $response['result'];
     
-    // 2. Professional Upsert: Prevents duplicate cards
+    // 2. Reserve IP in unified ip_registry
+    $db->ip_registry->updateOne(
+        ['ip_addr' => $assignedIp],
+        ['$set' => [
+            'status'      => 'reserved',
+            'user_id'     => $user->getUserId(),
+            'email'       => $user->getEmail(),
+            'reserved_at' => time(),
+        ]],
+        ['upsert' => true]
+    );
+    
+    // 3. Store device metadata
     $db->devices->updateOne(
         ['user_id' => $user->getUserId(), 'assigned_ip' => $assignedIp],
         ['$set' => [
@@ -51,11 +63,10 @@ if (isset($response['result']) && $response['result'] !== false) {
         ['upsert' => true]
     );
 
-    // 3. Render the HTML card for dynamic frontend insertion
+    // 4. Render the HTML card
     ob_start();
-    // Reconstruct the device array format expected by the template
     $device = [
-        '_id' => (string)($user->getUserId()), // mock id or fetch it
+        '_id' => (string)($user->getUserId()),
         'public_key' => $publicKey,
         'device_name' => $deviceName,
         'device_type' => $deviceType,
@@ -65,7 +76,6 @@ if (isset($response['result']) && $response['result'] !== false) {
         'rx' => '0 B',
         'tx' => '0 B'
     ];
-    // Actually, we should fetch the inserted document to get its real _id
     $insertedDevice = $db->devices->findOne(['user_id' => $user->getUserId(), 'public_key' => $publicKey]);
     if ($insertedDevice) {
         $device = $insertedDevice;

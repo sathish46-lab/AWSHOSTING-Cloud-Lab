@@ -9,19 +9,39 @@ if (!Session::getUser()) {
 
 $user = Session::getUser();
 $db = DatabaseConnection::getDefaultDatabase();
+$instDb = DatabaseConnection::getClient()->selectDatabase('tom_labs_instances_db');
 
-$dbResources = VPN::request('ip', 'all', ['device' => 'wg0']);
-$allNodes = $dbResources['nodes'] ?? [];
+// Get user's reserved IPs from ip_registry
+$ipReg = $db->ip_registry;
+$myIPs = $ipReg->find(['email' => $user->getEmail(), 'status' => 'reserved']);
 
+// Collect IPs already in use by devices, labs, or instances
+$usedIps = [];
+
+// Devices
 $activeMetadata = $db->devices->find(['user_id' => $user->getUserId()])->toArray();
-$allocatedIps = array_map(function($d) { return $d['assigned_ip'] ?? ''; }, $activeMetadata);
+foreach ($activeMetadata as $d) {
+    if (!empty($d['assigned_ip'])) $usedIps[$d['assigned_ip']] = true;
+}
+
+// Machine labs
+$labs = $db->machine_labs->find(['deploy.email' => $user->getEmail()])->toArray();
+foreach ($labs as $lab) {
+    $ip = $lab['deploy']['internal_ip'] ?? null;
+    if ($ip) $usedIps[$ip] = true;
+}
+
+// Instances
+$instances = $instDb->instances->find(['email' => $user->getEmail()])->toArray();
+foreach ($instances as $inst) {
+    $ip = $inst['deploy']['internal_ip'] ?? null;
+    if ($ip) $usedIps[$ip] = true;
+}
 
 $resources = [];
-foreach ($allNodes as $node) {
-    if (isset($node['email']) && $node['email'] === $user->getEmail()) {
-        if (!in_array($node['ip_addr'], $allocatedIps)) {
-            $resources[] = $node;
-        }
+foreach ($myIPs as $ip) {
+    if (!isset($usedIps[$ip['ip_addr']])) {
+        $resources[] = ['ip_addr' => $ip['ip_addr']];
     }
 }
 $defaultIp = !empty($resources) ? end($resources)['ip_addr'] : "";

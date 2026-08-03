@@ -8,123 +8,89 @@ use MongoDB\Operation\FindOneAndUpdate;
 class IPManager {
     private $db;
     private $collection;
-    private $protected_range = 10;
-    private $ip_prefix;
+    protected $ip_prefix;
 
     public function __construct() {
         $this->ip_prefix = get_config('tunnel_ip');
         $this->db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-        $this->collection = $this->db->lab_ips;
+        $this->collection = $this->db->ip_registry;
     }
 
-/**
- * UPDATED: Checks both Lab IPs and VPN Device IPs to prevent collisions
- */public function getNextIPForUser($email, $instanceHash, $labType = 'essentials') {
-    // 1. Check existing assignment
-    $reserved = $this->collection->findOne(['reserved_to' => $email, 'allocated_to' => $instanceHash]);
-    if ($reserved) return $reserved['ip_addr'];
-
-    // 2. Get all IPs used by physical devices to prevent collisions
-    // NOTE: With strict segregation (VPN=1.x, Labs=10.x), this is less critical but good for safety.
-    $vpnDb = DatabaseConnection::getClient()->selectDatabase('tom_labs_vpn');
-    $userDevices = $vpnDb->networks->find(['email' => $email])->toArray();
-
-    $forbiddenIps = [];
-    foreach ($userDevices as $d) {
-        if (!empty($d['assigned_ip'])) {
-            $forbiddenIps[] = $d['assigned_ip'];
-        }
-    }
-
-    // 3. Prepare the query
-    $query = [
-        'allocated' => false,
-        'status' => 'available',
-        // 'ip_numeric' => ['$gte' => 21, '$lte' => 100] // REMOVED: Allow full range allocation within the subnet
-    ];
-
-    if (!empty($forbiddenIps)) {
-        $query['ip_addr'] = ['$nin' => $forbiddenIps];
-    }
-
-    // 4. Find and Update (FIXED SYNTAX)
-    $result = $this->collection->findOneAndUpdate(
-        $query,
-        [
-            '$set' => [
-                'status'       => 'allocated',
-                'allocated'    => true,
-                'allocated_to' => $instanceHash,
-                'email'        => $email,
-                'reserved_to'  => $email,
-                'service_type' => $labType,
-                'label'        => ucfirst($labType) . ' Lab',
-                'last_deploy'  => time()
-            ]
-        ],
-        [
-            // Sort by last_deploy ascending so we pick the "oldest" available IP
-            'sort' => ['last_deploy' => 1, 'ip_numeric' => 1], 
-            'returnDocument' => \MongoDB\Operation\FindOneAndUpdate::RETURN_DOCUMENT_AFTER
-        ]
-    );
-
-    if (!$result) {
-        // Auto-initialize if the pool is completely empty (fresh DB)
-        if ($this->collection->countDocuments([]) === 0) {
-            error_log("IPManager: Fresh database detected. Auto-initializing IP pool...");
-            $this->initializePool();
-            
-            // Retry the allocation
+    /**
+     * Reserve an IP for a user
+     * Works for devices, labs, instances — anything
+     */
+    public function reserve($email, $userId = null, $selectedIp = null) {
+        if ($selectedIp) {
+            // User selected a specific IP
             $result = $this->collection->findOneAndUpdate(
-                $query,
+                ['ip_addr' => $selectedIp, 'status' => 'available'],
+                ['$set' => [
+                    'status'     => 'reserved',
+                    'user_id'    => $userId,
+                    'email'      => $email,
+                    'reserved_at'=> time(),
+                ]],
+                ['returnDocument' => \MongoDB\Operation\FindOneAndUpdate::RETURN_DOCUMENT_AFTER]
+            );
+        } else {
+            // Auto-assign next available
+            $result = $this->collection->findOneAndUpdate(
+                ['status' => 'available'],
+                ['$set' => [
+                    'status'     => 'reserved',
+                    'user_id'    => $userId,
+                    'email'      => $email,
+                    'reserved_at'=> time(),
+                ]],
                 [
-                    '$set' => [
-                        'status'       => 'allocated',
-                        'allocated'    => true,
-                        'allocated_to' => $instanceHash,
-                        'email'        => $email,
-                        'reserved_to'  => $email,
-                        'service_type' => $labType,
-                        'label'        => ucfirst($labType) . ' Lab',
-                        'last_deploy'  => time()
-                    ]
-                ],
-                [
-                    'sort' => ['last_deploy' => 1, 'ip_numeric' => 1], 
+                    'sort' => ['ip_numeric' => 1],
                     'returnDocument' => \MongoDB\Operation\FindOneAndUpdate::RETURN_DOCUMENT_AFTER
                 ]
             );
         }
 
         if (!$result) {
-            throw new Exception("IP Pool Full or Colliding with VPN Devices!");
+            throw new Exception("No available IPs in pool!");
         }
+
+        return $result['ip_addr'];
     }
 
-    return $result['ip_addr'];
-}
+    /**
+     * Release an IP back to the pool
+     */
+    public function release($ip, $email) {
+        $result = $this->collection->updateOne(
+            ['ip_addr' => $ip, 'email' => $email],
+            ['$set' => ['status' => 'available'], '$unset' => ['user_id' => '', 'email' => '', 'reserved_at' => '']]
+        );
+        error_log("IPManager: Released IP $ip");
+        return $result;
+    }
 
     /**
-     * Initialize or reset IP pool
-     * Call this once during setup or to reset the pool
+     * Get all IPs reserved by a user
+     */
+    public function getUserIPs($email) {
+        return $this->collection->find(['email' => $email, 'status' => 'reserved'])->toArray();
+    }
+
+    /**
+     * Initialize IP pool (range: .11 to .254)
      */
     public function initializePool($start = 11, $end = 254) {
-        $this->collection->deleteMany([]); // Clear existing pool
+        $this->collection->deleteMany([]);
         
         $bulk = [];
         for ($i = $start; $i <= $end; $i++) {
             $bulk[] = [
-                'ip_addr' => $this->ip_prefix . $i,
-                'ip_numeric' => $i,  // For proper sorting
-                'status' => 'available',
-                'allocated' => false,
-                'reserved_to' => null,
-                'allocated_to' => null,
-                'email' => null,
-                'service_type' => null,
-                'label' => null,
-                'created_at' => time()
+                'ip_addr'    => $this->ip_prefix . $i,
+                'ip_numeric' => $i,
+                'status'     => 'available',
+                'user_id'    => null,
+                'email'      => null,
+                'reserved_at'=> null,
             ];
         }
         
@@ -135,123 +101,15 @@ class IPManager {
     }
 
     /**
-     * Release IP back to pool when lab is deleted (not just stopped)
-     */
-    public function release($ip, $email) {
-        $result = $this->collection->updateOne(
-            ['ip_addr' => $ip, 'reserved_to' => $email],
-            [
-                '$set' => [
-                    'status' => 'available', 
-                    'allocated' => false,
-                    'reserved_to' => null
-                ],
-                '$unset' => [
-                    'allocated_to' => "", 
-                    'email' => "",
-                    'service_type' => "",
-                    'label' => ""
-                ] 
-            ]
-        );
-        
-        error_log("IPManager: Released IP $ip");
-        return $result;
-    }
-
-    /**
-     * Get allocation statistics
+     * Get stats
      */
     public function getStats() {
         $total = $this->collection->countDocuments([]);
-        $allocated = $this->collection->countDocuments(['allocated' => true]);
-        $available = $total - $allocated;
-        
-        // Get breakdown by service type
-        $byType = [];
-        $pipeline = [
-            ['$match' => ['allocated' => true]],
-            ['$group' => [
-                '_id' => '$service_type',
-                'count' => ['$sum' => 1]
-            ]]
-        ];
-        
-        $typeStats = $this->collection->aggregate($pipeline)->toArray();
-        foreach ($typeStats as $stat) {
-            $byType[$stat['_id'] ?? 'unknown'] = $stat['count'];
-        }
-        
+        $reserved = $this->collection->countDocuments(['status' => 'reserved']);
         return [
-            'total' => $total,
-            'allocated' => $allocated,
-            'available' => $available,
-            'utilization' => $total > 0 ? round(($allocated / $total) * 100, 2) : 0,
-            'by_type' => $byType
+            'total'     => $total,
+            'reserved'  => $reserved,
+            'available' => $total - $reserved,
         ];
-    }
-
-    /**
-     * Force release stale allocations (IPs allocated but container doesn't exist)
-     */
-    public function cleanupStaleAllocations() {
-        // This should be called periodically or on demand
-        $allocated = $this->collection->find(['allocated' => true]);
-        $cleaned = 0;
-        
-        foreach ($allocated as $record) {
-            $hash = $record['allocated_to'] ?? null;
-            if (!$hash) continue;
-            
-            // Check if container exists
-            $containerExists = shell_exec("docker ps -a -q -f name=^{$hash}$");
-            
-            if (empty(trim($containerExists))) {
-                // Container doesn't exist, release IP
-                $this->collection->updateOne(
-                    ['_id' => $record['_id']],
-                    [
-                        '$set' => [
-                            'status' => 'available',
-                            'allocated' => false,
-                            'reserved_to' => null
-                        ],
-                        '$unset' => [
-                            'allocated_to' => '',
-                            'email' => '',
-                            'service_type' => '',
-                            'label' => ''
-                        ]
-                    ]
-                );
-                $cleaned++;
-                error_log("IPManager: Cleaned stale IP {$record['ip_addr']}");
-            }
-        }
-        
-        return $cleaned;
-    }
-
-    /**
-     * Get all IPs allocated to a specific user
-     */
-    public function getUserAllocations($email) {
-        return $this->collection->find([
-            'allocated' => true,
-            'reserved_to' => $email
-        ])->toArray();
-    }
-
-    /**
-     * Update service type for an existing allocation
-     */
-    public function updateServiceType($instanceHash, $labType) {
-        return $this->collection->updateOne(
-            ['allocated_to' => $instanceHash],
-            ['$set' => [
-                'service_type' => $labType,
-                'label' => ucfirst($labType) . ' Lab'
-            ]]
-        );
     }
 }

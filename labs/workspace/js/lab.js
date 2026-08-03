@@ -834,6 +834,10 @@ async function executeRedeploy(labType) {
     formData.append("expose_web", exposeWeb);
     formData.append("code_domain", vscDomain);
 
+    // Append selected IP
+    const ipEl = document.getElementById("reallocate_ip_selector");
+    if (ipEl) formData.append("internal_ip", ipEl.value);
+
     // Append lab-specific domain fields
     for (const [fieldId, value] of Object.entries(labFormData)) {
       formData.append(fieldId, value);

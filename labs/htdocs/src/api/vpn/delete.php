@@ -9,8 +9,8 @@ if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
 }
 
 $data = json_decode(file_get_contents('php://input'), true);
-$dbId = $data['id'] ?? null;      // From tom_labs_db.devices
-$pubKey = $data['public_key'] ?? null; // For WireGuard kernel removal
+$dbId = $data['id'] ?? null;
+$pubKey = $data['public_key'] ?? null;
 
 if (!$dbId || !$pubKey) {
     echo json_encode(['status' => 'error', 'error' => 'Missing ID or Public Key']); exit;
@@ -20,23 +20,30 @@ $db = DatabaseConnection::getDefaultDatabase();
 $user = Session::getUser();
 
 try {
-    // 1. Remove from WireGuard Kernel via API
-    $response = VPN::request('wg', 'remove_peer', [
-        'peer'     => $pubKey, 
-        'reserved' => 'true', // Keep IP reserved in tom_labs_vpn for reuse
-        'device'   => 'wg0'
-    ]);
-
-    // 2. FIXED: Delete from the CORRECT collection
-    // This removes the duplicate/deleted card from your UI
-    $deleteResult = $db->devices->deleteOne([
+    // 1. Find device to get its IP
+    $device = $db->devices->findOne([
         '_id' => new MongoDB\BSON\ObjectId($dbId),
         'user_id' => $user->getUserId()
     ]);
-
-    if ($deleteResult->getDeletedCount() === 0) {
-        throw new Exception("Record not found in metadata database.");
+    
+    if (!$device) {
+        throw new Exception("Device not found.");
     }
+    
+    $assignedIp = $device['assigned_ip'] ?? null;
+
+    // 2. Remove from WireGuard Kernel
+    $response = VPN::request('wg', 'remove_peer', [
+        'peer'     => $pubKey, 
+        'reserved' => 'true',
+        'device'   => 'wg0'
+    ]);
+
+    // 3. Delete from devices collection (IP stays reserved)
+    $db->devices->deleteOne([
+        '_id' => new MongoDB\BSON\ObjectId($dbId),
+        'user_id' => $user->getUserId()
+    ]);
 
     echo json_encode(['status' => 'success']);
 } catch (Exception $e) {

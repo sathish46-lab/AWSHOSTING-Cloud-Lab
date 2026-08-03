@@ -241,6 +241,16 @@ window.confirmDeleteDeviceAction = confirmDeleteDeviceAction;
 window.onPageLoad( () => {
     let statsInterval = null;
 
+    // Position device card dropdowns on open
+    document.addEventListener('show.coreui.dropdown', function(e) {
+        const dropdown = e.target;
+        if (!dropdown.closest('.device-row')) return;
+        const menu = dropdown.querySelector('.dropdown-menu');
+        if (!menu) return;
+        // Let CSS handle positioning, just ensure it's visible
+        menu.style.zIndex = '9999';
+    });
+
     async function fetchStats() {
         // 1. Page Check: Only run if device rows exist
         if (document.querySelectorAll('.device-row').length === 0) return;
@@ -255,6 +265,7 @@ window.onPageLoad( () => {
                 // 3. Auto-detect Offline/Online
                 if (live) {
                     const pill = card.querySelector('.status-pill');
+                    if (!pill) return;
                     const icon = live.status === 'Online' ? 'bx-wifi' : (live.status === 'Unreachable' ? 'bx-time-five' : 'bx-wifi-off');
 
                     pill.innerHTML = `<i class='bx ${icon} me-1'></i> ${live.status}`;
@@ -359,6 +370,89 @@ document.addEventListener('show.coreui.modal', function(e) {
     window.downloadTunnel = downloadTunnel;
     window.generateWGKeypair = generateWGKeypair;
     window.deleteDevice = deleteDevice;
+
+let pendingUnreserve = { deviceId: '', ipAddr: '', deviceName: '', btn: null };
+
+function toggleReserveIp(deviceId, ipAddr, deviceName, action, btn) {
+    if (action === 'unreserve') {
+        pendingUnreserve = { deviceId, ipAddr, deviceName, btn };
+        document.getElementById('unreserveModalIp').textContent = ipAddr;
+        document.getElementById('unreserveModalIpBold').textContent = ipAddr;
+        new coreui.Modal(document.getElementById('confirmUnreserveModal')).show();
+        return;
+    }
+    doReserve(deviceId, ipAddr, deviceName, btn);
+}
+
+async function doReserve(deviceId, ipAddr, deviceName, btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<i class='bx bx-loader-alt bx-spin me-1'></i>`;
+
+    try {
+        const res = await fetch('/api/vpn/reserve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ip: ipAddr })
+        });
+        const data = await res.json();
+        if (data.result) {
+            const card = document.getElementById(`device-card-${deviceId}`);
+            if (card) {
+                const badgeArea = card.querySelector('.d-flex.gap-1.flex-wrap');
+                const existingBadge = badgeArea ? badgeArea.querySelector('.bg-warning') : null;
+                if (!existingBadge && badgeArea) {
+                    const badge = document.createElement('span');
+                    badge.className = 'badge bg-warning fw-bold';
+                    badge.innerHTML = "<i class='bx bx-lock me-1'></i> Reserved";
+                    badgeArea.insertBefore(badge, badgeArea.children[1] || null);
+                }
+                btn.innerHTML = "<i class='bx bx-lock me-1'></i> Unreserve IP";
+                btn.setAttribute('onclick', `toggleReserveIp('${deviceId}','${ipAddr}','${deviceName}','unreserve',this)`);
+                btn.className = 'dropdown-item rounded-3 mb-1 px-2 py-1 text-warning';
+            }
+        }
+    } catch (e) {
+        btn.innerHTML = "<i class='bx bx-lock-open me-1'></i> Reserve IP";
+    }
+    btn.disabled = false;
+}
+
+async function confirmUnreserveAction() {
+    const { deviceId, ipAddr, deviceName, btn } = pendingUnreserve;
+    const confirmBtn = document.getElementById('confirmUnreserveBtn');
+    confirmBtn.disabled = true;
+    confirmBtn.innerHTML = "<i class='bx bx-loader-alt bx-spin me-1'></i> Unreserving...";
+
+    try {
+        const res = await fetch('/api/vpn/unreserve', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ip: ipAddr })
+        });
+        const data = await res.json();
+        if (data.result) {
+            const modal = coreui.Modal.getInstance(document.getElementById('confirmUnreserveModal'));
+            if (modal) modal.hide();
+
+            const card = document.getElementById(`device-card-${deviceId}`);
+            if (card) {
+                const badgeArea = card.querySelector('.d-flex.gap-1.flex-wrap');
+                const existingBadge = badgeArea ? badgeArea.querySelector('.bg-warning') : null;
+                if (existingBadge) existingBadge.remove();
+
+                btn.innerHTML = "<i class='bx bx-lock-open me-1'></i> Reserve IP";
+                btn.setAttribute('onclick', `toggleReserveIp('${deviceId}','${ipAddr}','${deviceName}','reserve',this)`);
+                btn.className = 'dropdown-item rounded-3 mb-1 px-2 py-1 text-success';
+            }
+        }
+    } catch (e) {
+        btn.innerHTML = "<i class='bx bx-lock me-1'></i> Unreserve IP";
+    }
+    confirmBtn.disabled = false;
+    confirmBtn.innerHTML = "Unreserve";
+}
+window.confirmUnreserveAction = confirmUnreserveAction;
+window.toggleReserveIp = toggleReserveIp;
 
   })();
 } catch (e) {
