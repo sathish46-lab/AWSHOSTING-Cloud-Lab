@@ -12,10 +12,16 @@ $user = Session::getUser();
 $db = DatabaseConnection::getDefaultDatabase();
 
 if ($keyId) {
-    // 1. Remove from MongoDB
-    $db->ssh_keys->deleteOne([
+    // 1. Soft-delete from MongoDB (keep record for audit trail)
+    $db->ssh_keys->updateOne([
         '_id' => new MongoDB\BSON\ObjectId($keyId),
         'user_id' => $user->getUserId()
+    ], [
+        '$set' => [
+            'status' => 'deleted',
+            'deleted_at' => new MongoDB\BSON\UTCDateTime(),
+            'deleted_by' => $user->getEmail(),
+        ]
     ]);
 
     // 2. Re-Sync Container: This wipes the deleted key from the container

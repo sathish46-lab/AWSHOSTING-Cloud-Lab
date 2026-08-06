@@ -15,7 +15,7 @@ $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
 
 try {
     // Limit to 5 databases per user to prevent abuse
-    $dbCount = $db->mysql_services->countDocuments(['user_id' => $user->getUserId()]);
+    $dbCount = $db->mysql_services->countDocuments(['user_id' => $user->getUserId(), 'status' => ['$ne' => 'deleted']]);
     if ($dbCount >= 5) {
         echo json_encode(['success' => false, 'error' => 'You have reached the maximum limit of 5 MySQL databases.']);
         exit;

@@ -46,8 +46,14 @@ try {
         error_log("Failed to drop user {$dbRecord['db_user']}");
     }
 
-    // 3. Remove from MongoDB
-    $db->mysql_services->deleteOne(['_id' => $dbRecord['_id']]);
+    // 3. Soft-delete from MongoDB (keep record for audit trail)
+    $db->mysql_services->updateOne(['_id' => $dbRecord['_id']], [
+        '$set' => [
+            'status' => 'deleted',
+            'deleted_at' => new MongoDB\BSON\UTCDateTime(),
+            'deleted_by' => $user->getEmail(),
+        ]
+    ]);
 
     AuditLog::log('delete', 'service_mysql', $dbName, [
         'db_user' => $dbRecord['db_user'],

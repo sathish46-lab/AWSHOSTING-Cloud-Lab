@@ -10,7 +10,7 @@ if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
 $user = Session::getUser();
 $db = DatabaseConnection::getDefaultDatabase();
 
-$myDevices = $db->devices->find(['user_id' => $user->getUserId()])->toArray();
+$myDevices = $db->devices->find(['user_id' => $user->getUserId(), 'status' => ['$ne' => 'deleted']])->toArray();
 $myKeys = array_column($myDevices, 'public_key');
 
 $apiResponse = VPN::request('wg', 'get_peers', ['device' => 'wg0']);

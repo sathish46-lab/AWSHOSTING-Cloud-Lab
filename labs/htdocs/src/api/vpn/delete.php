@@ -40,10 +40,16 @@ try {
         'device'   => 'wg0'
     ]);
 
-    // 3. Delete from devices collection (IP stays reserved)
-    $db->devices->deleteOne([
+    // 3. Soft-delete from devices collection (keep record for audit trail)
+    $db->devices->updateOne([
         '_id' => new MongoDB\BSON\ObjectId($dbId),
         'user_id' => $user->getUserId()
+    ], [
+        '$set' => [
+            'status' => 'deleted',
+            'deleted_at' => new MongoDB\BSON\UTCDateTime(),
+            'deleted_by' => $user->getEmail(),
+        ]
     ]);
 
     AuditLog::log('delete', 'vpn_device', $assignedIp, [

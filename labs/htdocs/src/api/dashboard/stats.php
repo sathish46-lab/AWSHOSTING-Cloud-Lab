@@ -21,7 +21,7 @@ $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
 // 2. Get active labs count
 $activeLabs = $db->machine_labs->countDocuments([
     'user_id' => $userId,
-    'deploy.status' => 'running'
+    'status' => 'running'
 ]);
 
 $labsLimit = 5; 
@@ -50,8 +50,7 @@ $allStats = file_exists($cacheFile) ? json_decode(file_get_contents($cacheFile),
 
 $labsList = [];
 foreach ($deployedLabs as $lab) {
-    $deploy = $lab['deploy'] ?? [];
-    $hash = $deploy['instance_hash'] ?? '';
+    $hash = $lab['instance_hash'] ?? '';
     
     // Retrieve real-time metrics for this specific lab from memory cache
     $metrics = ['status' => 'offline'];
@@ -62,18 +61,18 @@ foreach ($deployedLabs as $lab) {
     }
 
     $labsList[] = [
-        'name' => ucfirst($deploy['lab_type'] ?? 'Lab'),
-        'ip' => $deploy['internal_ip'] ?? 'Unknown',
-        'status' => $deploy['status'] ?? 'unknown',
+        'name' => ucfirst($lab['lab_type'] ?? 'Lab'),
+        'ip' => $lab['internal_ip'] ?? 'Unknown',
+        'status' => $lab['status'] ?? 'unknown',
         'hash' => $hash,
-        'type' => $deploy['lab_type'] ?? 'unknown',
+        'type' => $lab['lab_type'] ?? 'unknown',
         'metrics' => $metrics
     ];
 }
 
 // 5. Get ALL domains
 $domains = $db->domains->find(
-    ['user_id' => ['$in' => [(string)$userId, $userId]]], // Check both string and int IDs
+    ['user_id' => ['$in' => [(string)$userId, $userId]], 'status' => ['$ne' => 'deleted']], // Check both string and int IDs
     ['sort' => ['created_at' => -1]]
 );
 

@@ -13,13 +13,19 @@ if (!$domainId || Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
 try {
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
     
-    // Security check: Delete only if it belongs to the logged-in user
-    $result = $db->domains->deleteOne([
+    // Security check: Soft-delete only if it belongs to the logged-in user
+    $result = $db->domains->updateOne([
         '_id' => new MongoDB\BSON\ObjectId($domainId),
         'user_id' => $user->getUserId()
+    ], [
+        '$set' => [
+            'status' => 'deleted',
+            'deleted_at' => new MongoDB\BSON\UTCDateTime(),
+            'deleted_by' => $user->getEmail(),
+        ]
     ]);
 
-    if ($result->getDeletedCount() > 0) {
+    if ($result->getModifiedCount() > 0) {
         echo json_encode(['success' => true]);
     } else {
         throw new Exception("Domain not found or unauthorized access.");

@@ -19,7 +19,7 @@ $myIPs = $ipReg->find(['email' => $user->getEmail(), 'status' => 'reserved']);
 $usedIps = [];
 
 // Devices
-$activeMetadata = $db->devices->find(['user_id' => $user->getUserId()])->toArray();
+$activeMetadata = $db->devices->find(['user_id' => $user->getUserId(), 'status' => ['$ne' => 'deleted']])->toArray();
 foreach ($activeMetadata as $d) {
     if (!empty($d['assigned_ip'])) $usedIps[$d['assigned_ip']] = true;
 }

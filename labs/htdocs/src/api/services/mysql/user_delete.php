@@ -51,8 +51,14 @@ try {
         error_log("Failed to drop user {$mysqlUsername} in MySQL, but continuing with MongoDB cleanup.");
     }
 
-    // 3. Remove user from MongoDB
-    $db->mysql_users->deleteOne(['_id' => $userRecord['_id']]);
+    // 3. Soft-delete user from MongoDB (keep record for audit trail)
+    $db->mysql_users->updateOne(['_id' => $userRecord['_id']], [
+        '$set' => [
+            'status' => 'deleted',
+            'deleted_at' => new MongoDB\BSON\UTCDateTime(),
+            'deleted_by' => $user->getEmail(),
+        ]
+    ]);
 
     echo json_encode([
         'success' => true,
