@@ -19,7 +19,16 @@ class RabbitClient {
             throw new \RuntimeException("RABBITMQ_PASS not configured");
         }
 
-        $this->connection = new AMQPStreamConnection($host, $port, $user, $pass, '/');
+        // T2: Add connection timeout to prevent hanging on unreachable RabbitMQ
+        $this->connection = new AMQPStreamConnection(
+            $host, $port, $user, $pass, '/',
+            false,  // insist
+            AMQPChannel::METHOD_PROTOCOL_091,  // channel_rpc_timeout
+            'rabbitmq-con-',  // consumer_tag
+            false,  // auto_decode
+            null,   // stream_context
+            5.0     // read_write_timeout (seconds)
+        );
         $this->channel = $this->connection->channel();
 
         // Only declare if targeting a custom exchange

@@ -15,3 +15,4 @@ Track of audit findings fixed, chronological.
 
 - [SE1+SE2+H3] Session tokens now hashed with password_hash() before MongoDB storage. Added 30-day token expiry enforcement on auto-login. Logout matches by hashed token. Files: `htdocs/src/lib/core/UserSession.class.php`, `htdocs/src/lib/core/WebAPI.class.php`. Test: `workspace/tests/test_se1se2h3_token_hashing.php`.
 - [SE3+S22] Added ini_set for session.cookie_secure and session.cookie_samesite before session_start(). Secure flag is conditional on HTTPS. File: `htdocs/src/load.php`. Test: `workspace/tests/test_se3s22_cookie_flags.php`.
+- [T1+T2+T3] Added explicit timeouts: VPN cURL (5s connect/10s total), RabbitMQ (5s read_write_timeout), MongoDB PHP (5s serverSelection + connect timeout). Replaced die() with graceful JSON 503 response in DatabaseConnection. Files: `htdocs/src/lib/core/{VPN,RabbitClient,DatabaseConnection}.class.php`. Test: `workspace/tests/test_t1t2t3_timeouts.php`.

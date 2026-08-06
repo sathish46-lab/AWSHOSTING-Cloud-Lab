@@ -37,6 +37,10 @@ class VPN {
         curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($params));
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         
+        // T1: Add timeouts to prevent hanging on slow/unreachable VPN API
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);  // Connection timeout: 5 seconds
+        curl_setopt($ch, CURLOPT_TIMEOUT, 10);         // Total request timeout: 10 seconds
+        
         // Disable SSL verification for self-signed certs
         curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
         curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);

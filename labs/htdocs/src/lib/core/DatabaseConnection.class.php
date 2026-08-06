@@ -11,6 +11,13 @@ class DatabaseConnection {
     if (self::$client === null) {
         $uri = get_config('database_file'); 
         
+        // T3: Add connection timeout to prevent hanging on unreachable MongoDB
+        // Append timeout options to URI if not already present
+        if (strpos($uri, 'serverSelectionTimeoutMS') === false) {
+            $separator = (strpos($uri, '?') !== false) ? '&' : '?';
+            $uri .= $separator . 'serverSelectionTimeoutMS=5000&connectTimeoutMS=5000';
+        }
+        
         try {
             self::$client = new MongoDB\Client($uri);
             
@@ -20,8 +27,13 @@ class DatabaseConnection {
             
         } catch (Exception $e) {
             error_log("DB CONNECTION ERROR: " . $e->getMessage());
-            http_response_code(500);
-            die("Critical: Database connection failed. Please check logs.");
+            // T3: Return graceful error instead of die()
+            if (php_sapi_name() !== 'cli') {
+                http_response_code(503);
+                header('Content-Type: application/json');
+                echo json_encode(['status' => 'error', 'error' => 'Database connection failed. Please try again later.']);
+            }
+            exit;
         }
     }
     return self::$client;
@@ -39,39 +51,32 @@ class DatabaseConnection {
         return self::$db;
     }
     /**
-     * Returns the machine_labs collection (replaces old deployed_labs)
-     * All deploy data lives inside machine_labs.deploy subdocument
+     * Returns the machine_labs collection
      */
     public static function getInstancesCollection() {
         return self::getDefaultDatabase()->selectCollection('machine_labs');
     }
 
     /**
-     * Convenience: find a single instance by deploy.instance_hash
+     * Convenience: find a single instance by instance_hash
      * Returns the flattened deploy data with lab_type merged in
      */
     public static function findInstanceByHash(string $hash): ?array {
         $inst = self::getInstancesCollection()->findOne(
-            ['deploy.instance_hash' => $hash],
-            ['projection' => ['deploy' => 1, 'lab_type' => 1, 'lab_name' => 1, 'user_id' => 1, 'email' => 1]]
+            ['instance_hash' => $hash],
+            ['projection' => ['lab_type' => 1, 'lab_name' => 1, 'user_id' => 1, 'email' => 1, 'internal_ip' => 1, 'credentials' => 1, 'status' => 1, 'code_domain' => 1, 'gui_domain' => 1, 'domains' => 1, 'expose_web' => 1, 'http_proxies' => 1]]
         );
-        if (!$inst) return null;
-        $data = $inst['deploy'] ?? [];
-        $data['lab_type'] = $inst['lab_type'] ?? $data['lab_type'] ?? 'essentials';
-        $data['lab_name'] = $inst['lab_name'] ?? $data['lab_name'] ?? '';
-        $data['user_id'] = $inst['user_id'] ?? $data['user_id'] ?? null;
-        $data['email'] = $inst['email'] ?? $data['email'] ?? null;
-        return $data;
+        return $inst ?: null;
     }
 
     /**
-     * Convenience: find instance document by deploy.instance_hash
+     * Convenience: find instance document by instance_hash
      * Returns the full machine_labs document (not flattened)
      */
     public static function findInstanceDocByHash(string $hash): ?array {
         return self::getInstancesCollection()->findOne(
-            ['deploy.instance_hash' => $hash],
-            ['projection' => ['deploy' => 1, 'lab_type' => 1, 'lab_name' => 1, 'user_id' => 1, 'email' => 1]]
+            ['instance_hash' => $hash],
+            ['projection' => ['lab_type' => 1, 'lab_name' => 1, 'user_id' => 1, 'email' => 1, 'internal_ip' => 1, 'credentials' => 1, 'status' => 1, 'code_domain' => 1, 'gui_domain' => 1, 'domains' => 1, 'expose_web' => 1, 'http_proxies' => 1]]
         );
     }
 
