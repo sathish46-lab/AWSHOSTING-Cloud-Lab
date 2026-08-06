@@ -2,7 +2,12 @@
 
 class VPN {
     
-    public static function request($namespace, $method, $params = []) {
+    /**
+     * Make a request to the VPN API with retry logic.
+     * @param int $maxRetries Maximum number of retry attempts (default: 2, total 3 attempts)
+     * @return array|null Decoded JSON response, or null on failure
+     */
+    public static function request($namespace, $method, $params = [], $maxRetries = 2) {
         // Fetch config from multiple possible locations
         $paths = [
             '/var/www/env.json',
@@ -24,35 +29,55 @@ class VPN {
         
         $apiKey = $config['api_secret'] ?? '';
 
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        
-        // 3. Add the API Key to the headers for security
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'X-API-KEY: ' . $apiKey,
-            'Content-Type: application/x-www-form-urlencoded'
-        ]);
-        
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($params));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        
-        // T1: Add timeouts to prevent hanging on slow/unreachable VPN API
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);  // Connection timeout: 5 seconds
-        curl_setopt($ch, CURLOPT_TIMEOUT, 10);         // Total request timeout: 10 seconds
-        
-        // Disable SSL verification for self-signed certs
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-        
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
-        
-        // error_log("VPN Request: URL: $url, Params: " . json_encode($params) . ", HTTP Code: $httpCode, Curl Error: $curlError, Response: $response");
+        $lastError = null;
+        for ($attempt = 0; $attempt <= $maxRetries; $attempt++) {
+            // Exponential backoff: 0s, 1s, 2s
+            if ($attempt > 0) {
+                sleep(min($attempt, 2));
+            }
 
-        curl_close($ch);
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'X-API-KEY: ' . $apiKey,
+                'Content-Type: application/x-www-form-urlencoded'
+            ]);
+            
+            curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($params));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            
+            // T1: Timeouts
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+            
+            // Disable SSL verification for self-signed certs
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
 
-        return json_decode($response, true);
+            // Success: 2xx response
+            if ($httpCode >= 200 && $httpCode < 300) {
+                return json_decode($response, true);
+            }
+
+            // Don't retry on 4xx client errors (except 429 Too Many Requests)
+            if ($httpCode >= 400 && $httpCode < 500 && $httpCode !== 429) {
+                error_log("VPN API Client Error: HTTP {$httpCode} on {$url}");
+                return json_decode($response, true);
+            }
+
+            // Retry on 5xx or connection errors
+            $lastError = "HTTP {$httpCode}: {$curlError}";
+            error_log("VPN API attempt {$attempt} failed: {$lastError}");
+        }
+
+        error_log("VPN API exhausted all retries for {$url}: {$lastError}");
+        return null;
     }
 }

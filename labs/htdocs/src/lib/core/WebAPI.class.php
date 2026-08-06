@@ -14,7 +14,14 @@ class WebAPI {
     // }
     public function __construct() {
         if (System::getOS() <= 2) { throw new UnsupportedEnvironmentException(); }
-        if (!extension_loaded('mongodb')) { die("Unable to load mongodb.so"); }
+        if (!extension_loaded('mongodb')) {
+            if (php_sapi_name() !== 'cli') {
+                http_response_code(500);
+                header('Content-Type: application/json');
+                echo json_encode(['status' => 'error', 'error' => 'MongoDB extension not loaded']);
+            }
+            exit;
+        }
 
         // DYNAMIC ENVIRONMENT DETECTION
         Session::$environment = is_local() ? 'local' : 'beta';

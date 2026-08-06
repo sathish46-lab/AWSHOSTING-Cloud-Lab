@@ -1,28 +1,38 @@
 <?php
 require_once __DIR__ . '/../../../src/load.php';
 
+header('Content-Type: application/json');
+
 if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
-    die("Unauthorized");
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized']);
+    exit;
 }
 
 $db = DatabaseConnection::getDefaultDatabase();
-$rawId = $_GET['id']; 
+$rawId = $_GET['id'] ?? '';
 
 // Professional ID extraction
 $deviceId = is_array($rawId) ? ($rawId['$oid'] ?? null) : $rawId;
 
 if (!$deviceId) {
-    die("Error: Invalid ID format.");
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid ID format']);
+    exit;
 }
 
 try {
     $device = $db->devices->findOne(['_id' => new MongoDB\BSON\ObjectId((string)$deviceId)]);
 } catch (Exception $e) {
-    die("Error: Invalid Device ID - " . $e->getMessage());
+    http_response_code(400);
+    echo json_encode(['error' => 'Invalid Device ID']);
+    exit;
 }
 
 if (!$device || (string)$device['user_id'] !== (string)Session::getUser()->getUserId()) {
-    die("Error: Device not found or access denied.");
+    http_response_code(404);
+    echo json_encode(['error' => 'Device not found or access denied']);
+    exit;
 }
 
 // Build the Professional WireGuard Config
@@ -52,8 +62,11 @@ $config .= "PersistentKeepalive = 25\n";
 // Clear output buffers to prevent corruption
 if (ob_get_length()) ob_end_clean();
 
+// Sanitize device name for Content-Disposition header (prevent CRLF injection)
+$safeDeviceName = preg_replace('/[^a-zA-Z0-9_-]/', '_', $device['device_name'] ?? 'vpn');
+
 header('Content-Type: application/config'); // Professional WireGuard MIME
-header('Content-Disposition: attachment; filename="' . str_replace(' ', '_', $device['device_name']) . '.conf"');
+header('Content-Disposition: attachment; filename="' . $safeDeviceName . '.conf"');
 header('Pragma: no-cache');
 header('Expires: 0');
 
