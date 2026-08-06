@@ -15,6 +15,7 @@ AMQP_PORT = int(os.environ.get('RABBITMQ_PORT', '5672'))
 AMQP_USER = os.environ.get('RABBITMQ_USER', 'admin')
 AMQP_PASS = os.environ.get('RABBITMQ_PASS', '')
 QUEUE_NAME = 'labs_jobs'
+DLQ_NAME = 'labs_jobs_dlq'
 LOG_FILE = '/var/log/labsctl/labsctl.log'
 MAX_WORKERS = int(os.environ.get('MAX_WORKERS', '5'))
 
@@ -25,6 +26,26 @@ def _file_log(msg):
             f.write(msg + '\n')
     except Exception:
         pass
+
+def _publish_to_dlq(job_data, reason="unknown"):
+    """Publish failed job to Dead Letter Queue for later inspection."""
+    try:
+        conn = _get_amqp_connection()
+        ch = conn.channel()
+        ch.queue_declare(queue=DLQ_NAME, durable=True)
+        
+        dlq_message = json.dumps({
+            'original_job': job_data,
+            'failure_reason': reason,
+            'failed_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+        })
+        
+        msg = pika.BasicMessage(body=dlq_message.encode(), delivery_mode=2)  # Persistent
+        ch.basic_publish(exchange='', routing_key=DLQ_NAME, body=msg.body)
+        conn.close()
+        _file_log(f"[DLQ] Published failed job to {DLQ_NAME}: {reason}")
+    except Exception as e:
+        _file_log(f"[DLQ ERROR] Failed to publish to DLQ: {e}")
 
 def _get_mongo_client(db_name='tom_labs_instances_db'):
     mongo_user = os.environ.get('MONGO_USER', '')
@@ -125,17 +146,23 @@ def _save_deploy_logs(instance_hash, logs, error_msg, is_build=False, action='de
 
         db.instances.update_one({'instance_hash': instance_hash}, {'$set': set_fields})
 
-        # Also update machine_labs so the UI reflects the status
+        # Also update machine_labs so the UI reflects the status (flat structure)
         labs_db = _get_mongo_client('tom_labs_db')
         if labs_db:
+            flat_fields = {
+                log_key: log_doc,
+                'last_error': error_msg or '',
+            }
+            if status_val is not None:
+                flat_fields['status'] = status_val
             labs_db.machine_labs.update_one(
-                {'deploy.instance_hash': instance_hash},
-                {'$set': set_fields}
+                {'instance_hash': instance_hash},
+                {'$set': flat_fields}
             )
     except Exception as e:
         print(f" [_save_deploy_logs] FAILED: {e}")
 
-def _run_job(job_data):
+def _run_job(job_data, delivery_tag=None):
     """Execute a single job — thread owns its own AMQP connection"""
     instance_hash = None
     routing_key = None
@@ -224,6 +251,8 @@ def _run_job(job_data):
     except Exception as e:
         print(f" [!] [{thread_name}] Error: {e}")
         _file_log(f"[SYSERR] {e}")
+        # Q1: Publish failed job to DLQ for later inspection
+        _publish_to_dlq(job_data, reason=str(e))
         if routing_key:
             try:
                 err_conn = _get_amqp_connection()
@@ -253,7 +282,22 @@ def main():
         try:
             connection = _get_amqp_connection()
             channel = connection.channel()
-            channel.queue_declare(queue=QUEUE_NAME, durable=True)
+            # Q1: Configure DLQ for dead letter exchange
+            channel.queue_declare(
+                queue=DLQ_NAME,
+                durable=True,
+                arguments={
+                    'x-message-ttl': 604800000,  # 7 days retention
+                }
+            )
+            channel.queue_declare(
+                queue=QUEUE_NAME,
+                durable=True,
+                arguments={
+                    'x-dead-letter-exchange': '',
+                    'x-dead-letter-routing-key': DLQ_NAME,
+                }
+            )
             channel.basic_qos(prefetch_count=MAX_WORKERS)
 
             print(f" [*] Connected to '{QUEUE_NAME}' — polling...")
@@ -268,11 +312,11 @@ def main():
 
                     body_str = body.decode('utf-8') if isinstance(body, bytes) else body
 
-                    # Ack on main thread (safe — only this thread touches this connection)
-                    channel.basic_ack(delivery_tag=method_frame.delivery_tag)
+                    # Q1: Do NOT ACK here — pass delivery_tag to _run_job for ACK after execution
+                    # This prevents job loss if worker crashes or thread pool is full
 
                     # Submit to thread pool — threads never touch main channel
-                    executor.submit(_run_job, body_str)
+                    executor.submit(_run_job, body_str, method_frame.delivery_tag)
 
                 except Exception as e:
                     print(f" Poll error: {e}")

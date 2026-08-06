@@ -40,6 +40,8 @@ AMQP_USER = config.get('amqp_user', 'admin')
 AMQP_PASS = config.get('amqp_pass') or os.environ.get('RABBITMQ_PASS', '')
 QUEUE_NAME = 'ai_jobs'
 CONTENT_QUEUE_NAME = 'ai_content_jobs'
+DLQ_NAME = 'ai_jobs_dlq'
+CONTENT_DLQ_NAME = 'ai_content_jobs_dlq'
 
 # AI Worker running in stateless API mode.
 print("AI Worker running in stateless API mode.", flush=True)
@@ -802,9 +804,35 @@ def main():
             channel = connection.channel()
             print("RabbitMQ connection established.", flush=True)
 
-            # Declare queues
-            channel.queue_declare(queue=QUEUE_NAME, durable=True)
-            channel.queue_declare(queue=CONTENT_QUEUE_NAME, durable=True)
+            # Declare DLQs first
+            channel.queue_declare(
+                queue=DLQ_NAME,
+                durable=True,
+                arguments={'x-message-ttl': 604800000}  # 7 days
+            )
+            channel.queue_declare(
+                queue=CONTENT_DLQ_NAME,
+                durable=True,
+                arguments={'x-message-ttl': 604800000}  # 7 days
+            )
+            
+            # Declare main queues with DLQ routing
+            channel.queue_declare(
+                queue=QUEUE_NAME,
+                durable=True,
+                arguments={
+                    'x-dead-letter-exchange': '',
+                    'x-dead-letter-routing-key': DLQ_NAME,
+                }
+            )
+            channel.queue_declare(
+                queue=CONTENT_QUEUE_NAME,
+                durable=True,
+                arguments={
+                    'x-dead-letter-exchange': '',
+                    'x-dead-letter-routing-key': CONTENT_DLQ_NAME,
+                }
+            )
             
             # Fair dispatch
             channel.basic_qos(prefetch_count=1)
