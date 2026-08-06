@@ -1,6 +1,22 @@
 <?php
 require_once __DIR__ . '/src/load.php';
 
+// S4: Require superuser authentication
+if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
+    http_response_code(401);
+    echo json_encode(['error' => 'Unauthorized']);
+    exit;
+}
+$user = Session::getUser();
+if (!$user || $user->getRole() !== 'superuser') {
+    http_response_code(403);
+    echo json_encode(['error' => 'Forbidden: superuser required']);
+    exit;
+}
+
+// Log the action
+error_log("ADMIN ACTION: sync_ip_registry.php called by {$user->getEmail()} ({$user->getUserId()})");
+
 $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
 $ipReg = $db->ip_registry;
 $devices = $db->devices;
@@ -18,7 +34,6 @@ foreach ($vpnIPs as $ip) {
             ['_id' => $ip['_id']],
             ['$set' => [
                 'status' => 'available',
-                'allocated' => false,
                 'reserved_to' => null,
             ], '$unset' => [
                 'allocated_to' => '',
@@ -42,13 +57,12 @@ foreach ($labIPs as $ip) {
     $hash = $ip['allocated_to'] ?? null;
     if (!$hash) continue;
     
-    $lab = $db->machine_labs->findOne(['deploy.instance_hash' => $hash]);
+    $lab = $db->machine_labs->findOne(['instance_hash' => $hash]);
     if (!$lab) {
         $ipReg->updateOne(
             ['_id' => $ip['_id']],
             ['$set' => [
                 'status' => 'available',
-                'allocated' => false,
                 'reserved_to' => null,
             ], '$unset' => [
                 'allocated_to' => '',
