@@ -49,7 +49,33 @@ public function getUser() {
     try {
         $user = $instance->usersCollection->findOne(['email' => $email]);
 
+        // S8: Account lockout check
+        if ($user) {
+            $failedAttempts = $user['failed_login_attempts'] ?? 0;
+            $lockedUntil = $user['locked_until'] ?? 0;
+            
+            if ($lockedUntil > time()) {
+                $remainingMinutes = ceil(($lockedUntil - time()) / 60);
+                Session::set('login_error', "Account locked. Try again in {$remainingMinutes} minutes.");
+                return false;
+            }
+            
+            // Clear lockout if expired
+            if ($lockedUntil > 0 && $lockedUntil <= time()) {
+                $instance->usersCollection->updateOne(
+                    ['email' => $email],
+                    ['$set' => ['failed_login_attempts' => 0, 'locked_until' => 0]]
+                );
+            }
+        }
+
         if ($user && isset($user['password']) && password_verify($password, $user['password'])) {
+            // S8: Reset failed login attempts on successful password verification
+            $instance->usersCollection->updateOne(
+                ['email' => $email],
+                ['$set' => ['failed_login_attempts' => 0, 'locked_until' => 0]]
+            );
+
             if (!isset($user['is_verified']) || $user['is_verified'] === false) {
                 Session::set('login_error', "Please verify your email.");
                 return false;
@@ -127,6 +153,21 @@ public function getUser() {
             
             return true;
         }
+        
+        // S8: Track failed login attempt
+        if ($user) {
+            $newAttempts = ($user['failed_login_attempts'] ?? 0) + 1;
+            $updateOps = ['$set' => ['failed_login_attempts' => $newAttempts]];
+            
+            // Lock account after 5 failed attempts (lock for 15 minutes)
+            if ($newAttempts >= 5) {
+                $updateOps['$set']['locked_until'] = time() + 900;
+                error_log("Account locked for {$email} after {$newAttempts} failed login attempts");
+            }
+            
+            $instance->usersCollection->updateOne(['email' => $email], $updateOps);
+        }
+        
     } catch (Exception $e) {
         error_log("Auth Error: " . $e->getMessage());
     }

@@ -1,13 +1,20 @@
 <?php
+require_once __DIR__ . '/CircuitBreaker.class.php';
 
 class VPN {
     
     /**
-     * Make a request to the VPN API with retry logic.
+     * Make a request to the VPN API with retry logic and circuit breaker.
      * @param int $maxRetries Maximum number of retry attempts (default: 2, total 3 attempts)
      * @return array|null Decoded JSON response, or null on failure
      */
     public static function request($namespace, $method, $params = [], $maxRetries = 2) {
+        // Circuit breaker: check if VPN API is available
+        if (!CircuitBreaker::allow('vpn_api')) {
+            error_log("VPN API circuit breaker OPEN — request blocked");
+            return null;
+        }
+
         // Fetch config from multiple possible locations
         $paths = [
             '/var/www/env.json',
@@ -63,6 +70,7 @@ class VPN {
 
             // Success: 2xx response
             if ($httpCode >= 200 && $httpCode < 300) {
+                CircuitBreaker::recordSuccess('vpn_api');
                 return json_decode($response, true);
             }
 
@@ -78,6 +86,7 @@ class VPN {
         }
 
         error_log("VPN API exhausted all retries for {$url}: {$lastError}");
+        CircuitBreaker::recordFailure('vpn_api');
         return null;
     }
 }

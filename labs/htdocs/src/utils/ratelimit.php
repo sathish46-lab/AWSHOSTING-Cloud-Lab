@@ -233,6 +233,13 @@ function check_global_rate_limit() {
             'key'     => 'auth:rl:2fa',
             'limit'   => 5,
             'window'  => 300
+        ],
+        [
+            'pattern' => '#^/api/account/change_password#i',
+            'methods' => ['POST'],
+            'key'     => 'account:rl:change_password',
+            'limit'   => 3,
+            'window'  => 3600
         ]
     ];
 
