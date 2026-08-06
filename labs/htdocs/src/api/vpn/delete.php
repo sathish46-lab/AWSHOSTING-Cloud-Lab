@@ -2,12 +2,15 @@
 require_once __DIR__ . '/../../../src/load.php';
 require_once __DIR__ . '/../../../src/lib/core/VPN.class.php';
 require_once __DIR__ . '/../../../src/lib/core/AuditLog.class.php';
+require_once __DIR__ . '/../../../src/lib/core/CsrfProtection.class.php';
 
 header('Content-Type: application/json');
 
 if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
     echo json_encode(['status' => 'error', 'error' => 'Unauthorized']); exit;
 }
+
+CsrfProtection::require();
 
 $data = json_decode(file_get_contents('php://input'), true);
 $dbId = $data['id'] ?? null;

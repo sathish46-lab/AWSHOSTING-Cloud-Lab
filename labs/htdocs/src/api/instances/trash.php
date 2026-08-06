@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../load.php';
 require_once __DIR__ . '/../../lib/core/AuditLog.class.php';
+require_once __DIR__ . '/../../lib/core/CsrfProtection.class.php';
 require_once __DIR__ . '/../../lib/core/RabbitClient.class.php';
 
 if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
@@ -8,6 +9,8 @@ if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
     echo 'Unauthorized';
     exit;
 }
+
+CsrfProtection::require();
 
 $user = Session::getUser();
 $userId = (int)$user->getUserId();
