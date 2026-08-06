@@ -26,6 +26,30 @@ if (empty($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
     exit;
 }
 
+// S12: File type allowlist for instance assets (code-server context)
+$allowedExtensions = [
+    'js', 'ts', 'jsx', 'tsx', 'py', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'hpp',  // Code
+    'html', 'htm', 'css', 'scss', 'less', 'sass',  // Web
+    'json', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'conf', 'env',  // Config
+    'txt', 'md', 'csv', 'log', 'xml', 'sql',  // Text
+    'sh', 'bash', 'zsh', 'fish', 'ps1',  // Scripts
+    'php', 'rb', 'pl', 'lua',  // Other code
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'ico',  // Images
+    'pdf', 'doc', 'docx', 'xls', 'xlsx',  // Documents
+];
+$ext = strtolower(pathinfo($_FILES['file']['name'], PATHINFO_EXTENSION));
+if (!in_array($ext, $allowedExtensions)) {
+    echo json_encode(['status' => 'error', 'error' => 'File type not allowed for instance assets.']);
+    exit;
+}
+
+// Block double-extension attacks
+$parts = explode('.', $_FILES['file']['name']);
+if (count($parts) > 2) {
+    echo json_encode(['status' => 'error', 'error' => 'Files with multiple extensions are not allowed.']);
+    exit;
+}
+
 $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_instances_db');
 $instance = $db->instances->findOne(['instance_hash' => $slug]);
 if (!$instance) {

@@ -18,10 +18,22 @@ if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
 
 $file = $_FILES['file'];
 
-// Exclude ZIP, allow images, pdf, txt, etc.
+// S12: File type allowlist validation
+$allowedExtensions = [
+    'jpg', 'jpeg', 'png', 'gif', 'webp',  // Images
+    'pdf',                                   // Documents
+    'txt', 'md', 'csv', 'json', 'xml',     // Text
+    'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx',  // Office
+];
 $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-if ($ext === 'zip') {
-    echo json_encode(['status' => 'error', 'error' => 'ZIP files are not allowed.']); exit;
+if (!in_array($ext, $allowedExtensions)) {
+    echo json_encode(['status' => 'error', 'error' => 'File type not allowed. Allowed: ' . implode(', ', $allowedExtensions)]); exit;
+}
+
+// Block double-extension attacks (e.g., shell.php.jpg)
+$parts = explode('.', $file['name']);
+if (count($parts) > 2) {
+    echo json_encode(['status' => 'error', 'error' => 'Files with multiple extensions are not allowed.']); exit;
 }
 
 $maxSize = 5 * 1024 * 1024; // 5 MB

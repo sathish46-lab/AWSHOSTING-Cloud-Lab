@@ -26,7 +26,7 @@ class Storage {
     /**
      * Upload a file to MinIO
      */
-    public static function upload($localFilePath, $s3Path) {
+    public static function upload($localFilePath, $s3Path, $acl = 'private') {
         $client = self::getClient();
         $config = get_config('s3');
 
@@ -35,12 +35,33 @@ class Storage {
                 'Bucket' => $config['bucket'],
                 'Key'    => ltrim($s3Path, '/'),
                 'SourceFile' => $localFilePath,
-                'ACL'    => 'public-read',
+                'ACL'    => $acl,
                 'ContentType' => mime_content_type($localFilePath)
             ]);
             return $result;
         } catch (Aws\S3\Exception\S3Exception $e) {
             error_log("MinIO Upload Error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Generate a pre-signed URL for temporary access to a private object.
+     * @param int $expires Lifetime in seconds (default 3600 = 1 hour)
+     */
+    public static function getSignedUrl($s3Path, $expires = 3600) {
+        $client = self::getClient();
+        $config = get_config('s3');
+
+        try {
+            $cmd = $client->getCommand('GetObject', [
+                'Bucket' => $config['bucket'],
+                'Key'    => ltrim($s3Path, '/'),
+            ]);
+            $request = $client->createPresignedRequest($cmd, $expires);
+            return (string) $request->getUri();
+        } catch (Aws\S3\Exception\S3Exception $e) {
+            error_log("MinIO Signed URL Error: " . $e->getMessage());
             return false;
         }
     }
