@@ -19,7 +19,8 @@ if (session_status() === PHP_SESSION_NONE) {
     // Fix Ubuntu Cron Job Session Deletion Bug
     $sessionPath = '/var/cache/labs/sessions';
     if (!is_dir($sessionPath)) {
-        @mkdir($sessionPath, 0755, true);
+        @mkdir($sessionPath, 0733, true);
+        @chown($sessionPath, 'www-data');
     }
     ini_set('session.save_path', $sessionPath);
     
@@ -32,6 +33,46 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // 1.5 Global Request Rate Limiter (Runs early to reject DDoS/flooding without database overhead)
 require_once __DIR__ . '/utils/ratelimit.php';
+
+// 1.6 Security Headers (sent before any output)
+if (!function_exists('send_security_headers')) {
+    function send_security_headers() {
+        // Prevent clickjacking
+        header('X-Frame-Options: SAMEORIGIN');
+        
+        // Prevent MIME-type sniffing
+        header('X-Content-Type-Options: nosniff');
+        
+        // XSS Protection (legacy browsers)
+        header('X-XSS-Protection: 1; mode=block');
+        
+        // Referrer Policy
+        header('Referrer-Policy: strict-origin-when-cross-origin');
+        
+        // Permissions Policy (restrict browser features)
+        header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
+        
+        // Content Security Policy (restrictive default, allow self + common CDNs)
+        $csp = [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com",
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://fonts.googleapis.com",
+            "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+            "img-src 'self' data: blob: https:",
+            "connect-src 'self' ws: wss: https:",
+            "frame-ancestors 'self'",
+            "base-uri 'self'",
+            "form-action 'self'",
+        ];
+        header('Content-Security-Policy: ' . implode('; ', $csp));
+        
+        // HSTS (only in production HTTPS)
+        if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+            header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+        }
+    }
+    send_security_headers();
+}
 
 // 2. Load Composer and Libraries FIRST (before using any classes)
 require_once __DIR__ . '/../vendor/autoload.php';
