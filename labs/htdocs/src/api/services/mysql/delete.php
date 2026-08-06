@@ -1,6 +1,7 @@
 <?php
 require_once "../../../load.php";
 require_once "../../../lib/services/MySqlManager.php";
+require_once "../../../lib/core/AuditLog.class.php";
 
 header('Content-Type: application/json');
 
@@ -47,6 +48,10 @@ try {
 
     // 3. Remove from MongoDB
     $db->mysql_services->deleteOne(['_id' => $dbRecord['_id']]);
+
+    AuditLog::log('delete', 'service_mysql', $dbName, [
+        'db_user' => $dbRecord['db_user'],
+    ]);
 
     echo json_encode([
         'success' => true,

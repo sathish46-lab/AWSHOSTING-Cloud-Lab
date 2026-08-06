@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../load.php';
+require_once __DIR__ . '/../../lib/core/AuditLog.class.php';
 require_once __DIR__ . '/../../lib/core/RabbitClient.class.php';
 
 if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
@@ -48,12 +49,16 @@ $instance['trashed_at'] = $now;
 $instance['trashed_by'] = $username;
 $instance['status'] = 'stopped';
 $instance['updated_at'] = $now;
+$instance['updated_by'] = $username;
 $instance['deploy']['status'] = 'stopped';
 
 $result = $db->instance_trash->insertOne($instance);
 
 if ($result->getInsertedCount() > 0) {
     $db->instances->deleteOne(['_id' => $instance['_id']]);
+    AuditLog::log('trash', 'instance', $instance['instance_hash'] ?? (string)$instance['_id'], [
+        'name' => $instance['name'] ?? '',
+    ]);
     echo json_encode(['status' => 'success']);
 } else {
     http_response_code(500);

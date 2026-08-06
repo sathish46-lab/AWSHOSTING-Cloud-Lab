@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../load.php';
+require_once __DIR__ . '/../../lib/core/AuditLog.class.php';
 
 if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
     http_response_code(401);
@@ -34,6 +35,9 @@ if (!$trashed || (int)($trashed['user_id'] ?? 0) !== $userId) {
 $result = $db->instance_trash->deleteOne(['_id' => $trashed['_id']]);
 
 if ($result->getDeletedCount() > 0) {
+    AuditLog::log('permanent_delete', 'instance', $trashed['instance_hash'] ?? (string)$trashed['_id'], [
+        'name' => $trashed['name'] ?? '',
+    ]);
     echo json_encode(['status' => 'success']);
 } else {
     http_response_code(500);

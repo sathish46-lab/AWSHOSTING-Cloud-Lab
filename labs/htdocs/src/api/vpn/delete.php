@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../src/load.php';
 require_once __DIR__ . '/../../../src/lib/core/VPN.class.php';
+require_once __DIR__ . '/../../../src/lib/core/AuditLog.class.php';
 
 header('Content-Type: application/json');
 
@@ -43,6 +44,10 @@ try {
     $db->devices->deleteOne([
         '_id' => new MongoDB\BSON\ObjectId($dbId),
         'user_id' => $user->getUserId()
+    ]);
+
+    AuditLog::log('delete', 'vpn_device', $assignedIp, [
+        'device_name' => $device['device_name'] ?? '',
     ]);
 
     echo json_encode(['status' => 'success']);

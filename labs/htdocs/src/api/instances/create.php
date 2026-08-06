@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../../load.php';
+require_once __DIR__ . '/../../lib/core/AuditLog.class.php';
 
 if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
     header('Content-Type: application/json');
@@ -51,6 +52,8 @@ $instance = [
     'image' => 'ubuntu:24.04',
     'color' => 'rgba(0,0,0,0.5)',
     'icon' => 'bx-cube-alt',
+    'created_by' => $userId,
+    'updated_by' => $userId,
     'created_at' => new MongoDB\BSON\UTCDateTime(),
     'updated_at' => new MongoDB\BSON\UTCDateTime(),
 ];
@@ -58,6 +61,13 @@ $instance = [
 $result = $db->instances->insertOne($instance);
 
 if ($result->getInsertedCount() > 0) {
+    AuditLog::log('create', 'instance', $instanceHash, [
+        'name' => $name,
+        'slug' => $slug,
+        'type' => $type,
+        'visibility' => $visibility,
+        'template' => $template,
+    ]);
     // Seed the instance's file store (base layer from lab-templates/<template>/)
     try {
         $newId = $result->getInsertedId();

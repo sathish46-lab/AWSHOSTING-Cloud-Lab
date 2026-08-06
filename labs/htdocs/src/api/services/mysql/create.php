@@ -1,6 +1,7 @@
 <?php
 require_once "../../../load.php";
 require_once "../../../lib/services/MySqlManager.php";
+require_once "../../../lib/core/AuditLog.class.php";
 
 header('Content-Type: application/json');
 
@@ -55,6 +56,11 @@ try {
     ];
     
     $db->mysql_services->insertOne($dbRecord);
+
+    AuditLog::log('create', 'service_mysql', $dbName, [
+        'db_user' => $dbUser,
+        'host' => get_config('tunnel_ip') . '1',
+    ]);
 
     echo json_encode([
         'success' => true,

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../../../src/load.php';
 require_once __DIR__ . '/../../../src/lib/core/VPN.class.php';
+require_once __DIR__ . '/../../../src/lib/core/AuditLog.class.php';
 
 if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
     http_response_code(401);
@@ -35,19 +36,10 @@ $response = VPN::request('wg', 'add_peer', [
 if (isset($response['result']) && $response['result'] !== false) {
     $assignedIp = $response['result'];
     
-    // 2. Reserve IP in unified ip_registry
-    $db->ip_registry->updateOne(
-        ['ip_addr' => $assignedIp],
-        ['$set' => [
-            'status'      => 'reserved',
-            'user_id'     => $user->getUserId(),
-            'email'       => $user->getEmail(),
-            'reserved_at' => time(),
-        ]],
-        ['upsert' => true]
-    );
+    // NOTE: ip_registry is now updated by vpn-api directly (single source of truth)
+    // Only store device metadata in labs DB
     
-    // 3. Store device metadata
+    // Store device metadata
     $db->devices->updateOne(
         ['user_id' => $user->getUserId(), 'assigned_ip' => $assignedIp],
         ['$set' => [
@@ -63,7 +55,12 @@ if (isset($response['result']) && $response['result'] !== false) {
         ['upsert' => true]
     );
 
-    // 4. Render the HTML card
+    // Render the HTML card
+    AuditLog::log('create', 'vpn_device', $assignedIp, [
+        'device_name' => $deviceName,
+        'device_type' => $deviceType,
+        'public_key' => substr($publicKey, 0, 8) . '...',
+    ]);
     ob_start();
     $device = [
         '_id' => (string)($user->getUserId()),
