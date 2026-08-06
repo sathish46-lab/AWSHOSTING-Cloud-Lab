@@ -54,17 +54,53 @@ class WebAPI {
     } elseif ($sessionToken) {
         // Attempt Token Auto-Login
         $db = DatabaseConnection::getDefaultDatabase();
-        $user = $db->users->findOne(['session_tokens' => $sessionToken]);
         
-        if ($user && isset($user['username'])) {
-            // Token is valid, rebuild session
-            $_SESSION['username'] = $user['username'];
+        // SE1: Find user with matching hashed token + SE2: enforce 30-day expiry
+        $maxTokenAge = 30 * 24 * 3600; // 30 days
+        $cutoffTime = time() - $maxTokenAge;
+        
+        $usersWithTokens = $db->users->find([
+            'session_tokens' => ['$exists' => true, '$ne' => []]
+        ]);
+        
+        $matchedUser = null;
+        $matchedTokenData = null;
+        
+        foreach ($usersWithTokens as $user) {
+            $tokens = $user['session_tokens'] ?? [];
+            foreach ($tokens as $tokenData) {
+                $storedHash = $tokenData['token_hash'] ?? $tokenData['token'] ?? '';
+                $createdAt = $tokenData['created_at'] ?? 0;
+                
+                // Skip expired tokens
+                if ($createdAt < $cutoffTime) {
+                    continue;
+                }
+                
+                if (password_verify($sessionToken, $storedHash)) {
+                    $matchedUser = $user;
+                    $matchedTokenData = $tokenData;
+                    break 2;
+                }
+            }
+        }
+        
+        if ($matchedUser && isset($matchedUser['username'])) {
+            // Token is valid and not expired, rebuild session
+            $_SESSION['username'] = $matchedUser['username'];
             $_SESSION['auth_status'] = \Constants::STATUS_LOGGEDIN;
             
-            Session::$userSession = new UserSession($user['username']);
+            // Update last_activity for this token
+            $storedHash = $matchedTokenData['token_hash'] ?? $matchedTokenData['token'] ?? '';
+            $db->users->updateOne(
+                ['_id' => $matchedUser['_id'], 'session_tokens.token_hash' => $storedHash],
+                ['$set' => ['session_tokens.$.last_activity' => time()]]
+            );
+            
+            Session::$userSession = new UserSession($matchedUser['username']);
             Session::$authStatus = \Constants::STATUS_LOGGEDIN;
         } else {
-            // Token is invalid or revoked, forcefully log out
+            // Token is invalid, expired, or revoked, forcefully log out
             UserSession::logout();
         }
     } else {

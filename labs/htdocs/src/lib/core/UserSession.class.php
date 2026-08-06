@@ -59,11 +59,12 @@ public function getUser() {
             if (isset($user['two_factor_enabled']) && $user['two_factor_enabled'] === true) {
                 $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
                 $expires = time() + 60;
+                $otpHash = password_hash($otp, PASSWORD_DEFAULT);
                 
                 $instance->usersCollection->updateOne(
                     ['email' => $email],
                     ['$set' => [
-                        'two_factor_otp' => $otp,
+                        'two_factor_otp' => $otpHash,
                         'two_factor_expires' => $expires
                     ]]
                 );
@@ -93,12 +94,23 @@ public function getUser() {
             
             // GENERATE SECURE SESSION TOKEN
             $sessionToken = bin2hex(random_bytes(32));
+            $tokenHash = password_hash($sessionToken, PASSWORD_DEFAULT);
+            $deviceInfo = parse_user_agent();
+            $clientIp = get_client_ip();
             
-            // STORE TOKEN IN DATABASE (Supports multi-device login)
+            // STORE HASHED TOKEN + DEVICE INFO IN DATABASE (Supports multi-device login)
             $instance->usersCollection->updateOne(
                 ['email' => $email],
                 [
-                    '$push' => ['session_tokens' => $sessionToken],
+                    '$push' => ['session_tokens' => [
+                        'token_hash' => $tokenHash,
+                        'ip' => $clientIp,
+                        'browser' => $deviceInfo['browser'],
+                        'os' => $deviceInfo['os'],
+                        'mobile' => $deviceInfo['mobile'],
+                        'created_at' => time(),
+                        'last_activity' => time()
+                    ]],
                     '$set' => ['last_login' => time()]
                 ]
             );
@@ -126,6 +138,9 @@ public function getUser() {
         // Dynamic domain for clearing cookies from session.json
         $domain = get_session_domain();
 
+        // READ TOKEN BEFORE CLEARING — fix token leak
+        $sessionToken = $_COOKIE['session_token'] ?? null;
+
         $_SESSION = [];
         unset($_COOKIE['session_token']);
         unset($_COOKIE['username']);
@@ -133,14 +148,27 @@ public function getUser() {
         unset($_COOKIE['sessionID']);
 
         // FORCE DELETE TOKEN FROM DATABASE IF PRESENT
-        $sessionToken = $_COOKIE['session_token'] ?? null;
         if ($sessionToken) {
             try {
                 $instance = new self();
-                $instance->usersCollection->updateOne(
-                    ['session_tokens' => $sessionToken],
-                    ['$pull' => ['session_tokens' => $sessionToken]]
-                );
+                // Find user with matching token (iterate to check hash)
+                $usersWithTokens = $instance->usersCollection->find([
+                    'session_tokens' => ['$exists' => true, '$ne' => []]
+                ]);
+                
+                foreach ($usersWithTokens as $user) {
+                    $tokens = $user['session_tokens'] ?? [];
+                    foreach ($tokens as $tokenData) {
+                        $storedHash = $tokenData['token_hash'] ?? $tokenData['token'] ?? '';
+                        if (password_verify($sessionToken, $storedHash)) {
+                            $instance->usersCollection->updateOne(
+                                ['_id' => $user['_id']],
+                                ['$pull' => ['session_tokens' => ['token_hash' => $storedHash]]]
+                            );
+                            break 2;
+                        }
+                    }
+                }
             } catch (Exception $e) {
                 error_log("Logout Token Clear Error: " . $e->getMessage());
             }
