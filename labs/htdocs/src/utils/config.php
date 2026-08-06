@@ -7,22 +7,42 @@
 
 function get_config($key) {
     static $config_cache = null;
-    
+
     if ($config_cache === null) {
+        // Priority 1: Environment variables (production recommended)
+        // Supports flat keys like 'amqp_host' and nested like 's3.access_key' via underscore notation
+        $envValue = getenv($key);
+        if ($envValue !== false) {
+            $config_cache[$key . '__env_source'] = true;
+            // Store for flat key lookup
+            $config_cache[$key] = $envValue;
+        }
+
+        // Priority 2: env.json file (legacy, deprecated in production)
         $path = '/var/www/env.json';
         if (!file_exists($path)) {
-            // Fallback to local workspace
             $localPath = __DIR__ . '/../../../../env.json';
             if (file_exists($localPath)) $path = $localPath;
-            else {
-                $config_cache = [];
-                return null;
+        }
+
+        if (file_exists($path)) {
+            $data = file_get_contents($path);
+            $fileConfig = json_decode($data, true) ?: [];
+
+            // Merge file config — env vars take precedence
+            foreach ($fileConfig as $k => $v) {
+                if (!isset($config_cache[$k . '__env_source'])) {
+                    $config_cache[$k] = $v;
+                }
+            }
+
+            // Warn if env.json is used in production
+            if (!is_local()) {
+                error_log("CONFIG DEPRECATION: env.json loaded at {$path}. Move secrets to environment variables for production.");
             }
         }
-        $data = file_get_contents($path);
-        $config_cache = json_decode($data, true) ?: [];
     }
-    
+
     return isset($config_cache[$key]) ? $config_cache[$key] : null;
 }
 
