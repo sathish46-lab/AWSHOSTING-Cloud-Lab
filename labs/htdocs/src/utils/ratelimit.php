@@ -7,19 +7,17 @@
 
 /**
  * Determines unique client identity with strict preference order:
- * 1st Preference: Email Address
+ * 1st Preference: Email Address (from session or POST only, never GET)
  * 2nd Preference: User ID / Username
- * 3rd Preference: Client IP Address
+ * 3rd Preference: Client IP Address (with proxy validation)
  */
 function get_rate_limit_identity($rawEmailOnly = false) {
     $email = null;
     $userId = null;
     
-    // 1st Preference: Check Email Address
+    // 1st Preference: Check Email Address (POST only for unauthenticated, session for authenticated)
     if (!empty($_POST['email'])) {
         $email = trim((string)$_POST['email']);
-    } elseif (!empty($_GET['email'])) {
-        $email = trim((string)$_GET['email']);
     } elseif (!empty($_SESSION['email'])) {
         $email = $_SESSION['email'];
     } elseif (!empty($_SESSION['user_email'])) {
@@ -59,7 +57,18 @@ function get_rate_limit_identity($rawEmailOnly = false) {
     }
 
     // 3rd Preference: Fallback to Client IP Address
-    $clientIp = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    // Only trust X-Forwarded-For if request comes from a known proxy
+    $clientIp = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        // Check if the direct client is a known proxy
+        $trustedProxies = ['127.0.0.1', '::1']; // Add your proxy IPs here
+        $directClient = $_SERVER['REMOTE_ADDR'] ?? '';
+        if (in_array($directClient, $trustedProxies)) {
+            // Take the leftmost (original client) IP from X-Forwarded-For
+            $forwardedIps = array_map('trim', explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']));
+            $clientIp = $forwardedIps[0] ?? $clientIp;
+        }
+    }
     return 'ip_' . md5($clientIp);
 }
 
@@ -195,7 +204,7 @@ function check_global_rate_limit() {
             'pattern' => '#^/api/ssl/(troubleshoot|refresh)#i',
             'key'     => 'ssl:rl:refresh',
             'limit'   => 3,
-            'window'  => 600
+            'window'  => 300
         ],
         [
             'pattern' => '#^/(auth/)?signin#i',
