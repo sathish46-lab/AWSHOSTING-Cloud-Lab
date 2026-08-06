@@ -52,14 +52,24 @@ $instance['updated_at'] = $now;
 $instance['updated_by'] = $username;
 $instance['deploy']['status'] = 'stopped';
 
-$result = $db->instance_trash->insertOne($instance);
+// Compensating transaction: insert to trash first, then delete from instances.
+// If delete fails, roll back the trash insert.
+$insertResult = $db->instance_trash->insertOne($instance);
 
-if ($result->getInsertedCount() > 0) {
-    $db->instances->deleteOne(['_id' => $instance['_id']]);
-    AuditLog::log('trash', 'instance', $instance['instance_hash'] ?? (string)$instance['_id'], [
-        'name' => $instance['name'] ?? '',
-    ]);
-    echo json_encode(['status' => 'success']);
+if ($insertResult->getInsertedCount() > 0) {
+    $deleteResult = $db->instances->deleteOne(['_id' => $instance['_id']]);
+
+    if ($deleteResult->getDeletedCount() > 0) {
+        AuditLog::log('trash', 'instance', $instanceHash ?: (string)$instance['_id'], [
+            'name' => $instance['name'] ?? '',
+        ]);
+        echo json_encode(['status' => 'success']);
+    } else {
+        // Rollback: remove from trash since delete from instances failed
+        $db->instance_trash->deleteOne(['_id' => $insertResult->getInsertedId()]);
+        http_response_code(500);
+        echo 'Failed to trash instance';
+    }
 } else {
     http_response_code(500);
     echo 'Failed to trash instance';

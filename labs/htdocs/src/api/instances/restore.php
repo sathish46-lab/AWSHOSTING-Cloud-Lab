@@ -35,14 +35,24 @@ if (!$trashed || (int)($trashed['user_id'] ?? 0) !== $userId) {
 unset($trashed['trashed_at']);
 unset($trashed['trashed_by']);
 
-$result = $db->instances->insertOne($trashed);
+// Compensating transaction: insert to instances first, then delete from trash.
+// If delete from trash fails, roll back the instances insert.
+$insertResult = $db->instances->insertOne($trashed);
 
-if ($result->getInsertedCount() > 0) {
-    $db->instance_trash->deleteOne(['_id' => $trashed['_id']]);
-    AuditLog::log('restore', 'instance', $trashed['instance_hash'] ?? (string)$trashed['_id'], [
-        'name' => $trashed['name'] ?? '',
-    ]);
-    echo json_encode(['status' => 'success']);
+if ($insertResult->getInsertedCount() > 0) {
+    $deleteResult = $db->instance_trash->deleteOne(['_id' => $trashed['_id']]);
+
+    if ($deleteResult->getDeletedCount() > 0) {
+        AuditLog::log('restore', 'instance', $trashed['instance_hash'] ?? (string)$trashed['_id'], [
+            'name' => $trashed['name'] ?? '',
+        ]);
+        echo json_encode(['status' => 'success']);
+    } else {
+        // Rollback: remove from instances since delete from trash failed
+        $db->instances->deleteOne(['_id' => $insertResult->getInsertedId()]);
+        http_response_code(500);
+        echo 'Failed to restore instance';
+    }
 } else {
     http_response_code(500);
     echo 'Failed to restore instance';
