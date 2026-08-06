@@ -8,8 +8,11 @@ class PostgreSqlManager
     {
         $host = gethostname();
         $dsn = "pgsql:host={$host};port=5432";
-        $user = 'tomlabs_admin';
-        $password = 'tomlabs_root_secret';
+        $user = get_config('postgres_admin_user') ?: 'tomlabs_admin';
+        $password = get_config('mysql_root_pass');
+        if (empty($password)) {
+            throw new \RuntimeException("mysql_root_pass missing: set via environment variable or env.json");
+        }
         
         $this->adminConnection = new PDO($dsn, $user, $password, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,

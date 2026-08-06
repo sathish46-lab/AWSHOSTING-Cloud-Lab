@@ -4,11 +4,15 @@ class RedisManager
 {
     private string $host;
     private int $port = 6379;
-    private string $adminPassword = 'tomlabs_redis_secret';
+    private string $adminPassword;
 
     public function __construct()
     {
         $this->host = gethostname();
+        $this->adminPassword = get_config('redis_admin_pass') ?: '';
+        if (empty($this->adminPassword)) {
+            throw new \RuntimeException("redis_admin_pass missing: set via environment variable or env.json");
+        }
     }
     
     public function createUser(string $userName, string $password): bool

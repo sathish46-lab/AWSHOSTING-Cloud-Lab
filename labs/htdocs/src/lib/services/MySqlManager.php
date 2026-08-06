@@ -11,8 +11,11 @@ class MySqlManager
         // instead of 'root'@'localhost' which might be locked down by auth_socket.
         $host = gethostname();
         $dsn = "mysql:host={$host};port=3306;charset=utf8mb4";
-        $user = 'root';
-        $password = 'tomlabs_root_secret'; // Configured in init-services.sh
+        $user = get_config('mysql_root_user') ?: 'root';
+        $password = get_config('mysql_root_pass');
+        if (empty($password)) {
+            throw new \RuntimeException("mysql_root_pass missing: set via environment variable or env.json");
+        }
         
         $this->adminConnection = new PDO($dsn, $user, $password, [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
