@@ -27,7 +27,7 @@ $displayName = trim($firstName . ' ' . $lastName) ?: $username;
     <!-- Stat Cards Row -->
     <div class="row g-3 mb-4">
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm act-stat-card">
+            <div class="card blur border-0 shadow-sm rounded-4 act-stat-card">
                 <div class="card-body p-3 text-center">
                     <div class="text-body-secondary small mb-1"><i class="bx bx-history me-1"></i>Total Actions</div>
                     <div class="fs-4 fw-bold" id="actStatTotal">—</div>
@@ -35,7 +35,7 @@ $displayName = trim($firstName . ' ' . $lastName) ?: $username;
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm act-stat-card">
+            <div class="card blur border-0 shadow-sm rounded-4 act-stat-card">
                 <div class="card-body p-3 text-center">
                     <div class="text-body-secondary small mb-1"><i class="bx bx-calendar me-1"></i>Active Days</div>
                     <div class="fs-4 fw-bold" id="actStatActiveDays">—</div>
@@ -43,7 +43,7 @@ $displayName = trim($firstName . ' ' . $lastName) ?: $username;
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm act-stat-card">
+            <div class="card blur border-0 shadow-sm rounded-4 act-stat-card">
                 <div class="card-body p-3 text-center">
                     <div class="text-body-secondary small mb-1"><i class="bx bx-week me-1"></i>This Week</div>
                     <div class="fs-4 fw-bold" id="actStatThisWeek">—</div>
@@ -51,7 +51,7 @@ $displayName = trim($firstName . ' ' . $lastName) ?: $username;
             </div>
         </div>
         <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm act-stat-card">
+            <div class="card blur border-0 shadow-sm rounded-4 act-stat-card">
                 <div class="card-body p-3 text-center">
                     <div class="text-body-secondary small mb-1"><i class="bx bx-trending-up me-1"></i>Top Action</div>
                     <div class="fs-4 fw-bold text-truncate" id="actStatTopAction" style="font-size:1rem;">—</div>
@@ -63,7 +63,7 @@ $displayName = trim($firstName . ' ' . $lastName) ?: $username;
     <!-- Charts Row -->
     <div class="row g-3 mb-4">
         <div class="col-md-5">
-            <div class="card border-0 shadow-sm act-chart-card">
+            <div class="card blur border-0 shadow-sm rounded-4 act-chart-card">
                 <div class="card-body p-3">
                     <h6 class="fw-bold mb-3"><i class="bx bx-pie-chart-alt me-1 text-primary"></i> Action Breakdown</h6>
                     <div style="height:220px;"><canvas id="actPieChart"></canvas></div>
@@ -71,7 +71,7 @@ $displayName = trim($firstName . ' ' . $lastName) ?: $username;
             </div>
         </div>
         <div class="col-md-7">
-            <div class="card border-0 shadow-sm act-chart-card">
+            <div class="card blur border-0 shadow-sm rounded-4 act-chart-card">
                 <div class="card-body p-3">
                     <h6 class="fw-bold mb-3"><i class="bx bx-bar-chart-alt-2 me-1 text-primary"></i> Hourly Activity</h6>
                     <div style="height:220px;"><canvas id="actBarChart"></canvas></div>
@@ -83,7 +83,7 @@ $displayName = trim($firstName . ' ' . $lastName) ?: $username;
     <!-- Timeline + Security Row -->
     <div class="row g-3">
         <div class="col-lg-8">
-            <div class="card border-0 shadow-sm">
+            <div class="card blur border-0 shadow-sm rounded-4">
                 <div class="card-header bg-transparent border-bottom p-3">
                     <h6 class="fw-bold mb-2"><i class="bx bx-list-ul me-1 text-primary"></i> Activity Timeline</h6>
                     <!-- Filters -->
@@ -122,7 +122,7 @@ $displayName = trim($firstName . ' ' . $lastName) ?: $username;
         </div>
 
         <div class="col-lg-4">
-            <div class="card border-0 shadow-sm act-security-card">
+            <div class="card blur border-0 shadow-sm rounded-4 act-security-card">
                 <div class="card-header bg-transparent border-bottom p-3">
                     <h6 class="fw-bold mb-0"><i class="bx bx-shield-quarter me-1 text-warning"></i> Security Events</h6>
                 </div>
