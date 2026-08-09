@@ -131,6 +131,19 @@ fi
 export WG_ENDPOINT
 
 # 2. Generate Apache Configuration Files
+echo "[INFO] Generating Apache Configuration..."
+
+# Generate ports.conf to ensure all required ports are listening
+cat <<EOF > /etc/apache2/ports.conf
+Listen 80
+Listen 8080
+Listen 8081
+Listen 8082
+<IfModule ssl_module>
+    Listen 4431
+</IfModule>
+EOF
+
 echo "[INFO] Generating Apache VirtualHosts..."
 cat <<EOF > /etc/apache2/sites-available/labs.conf
 <VirtualHost *:80>
@@ -276,8 +289,36 @@ http:
           X-Forwarded-Proto: "https"
         accessControlAllowMethods: ["GET", "POST", "OPTIONS"]
         accessControlAllowOriginList: ["*"]
+    custom-errors:
+      errors:
+        status: ["502", "503", "504"]
+        query: "/api/labs/error_service.php?backend_status={status}"
+
+  services:
+    apache-service:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:80"
+    mqs-service:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:15672"
+    vpn-api-service:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8082"
+    code-server-service:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8080"
 
   routers:
+    labs-router:
+      rule: "Host(\`$MAIN_DOMAIN\`)"
+      service: apache-service
+      entryPoints:
+        - websecure
+
     vpns-router:
       rule: "Host(\`$VPN_DOMAIN\`)"
       service: vpn-api-service
@@ -305,24 +346,6 @@ http:
       service: apache-service
       entryPoints:
         - websecure
-
-  services:
-    mqs-service:
-      loadBalancer:
-        servers:
-          - url: "http://127.0.0.1:15672"
-    vpn-api-service:
-      loadBalancer:
-        servers:
-          - url: "http://127.0.0.1:8082"
-    code-server-service:
-      loadBalancer:
-        servers:
-          - url: "http://127.0.0.1:8080"
-    apache-service:
-      loadBalancer:
-        servers:
-          - url: "http://127.0.0.1:80"
 EOF
 
 # 4. Configure env.json
