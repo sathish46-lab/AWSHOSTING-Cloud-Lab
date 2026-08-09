@@ -178,6 +178,7 @@ class Lab(BaseOrchestrator):
             routers += f"      rule: \"Host(`{domain}`)\"\n"
             routers += f"      service: {service_key}\n"
             routers += f"      entryPoints: [web, websecure]\n"
+            routers += f"      tls: {{}}\n"
             routers += f"      priority: 100\n"
             mw_list = ['custom-errors']
             if svc_spec.get('middlewares'):
@@ -204,6 +205,7 @@ class Lab(BaseOrchestrator):
                 routers += f"      rule: \"Host(`{domain}`)\"\n"
                 routers += f"      service: {web_service_key}\n"
                 routers += f"      entryPoints: [web, websecure]\n"
+                routers += f"      tls: {{}}\n"
                 routers += f"      priority: 100\n"
                 routers += f"      middlewares: [custom-errors]\n"
         
@@ -220,6 +222,7 @@ class Lab(BaseOrchestrator):
                 routers += f"      rule: \"Host(`{p_domain}`)\"\n"
                 routers += f"      service: {proxy_service}\n"
                 routers += f"      entryPoints: [web, websecure]\n"
+                routers += f"      tls: {{}}\n"
                 routers += f"      priority: 150\n" # Higher priority to override wildcard web
                 routers += f"      middlewares: [custom-errors]\n"
                 

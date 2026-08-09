@@ -674,7 +674,8 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
 
         # Phase: APACHE ROUTES (for cloudflared tunnel routing)
         lab_type = lab_data.get("lab_type", "essentials")
-        self.write_apache_routes(instance_id, docker_ip, lab_type)
+        user_domains = lab_data.get("domains", [])
+        self.write_apache_routes(instance_id, docker_ip, lab_type, user_domains=user_domains)
 
         # Phase: METADATA
         self.log("Finalizing routing metadata...")
@@ -770,6 +771,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
             routers += f'      rule: "Host(`{domain}`)"\n'
             routers += f"      service: {service_key}\n"
             routers += f"      entryPoints: [web, websecure]\n"
+            routers += f"      tls: {{}}\n"
             routers += f"      priority: 100\n"
 
             services += f"    {service_key}:\n"
@@ -795,6 +797,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
                 routers += f'      rule: "Host(`{domain}`)"\n'
                 routers += f"      service: {web_svc}\n"
                 routers += f"      entryPoints: [web, websecure]\n"
+                routers += f"      tls: {{}}\n"
                 routers += f"      priority: 100\n"
 
         for idx, proxy in enumerate(lab_data.get("http_proxies", [])):
@@ -805,6 +808,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
                 routers += f'      rule: "Host(`{p_domain}`)"\n'
                 routers += f"      service: service-{instance_id}-proxy-{idx}\n"
                 routers += f"      entryPoints: [web, websecure]\n"
+                routers += f"      tls: {{}}\n"
                 routers += f"      priority: 150\n"
                 services += f"    service-{instance_id}-proxy-{idx}:\n"
                 services += f"      loadBalancer:\n"

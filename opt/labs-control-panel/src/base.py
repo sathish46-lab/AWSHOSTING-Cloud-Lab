@@ -231,7 +231,7 @@ class Base:
     CODE_ROUTE_START = "# === BEGIN LAB ROUTES ==="
     CODE_ROUTE_END = "# === END LAB ROUTES ==="
 
-    def write_apache_routes(self, instance_id, docker_ip, lab_type="essentials"):
+    def write_apache_routes(self, instance_id, docker_ip, lab_type="essentials", user_domains=None):
         """Write Apache rewrite rules for a lab into code.conf."""
         try:
             if not os.path.exists(self.CODE_CONF):
@@ -251,6 +251,15 @@ class Base:
                 entry += f"    RewriteRule ^/(.*)$ wss://{docker_ip}:8444/$1 [P,L]\n"
                 entry += f"    RewriteCond %{{HTTP_HOST}} ^gui-{instance_id}\\.tomweb\\.shop$ [NC]\n"
                 entry += f"    RewriteRule ^/(.*)$ https://{docker_ip}:8444/$1 [P,L]\n"
+
+            if user_domains:
+                for domain in user_domains:
+                    escaped_domain = domain.replace(".", "\\.")
+                    entry += f"    RewriteCond %{{HTTP_HOST}} ^{escaped_domain}$ [NC]\n"
+                    entry += f"    RewriteCond %{{HTTP:Upgrade}} =websocket [NC]\n"
+                    entry += f"    RewriteRule ^/(.*)$ ws://{docker_ip}:80/$1 [P,L]\n"
+                    entry += f"    RewriteCond %{{HTTP_HOST}} ^{escaped_domain}$ [NC]\n"
+                    entry += f"    RewriteRule ^/(.*)$ http://{docker_ip}:80/$1 [P,L]\n"
 
             if self.CODE_ROUTE_START in content:
                 lines = content.split("\n")
