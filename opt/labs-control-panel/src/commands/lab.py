@@ -496,6 +496,7 @@ class LabCmd(Command):
             "lab_name": instance_id,
             "memory": mem,
             "cpus": cpu,
+            "storage": user_storage,
             "storage_path": user_storage,
             "storage_host_path": f"{STORAGE_HOST_BASE}/{user_hash}",
             "mount_target": mount_target,
