@@ -10,6 +10,37 @@
     'use strict';
 
     // =========================================================================
+    // 0. Global CSRF Interceptor — auto-inject token into all mutating requests
+    // =========================================================================
+    const _origFetch = window.fetch;
+    window.fetch = function (url, opts = {}) {
+        const method = (opts.method || 'GET').toUpperCase();
+        if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+            const token = document.querySelector('meta[name="csrf-token"]')?.content;
+            if (token) {
+                if (!opts.headers) opts.headers = {};
+                if (opts.body instanceof FormData) {
+                    opts.body.append('_csrf_token', token);
+                } else if (typeof opts.body === 'string') {
+                    try {
+                        const json = JSON.parse(opts.body);
+                        json._csrf_token = token;
+                        opts.body = JSON.stringify(json);
+                    } catch {
+                        // not JSON, skip
+                    }
+                }
+                if (opts.headers instanceof Headers) {
+                    opts.headers.set('X-CSRF-Token', token);
+                } else {
+                    opts.headers['X-CSRF-Token'] = token;
+                }
+            }
+        }
+        return _origFetch.call(this, url, opts);
+    };
+
+    // =========================================================================
     // 1. Unified Page Load Hook (window.onPageLoad)
     // =========================================================================
     window._pageLoadHooks = window._pageLoadHooks || [];

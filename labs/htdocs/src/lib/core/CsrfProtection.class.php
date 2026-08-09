@@ -1,16 +1,19 @@
 <?php
 /**
  * CSRF Protection helper for API routes.
- * Checks X-CSRF-Token header or _csrf_token POST field against session token.
+ * Validates X-CSRF-Token header or _csrf_token POST field against session token.
+ * The JS interceptor in htmx-bridge.js auto-injects the token into all mutating requests.
  */
 class CsrfProtection {
     
     /**
      * Validate CSRF token from request. Returns true if valid.
-     * Checks X-CSRF-Token header first, then _csrf_token POST field.
+     * Checks: X-CSRF-Token header, _csrf_token POST, X-XSRF-Token header, XSRF-TOKEN cookie.
+     * Browser sends cookies automatically on same-origin fetch — no JS needed.
      */
     public static function validate(): bool {
-        $token = $_SERVER['HTTP_X_CSRF_TOKEN']
+        $token = $_COOKIE['XSRF-TOKEN']
+            ?? $_SERVER['HTTP_X_CSRF_TOKEN']
             ?? $_POST['_csrf_token']
             ?? $_SERVER['HTTP_X_XSRF_TOKEN']
             ?? null;

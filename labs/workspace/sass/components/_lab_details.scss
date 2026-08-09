@@ -86,25 +86,6 @@
   cursor: pointer !important;
 }
 
-.server-logs-panel {
-  #mq-status-dot {
-    font-size: 8px !important;
-  }
-  
-  .terminal-info-wrapper i {
-    font-size: 14px !important;
-  }
-  
-  .server-logs-chevron {
-    font-size: 18px !important;
-  }
-  
-  .logs-body {
-    overflow-y: auto !important;
-    transition: height 0.3s ease !important;
-  }
-}
-
 /* 3. Lab Dashboard Tab */
 .card-theme-bg {
   background-color: var(--cui-card-bg) !important;

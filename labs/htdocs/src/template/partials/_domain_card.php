@@ -1,10 +1,10 @@
-<div class="col-12 col-md-4 domain-card-wrapper card-entrance" id="domain-card-<?= $d['_id'] ?>">
+<div class="col-12 col-md-4 domain-card-wrapper card-entrance" id="domain-card-<?= (string)$d['_id'] ?>">
     <div class="card rounded-4 overflow-hidden border-0 blur h-100">
         <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-start mb-0">
                 <div class="d-flex align-items-center gap-2">
                     <h5 class="fw-bold m-0 text-truncate domain-card-title">
-                        <?= htmlspecialchars(explode('.', $d['domain'])[0]) ?>
+                        <a class="text-white text-decoration-none" href="https://<?= htmlspecialchars($d['domain']) ?>" target="_blank" rel="noopener"><?= htmlspecialchars($d['domain']) ?></a>
                     </h5>
                     <?php if(strtolower($d['type']) == 'tom'): ?>
                         <span class="badge bg-primary rounded-pill badge-domain-type">Tom Lab</span>
@@ -21,13 +21,13 @@
                     </button>
                     <ul class="dropdown-menu dropdown-menu-end border-0" >
                         <li>
-                            <a class="dropdown-item rounded-3 mb-1 px-2 py-1" href="javascript:void(0)" onclick="if(window.TomNotify) window.TomNotify.show('Manage features coming soon!', 'Info', 'info', 3000);" >
+                            <a class="dropdown-item rounded-3 mb-1 px-2 py-1" href="javascript:void(0)" onclick="openDomainManage('<?= (string)$d['_id'] ?>')" >
                                 <i class='bx bx-cog me-2 text-primary'></i> Manage
                             </a>
                         </li>
                         <li>
                             <a class="dropdown-item text-danger rounded-3 px-2 py-1" href="javascript:void(0)" 
-                                onclick="deleteDomain('<?= $d['_id'] ?>', '<?= htmlspecialchars($d['domain']) ?>')">
+                                onclick="deleteDomain('<?= (string)$d['_id'] ?>', '<?= htmlspecialchars($d['domain']) ?>')">
                                 <i class='bx bx-trash me-2'></i> Delete
                             </a>
                         </li>

@@ -17,8 +17,8 @@ class Database {
                 // Use the URI from your env.json
                 $mongoClient = new MongoDB\Client($config['database_file']);
                 
-                // Select the VPN database
-                self::$db = $mongoClient->selectDatabase($config['vpn_db']);
+                // Use the unified labs database (single source of truth for IPs)
+                self::$db = $mongoClient->selectDatabase('tom_labs_db');
                 return self::$db;
             } catch (Exception $e) {
                 error_log("MongoDB Connection failed: " . $e->getMessage());

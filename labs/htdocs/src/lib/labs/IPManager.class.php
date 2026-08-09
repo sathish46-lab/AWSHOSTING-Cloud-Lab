@@ -22,25 +22,35 @@ class IPManager {
      */
     public function reserve($email, $userId = null, $selectedIp = null) {
         if ($selectedIp) {
-            // User selected a specific IP
+            // User selected a specific IP - allow if available OR already reserved by same user
+            // Never allow .0 (network) or .1 (server gateway)
+            $lastOctet = (int) substr(strrchr($selectedIp, '.'), 1);
+            if ($lastOctet <= 1) {
+                throw new Exception("IP $selectedIp is reserved (server/network address)");
+            }
             $result = $this->collection->findOneAndUpdate(
-                ['ip_addr' => $selectedIp, 'status' => 'available'],
+                ['ip_addr' => $selectedIp, '$or' => [
+                    ['status' => 'available'],
+                    ['status' => 'reserved', 'email' => $email]
+                ]],
                 ['$set' => [
                     'status'     => 'reserved',
                     'user_id'    => $userId,
                     'email'      => $email,
+                    'reserved_to'=> $email,
                     'reserved_at'=> time(),
                 ]],
                 ['returnDocument' => \MongoDB\Operation\FindOneAndUpdate::RETURN_DOCUMENT_AFTER]
             );
         } else {
-            // Auto-assign next available
+            // Auto-assign next available — skip .0 and .1 (reserved for server)
             $result = $this->collection->findOneAndUpdate(
-                ['status' => 'available'],
+                ['status' => 'available', 'ip_numeric' => ['$gt' => 1]],
                 ['$set' => [
                     'status'     => 'reserved',
                     'user_id'    => $userId,
                     'email'      => $email,
+                    'reserved_to'=> $email,
                     'reserved_at'=> time(),
                 ]],
                 [
@@ -60,12 +70,20 @@ class IPManager {
     /**
      * Release an IP back to the pool
      */
-    public function release($ip, $email) {
+    public function release($ip, $email = null) {
+        $match = ['ip_addr' => $ip, 'status' => 'reserved'];
+        if ($email) {
+            $match['email'] = $email;
+        }
         $result = $this->collection->updateOne(
-            ['ip_addr' => $ip, 'email' => $email],
-            ['$set' => ['status' => 'available'], '$unset' => ['user_id' => '', 'email' => '', 'reserved_at' => '']]
+            $match,
+            ['$set' => ['status' => 'available'], '$unset' => [
+                'user_id' => '', 'email' => '', 'reserved_to' => '', 'reserved_at' => '',
+                'service_type' => '', 'label' => '', 'last_deploy' => '', 'allocated_to' => '',
+                'resource_type' => '', 'resource_id' => '', 'device_name' => '', 'device_type' => '',
+            ]]
         );
-        error_log("IPManager: Released IP $ip");
+        error_log("IPManager: Released IP $ip (matched={$result->getMatchedCount()})");
         return $result;
     }
 
@@ -77,9 +95,10 @@ class IPManager {
     }
 
     /**
-     * Initialize IP pool (range: .11 to .254)
+     * Initialize IP pool (range: .2 to .65534)
+     * Skips .0 (network address) and .1 (server gateway)
      */
-    public function initializePool($start = 11, $end = 254) {
+    public function initializePool($start = 2, $end = 65534) {
         $this->collection->deleteMany([]);
         
         $bulk = [];
@@ -90,13 +109,26 @@ class IPManager {
                 'status'     => 'available',
                 'user_id'    => null,
                 'email'      => null,
+                'reserved_to'=> null,
                 'reserved_at'=> null,
             ];
         }
         
+        // Reserve .1 for server (WireGuard gateway)
+        $bulk[] = [
+            'ip_addr'    => $this->ip_prefix . '1',
+            'ip_numeric' => 1,
+            'status'     => 'reserved',
+            'user_id'    => 0,
+            'email'      => 'system@tomweb.in',
+            'reserved_to'=> 'server',
+            'label'      => 'WireGuard Server (wg0)',
+            'reserved_at'=> time(),
+        ];
+        
         if (!empty($bulk)) {
             $this->collection->insertMany($bulk);
-            error_log("IPManager: Initialized IP pool with " . count($bulk) . " addresses");
+            error_log("IPManager: Initialized IP pool with " . count($bulk) . " addresses (.2-.65534 available, .1 reserved for server)");
         }
     }
 

@@ -111,7 +111,7 @@ RewriteRule ^api/(.+)$ src/api/$1.php [L,QSA]
 
 
 # 1. Existing Lab Tabs (Dashboard, Domains, Prefs)
-RewriteRule ^labs/(dashboard|domains|preferences)/([a-f0-9]{32})$ app/labs/$1.php [L,QSA]
+RewriteRule ^labs/(dashboard|domains|preferences|activity)/([a-f0-9]{32})$ app/labs/$1.php [L,QSA]
 
 # ------------------------------------------------------------------
 # Challenge Routing — Pattern: /challenges/{tab}/{hash-or-slug}

@@ -181,25 +181,25 @@
             if (!d || typeof d !== 'object' || !Object.keys(d).length) return '';
             const parts = [];
             for (const [k, v] of Object.entries(d)) {
-                if (v !== null && v !== undefined && v !== '') parts.push(`<span class="text-body-secondary">${escActivity(k)}:</span> ${escActivity(String(v).substring(0, 80))}`);
+                if (v !== null && v !== undefined && v !== '') parts.push(`<span class="detail-key">${escActivity(k)}</span><span class="detail-val">${escActivity(String(v).substring(0, 80))}</span>`);
             }
-            return parts.length ? '<br><small class="text-body-secondary">' + parts.join(' &middot; ') + '</small>' : '';
+            return parts.length ? '<div class="detail-grid">' + parts.join('') + '</div>' : '';
         };
         container.innerHTML = filtered.map(e => {
             const time = e.created_at ? new Date(e.created_at) : null;
             const timeStr = time ? time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
-            return `<div class="d-flex gap-3 pb-3 mb-3 border-bottom act-timeline-item">
-                <div class="flex-shrink-0 mt-1"><i class="bx ${actionIcon(e.action)} fs-5"></i></div>
-                <div class="flex-grow-1 min-width-0">
-                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-1">
-                        <div><span class="fw-semibold">${escActivity(actionLabel(e.action))}</span>
-                        <span class="badge bg-body-secondary bg-opacity-10 text-body-secondary ms-1">${escActivity(entityLabel(e.entity_type))}</span>
-                        ${e.entity_id ? `<small class="text-body-secondary ms-1">#${escActivity(String(e.entity_id).substring(0, 8))}</small>` : ''}</div>
-                        <small class="text-body-secondary flex-shrink-0">${escActivity(timeStr)}</small>
+            return `<div class="act-timeline-item">
+                <div class="act-row-top">
+                    <div class="act-action-group">
+                        <span class="act-icon"><i class="bx ${actionIcon(e.action)}"></i></span>
+                        <span class="act-action">${escActivity(actionLabel(e.action))}</span>
+                        <span class="act-badge">${escActivity(entityLabel(e.entity_type))}</span>
+                        ${e.entity_id ? `<span class="act-id">#${escActivity(String(e.entity_id).substring(0, 12))}</span>` : ''}
                     </div>
-                    ${e.ip_address ? `<small class="text-body-secondary"><i class="bx bx-globe me-1"></i>${escActivity(e.ip_address)}</small>` : ''}
-                    ${detailsSummary(e.details)}
+                    <span class="act-time">${escActivity(timeStr)}</span>
                 </div>
+                ${e.ip_address ? `<div class="act-row-meta"><i class="bx bx-globe"></i> ${escActivity(e.ip_address)}</div>` : ''}
+                ${detailsSummary(e.details)}
             </div>`;
         }).join('');
     }

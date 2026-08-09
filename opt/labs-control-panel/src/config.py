@@ -145,7 +145,7 @@ class Config:
 
     @property
     def storage_base(self):
-        return self.env('storage_base', '/var/labsstorage')
+        return self.env('storage_base', '/var/tomlabs/storage')
 
     @property
     def storage_limit_gb(self):

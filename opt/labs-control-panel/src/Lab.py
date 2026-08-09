@@ -19,57 +19,33 @@ class Lab(BaseOrchestrator):
             self.instances_col = None
 
     def _get_deploy_data(self, instance_id):
-        """Read lab data — from instances.deploy for instances, machine_labs for legacy."""
-        if self.is_instance and self.instances_col:
-            # Try top-level instance_hash
-            doc = self.instances_col.find_one({"instance_hash": instance_id})
+        """Get deploy data from machine_labs (flat structure)."""
+        if self.db is not None:
+            doc = self.db.machine_labs.find_one({"instance_hash": instance_id})
             if doc:
-                deploy = doc.get('deploy', {})
-                deploy['_instance_doc'] = doc
-                return deploy
-            # Fallback: UI stores hash inside deploy subdocument
-            doc = self.instances_col.find_one({"deploy.instance_hash": instance_id})
-            if doc:
-                deploy = doc.get('deploy', {})
-                deploy['_instance_doc'] = doc
-                return deploy
-            return None
-        # Try deploy.instance_hash first (current format)
-        doc = self.db.machine_labs.find_one({"deploy.instance_hash": instance_id})
-        if doc:
-            return doc.get("deploy", {})
-        # Fallback: legacy top-level instance_hash
-        doc = self.db.machine_labs.find_one({"instance_hash": instance_id})
-        if doc:
-            return doc.get("deploy", doc)
+                return doc
         return None
 
     def _set_deploy_field(self, instance_id, field, value):
-        """Write a single deploy field — to instances.deploy.X or machine_labs.X."""
+        """Write a single deploy field to machine_labs (flat structure)."""
         if self.is_instance and self.instances_col:
             result = self.instances_col.update_one(
-                {"instance_hash": instance_id},
+                {"deploy.instance_hash": instance_id},
                 {"$set": {f"deploy.{field}": value, "updated_at": time.time()}}
             )
             if result.matched_count == 0:
                 self.instances_col.update_one(
-                    {"deploy.instance_hash": instance_id},
+                    {"instance_hash": instance_id},
                     {"$set": {f"deploy.{field}": value, "updated_at": time.time()}}
                 )
         else:
-            result = self.db.machine_labs.update_one(
-                {"instance_id": instance_id} if not instance_id else {"instance_hash": instance_id},
+            self.db.machine_labs.update_one(
+                {"instance_hash": instance_id},
                 {"$set": {field: value}}
             )
-            if result.matched_count == 0:
-                # UI stores hash inside deploy — prefix field with deploy.
-                self.db.machine_labs.update_one(
-                    {"deploy.instance_hash": instance_id},
-                    {"$set": {f"deploy.{field}": value}}
-                )
 
     def _set_deploy_fields(self, instance_id, fields):
-        """Write multiple deploy fields at once."""
+        """Write multiple deploy fields at once to machine_labs (flat structure)."""
         if self.is_instance and self.instances_col:
             set_fields = {}
             for k, v in fields.items():
@@ -85,17 +61,10 @@ class Lab(BaseOrchestrator):
                     {"$set": set_fields}
                 )
         else:
-            result = self.db.machine_labs.update_one(
+            self.db.machine_labs.update_one(
                 {"instance_hash": instance_id},
                 {"$set": fields}
             )
-            if result.matched_count == 0:
-                # UI stores hash inside deploy — prefix fields with deploy.
-                deploy_fields = {f"deploy.{k}": v for k, v in fields.items()}
-                self.db.machine_labs.update_one(
-                    {"deploy.instance_hash": instance_id},
-                    {"$set": deploy_fields}
-                )
 
     def _fail_deploy(self, instance_id, message):
         """Set deploy status to error — called on any failure during deploy()."""
@@ -106,35 +75,23 @@ class Lab(BaseOrchestrator):
                 "deploy.status": "error",
                 "deploy.last_error": message,
                 "deploy.error_at": now,
-                "deploy.deploy_log": {
-                    "logs": [f"[!] {message}"],
-                    "status": "error",
-                    "message": message,
-                    "created_at": now,
-                    "expire_at": now + 300
-                },
                 "status": "error",
                 "updated_at": now
             }
             result = self.instances_col.update_one(
-                {"instance_hash": instance_id},
+                {"deploy.instance_hash": instance_id},
                 {"$set": error_doc}
             )
             if result.matched_count == 0:
                 self.instances_col.update_one(
-                    {"deploy.instance_hash": instance_id},
+                    {"instance_hash": instance_id},
                     {"$set": error_doc}
                 )
         else:
-            result = self.db.machine_labs.update_one(
+            self.db.machine_labs.update_one(
                 {"instance_hash": instance_id},
-                {"$set"   : {"status": "error"}}
+                {"$set": {"status": "error", "last_error": message, "error_at": now}}
             )
-            if result.matched_count == 0:
-                self.db.machine_labs.update_one(
-                    {"deploy.instance_hash": instance_id},
-                    {"$set"   : {"deploy.status": "error"}}
-                )
         sys.exit(1)
 
     def _get_instance_doc(self, instance_id):
@@ -222,9 +179,10 @@ class Lab(BaseOrchestrator):
             routers += f"      service: {service_key}\n"
             routers += f"      entryPoints: [web, websecure]\n"
             routers += f"      priority: 100\n"
+            mw_list = ['custom-errors']
             if svc_spec.get('middlewares'):
-                mws = ", ".join(svc_spec['middlewares'])
-                routers += f"      middlewares: [{mws}]\n"
+                mw_list.extend(svc_spec['middlewares'])
+            routers += f"      middlewares: [{', '.join(mw_list)}]\n"
             
             services += f"    {service_key}:\n"
             services += f"      loadBalancer:\n"
@@ -247,6 +205,7 @@ class Lab(BaseOrchestrator):
                 routers += f"      service: {web_service_key}\n"
                 routers += f"      entryPoints: [web, websecure]\n"
                 routers += f"      priority: 100\n"
+                routers += f"      middlewares: [custom-errors]\n"
         
         # C. Handle HTTP Proxies
         http_proxies = lab_data.get('http_proxies', [])
@@ -262,6 +221,7 @@ class Lab(BaseOrchestrator):
                 routers += f"      service: {proxy_service}\n"
                 routers += f"      entryPoints: [web, websecure]\n"
                 routers += f"      priority: 150\n" # Higher priority to override wildcard web
+                routers += f"      middlewares: [custom-errors]\n"
                 
                 services += f"    {proxy_service}:\n"
                 services += f"      loadBalancer:\n"
@@ -336,7 +296,7 @@ class Lab(BaseOrchestrator):
         res = lab_spec.get('resources', {})
         mem = res.get('memory', '512m')
         cpu = res.get('cpus', '0.2')
-        mount_target = lab_spec.get('storage', {}).get('mount_target', '/home/{user}').replace('{user}', username)
+        mount_target = lab_spec.get('storage', {}).get('mount_target', '/var/labsstorage/home/{user}').replace('{user}', username)
 
         base_ip = lab_data['internal_ip'] 
         ip_parts = base_ip.split('.')
@@ -763,12 +723,11 @@ class Lab(BaseOrchestrator):
         # or use the template default.
         
         # Checking one of the user's labs to get the storage path
-        user_lab = self.db.machine_labs.find_one({"deploy.username": username})
+        user_lab = self.db.machine_labs.find_one({"username": username})
         if user_lab:
-            storage_path = (user_lab.get('deploy') or {}).get('storage_path')
+            storage_path = user_lab.get('storage_path')
         else:
-            # Fallback to default pattern
-            storage_path = f"/var/tomlabs/storage/{username}"
+            storage_path = f"/var/tomlabs/storage/{username}/home/{username}"
             
         ssh_dir = os.path.join(storage_path, ".ssh")
         auth_file = os.path.join(ssh_dir, "authorized_keys")
@@ -812,7 +771,7 @@ while true; do
         exit 0
     fi
     
-    HEARTBEAT="/home/$USER/.local/share/code-server/heartbeat"
+    HEARTBEAT="/var/labsstorage/home/$USER/.local/share/code-server/heartbeat"
     
     # Check if the heartbeat file is older than our limit
     if [ -f "$HEARTBEAT" ]; then
@@ -850,7 +809,7 @@ done
 
         self.log("Starting code-server...", "info", "system")
         
-        user_home = f"/home/{username}"
+        user_home = f"/var/labsstorage/home/{user_hash}"
         config_file = f"{user_home}/.config/code-server/config.yaml"
         log_file = f"{user_home}/.code-server.log"
         
@@ -956,18 +915,18 @@ done
         # 3. Write script to container using base64 (docker cp won't work from orchestrator container)
         b64_content = base64.b64encode(script_content.encode()).decode()
         
-        self.log(f"Injecting script to /home/{username}/init.sh...", "info", "system")
-        rc, _ = self.run(f"docker exec {lab_name} bash -c 'echo {b64_content} | base64 -d > /home/{username}/init.sh'", capture=True)
+        self.log(f"Injecting script to /var/labsstorage/home/{user_hash}/init.sh...", "info", "system")
+        rc, _ = self.run(f"docker exec {lab_name} bash -c 'echo {b64_content} | base64 -d > /var/labsstorage/home/{user_hash}/init.sh'", capture=True)
         if rc != 0:
             self.log("Failed to inject script into container.", "error", "system")
             return
             
-        self.run(f"docker exec {lab_name} chmod +x /home/{username}/init.sh")
-        self.run(f"docker exec {lab_name} chown {username}:{username} /home/{username}/init.sh")
+        self.run(f"docker exec {lab_name} chmod +x /var/labsstorage/home/{user_hash}/init.sh")
+        self.run(f"docker exec {lab_name} chown {username}:{username} /var/labsstorage/home/{user_hash}/init.sh")
         
         self.log("Running script (output below)...", "info", "system")
         # Run inside bash
-        rc, out = self.run(f"docker exec -u {username} {lab_name} bash /home/{username}/init.sh", capture=False)
+        rc, out = self.run(f"docker exec -u {username} {lab_name} bash /var/labsstorage/home/{user_hash}/init.sh", capture=False)
         
         if rc == 0:
             self.log("Script executed successfully.", "success", "system")

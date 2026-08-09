@@ -569,6 +569,7 @@
             .then(r => r.json())
             .then(data => {
                 if (!data.success) return;
+                acct2faEnabled = !!data.two_factor_enabled;
                 render2FAStatus();
             })
             .catch(() => {});

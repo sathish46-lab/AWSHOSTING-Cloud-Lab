@@ -21,10 +21,14 @@ if [ -z "$USER_EMAIL" ]; then
     USER_EMAIL="$USER_NAME@tomlabs.shop"
 fi
 
+# Compute hash from email (matches Python hashlib.md5)
+USER_HASH=$(echo -n "$USER_EMAIL" | md5sum | cut -d' ' -f1)
+
 SYSTEM_PASS="${SU_PASS:-${USER_NAME}@098}"
 
 echo "[*] Starting n8n user configuration..."
 echo "    Username: $USER_NAME"
+echo "    User Hash: $USER_HASH"
 echo "    Email: $USER_EMAIL"
 
 # 1. User Setup
@@ -46,7 +50,7 @@ mkdir -p "$USER_HOME/.ssh"
 printf "%b" "$PUB_KEYS" > "$USER_HOME/.ssh/authorized_keys"
 chmod 700 "$USER_HOME/.ssh"
 chmod 600 "$USER_HOME/.ssh/authorized_keys"
-chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME"
+chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME" 2>&1 || true
 
 # Disable StrictModes for shared volume mounts and restart SSH
 sed -i 's/^#\?StrictModes .*/StrictModes no/' /etc/ssh/sshd_config
@@ -107,7 +111,7 @@ auth: password
 password: $CODE_PASS
 cert: false
 CODE_CONFIG
-chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME/.config"
+chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME/.config" 2>&1 || true
 
 # Optimized code-server startup with performance flags
 sudo -u "$USER_NAME" -H bash -c "nohup code-server \
@@ -124,7 +128,7 @@ echo "[✓] Code-server started"
 
 PERSISTENT_DIR="$USER_HOME/n8n_data"
 mkdir -p "$PERSISTENT_DIR"
-chown -R "$USER_NAME":"$USER_NAME" "$PERSISTENT_DIR"
+chown -R "$USER_NAME":"$USER_NAME" "$PERSISTENT_DIR" 2>&1 || true
 
 # Handle existing .n8n directory (first run or if user manually messed with it)
 if [ -d "$USER_HOME/.n8n" ] && [ ! -L "$USER_HOME/.n8n" ]; then
@@ -137,7 +141,7 @@ fi
 rm -rf "$USER_HOME/.n8n"
 ln -s "$PERSISTENT_DIR" "$USER_HOME/.n8n"
 echo "[*] Linked ~/.n8n to $PERSISTENT_DIR"
-chown -h "$USER_NAME":"$USER_NAME" "$USER_HOME/.n8n"
+chown -h "$USER_NAME":"$USER_NAME" "$USER_HOME/.n8n" 2>&1 || true
 
 # 5. n8n Setup
 echo "[*] Setting up n8n..."

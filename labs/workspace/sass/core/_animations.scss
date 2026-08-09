@@ -102,20 +102,20 @@
   animation: cardAssemble 0.5s ease-out;
 }
 
-// --- Flip in card ---
+// --- Flip in card (sna-style scale zoom) ---
 @keyframes flipInCard {
   from {
     opacity: 0;
-    transform: perspective(400px) rotateY(90deg);
+    transform: scale(0.88);
   }
   to {
     opacity: 1;
-    transform: perspective(400px) rotateY(0);
+    transform: scale(1);
   }
 }
 
 .flip-in-card {
-  animation: flipInCard 0.6s ease-out;
+  animation: flipInCard 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 // --- Home card slide up ---

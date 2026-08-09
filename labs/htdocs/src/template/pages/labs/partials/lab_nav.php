@@ -18,6 +18,11 @@ $tabs = [
         'label' => 'Preferences',
         'url' => "/labs/preferences/$hash",
         'matcher' => '/labs/preferences/'
+    ],
+    'activity' => [
+        'label' => 'Activity',
+        'url' => "/labs/activity/$hash",
+        'matcher' => '/labs/activity/'
     ]
 ];
 ?>

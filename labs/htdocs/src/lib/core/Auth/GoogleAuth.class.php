@@ -233,15 +233,47 @@ public function getAuthUrl($metadata) {
             ['$set' => ['last_login' => time()]]
         );
 
-        // CHROME FIX: Set session AND persistent cookie
+        // Google OAuth = trusted login (Google already verified identity + has its own 2FA)
+        // Service-level 2FA is NOT required for OAuth logins (industry standard)
         $username = $user['username'];
         $_SESSION['username']    = $username;
         $_SESSION['auth_status'] = \Constants::STATUS_LOGGEDIN;
 
+        // Generate session token (same as normal login)
+        $sessionToken = bin2hex(random_bytes(32));
+        $deviceInfo = parse_user_agent();
+        $clientIp = get_client_ip();
+        $lifetime = get_session_lifetime();
+        $domain = get_session_domain();
+
+        $this->db->users->updateOne(
+            ['email' => $userinfo->email],
+            [
+                '$push' => ['session_tokens' => [
+                    'token' => $sessionToken,
+                    'ip' => $clientIp,
+                    'browser' => $deviceInfo['browser'],
+                    'os' => $deviceInfo['os'],
+                    'mobile' => $deviceInfo['mobile'],
+                    'created_at' => time(),
+                    'last_activity' => time()
+                ]],
+                '$set' => ['last_login' => time()]
+            ]
+        );
+
         $isSecure = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on');
         setcookie('username', $username, [
-            'expires' => time() + (86400 * 7), 'path' => '/',
+            'expires' => time() + $lifetime, 'path' => '/',
             'secure' => $isSecure, 'httponly' => true, 'samesite' => 'Lax'
+        ]);
+        setcookie('session_token', $sessionToken, [
+            'expires'  => time() + $lifetime,
+            'path'     => '/',
+            'domain'   => $domain,
+            'secure'   => $isSecure,
+            'httponly' => true,
+            'samesite' => 'Lax'
         ]);
 
         return $user;

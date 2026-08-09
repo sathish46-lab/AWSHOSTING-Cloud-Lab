@@ -11,13 +11,17 @@ CODE_PASS=$4
 LAB_PRIV_KEY=$5
 TUNNEL_IP=$6
 SERVER_PUBKEY=$7
+USER_EMAIL=$8
 VPS_DOCKER_IP=${10}
 SU_PASS=${11}
 
+# Compute hash from email (matches Python hashlib.md5)
+USER_HASH=$(echo -n "$USER_EMAIL" | md5sum | cut -d' ' -f1)
 SYSTEM_PASS="${SU_PASS:-${USER_NAME}@098}"
 
 echo "[*] Starting user configuration..."
 echo "    Username: $USER_NAME"
+echo "    User Hash: $USER_HASH"
 echo "    Docker IP: $DOCKER_IP"
 echo "    Tunnel IP: $TUNNEL_IP"
 
@@ -41,7 +45,7 @@ mkdir -p "$USER_HOME/.ssh"
 printf "%b" "$PUB_KEYS" > "$USER_HOME/.ssh/authorized_keys"
 chmod 700 "$USER_HOME/.ssh"
 chmod 600 "$USER_HOME/.ssh/authorized_keys"
-chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME"
+chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME" 2>&1 || true
 
 # Disable StrictModes for shared volume mounts and restart SSH
 sed -i 's/^#\?StrictModes .*/StrictModes no/' /etc/ssh/sshd_config
@@ -148,7 +152,7 @@ fi
 ln -sfn "$HTCONFIG" /etc/apache2/sites-available
 
 # 4. Permissions Fix
-chown -R "$USER_NAME:$USER_NAME" "$HTDOCS" "$HTCONFIG"
+chown -R "$USER_NAME:$USER_NAME" "$HTDOCS" "$HTCONFIG" 2>&1 || true
 chmod -R 755 "$HTDOCS"
 chmod -R 755 "$HTCONFIG"
 
@@ -171,7 +175,7 @@ password: $CODE_PASS
 cert: false
 CODE_CONFIG
 
-chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME/.config"
+chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME/.config" 2>&1 || true
 chmod 644 "$USER_CONFIG"
 
 # Optimized code-server startup with performance flags

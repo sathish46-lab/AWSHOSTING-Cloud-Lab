@@ -1,8 +1,8 @@
 <?php
     $fullHash = Session::get('full_instance_hash');
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-    $inst = $db->machine_labs->findOne(['deploy.instance_hash' => $fullHash]);
-    $labData = $inst ? ($inst['deploy'] ?? []) : null;
+    $inst = $db->machine_labs->findOne(['instance_hash' => $fullHash]);
+    $labData = $inst;
     
     // CRITICAL FIX: Define missing variables
     $user = Session::getUser();

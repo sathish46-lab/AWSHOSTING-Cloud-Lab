@@ -4,7 +4,7 @@ $is_minimized = isset($ui_prefs['labs_serverlogs_min']) && $ui_prefs['labs_serve
 $minimized_class = $is_minimized ? 'logs-minimized' : '';
 $chevron_class = $is_minimized ? 'bx-chevron-up' : 'bx-chevron-down';
 ?>
-<div class="server-logs-panel shadow-lg px-4">
+<div class="server-logs-panel shadow-lg px-0 <?= $minimized_class ?>" id="serverLogsPanel">
     <div class="logs-header d-flex justify-content-between align-items-center logs-header-clickable" id="serverLogsToggleBtn" data-minimized="<?= $is_minimized ? 'true' : 'false' ?>">
         <div class="logs-title d-flex align-items-center gap-2">
             <i class='bx bx-terminal fs-5'></i>

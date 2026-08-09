@@ -19,8 +19,12 @@ $user = Session::getUser();
 
 try {
     $db->ip_registry->updateOne(
-        ['ip_addr' => $ip, 'status' => 'reserved', 'email' => $user->getEmail()],
-        ['$set' => ['status' => 'available'], '$unset' => ['email' => '', 'user_id' => '', 'reserved_at' => '']]
+        ['ip_addr' => $ip, 'status' => 'reserved'],
+        ['$set' => ['status' => 'available'], '$unset' => [
+            'email' => '', 'user_id' => '', 'reserved_at' => '', 'reserved_to' => '',
+            'service_type' => '', 'label' => '', 'last_deploy' => '', 'allocated_to' => '',
+            'resource_type' => '', 'resource_id' => '', 'device_name' => '', 'device_type' => '',
+        ]]
     );
     echo json_encode(['result' => true]);
 } catch (Exception $e) {

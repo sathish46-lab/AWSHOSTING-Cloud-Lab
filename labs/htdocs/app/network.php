@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../src/load.php';
 
 if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
-    Session::$pageTitle = "My Network";
+    Session::$pageTitle = "Network";
     Session::loadMaster();
     exit;
 }
@@ -25,16 +25,17 @@ foreach ($myIPs as $ip) {
 }
 
 // 2. Find what's actually using each IP
-// Machine labs
-$labs = $db->machine_labs->find(['deploy.email' => $user->getEmail()])->toArray();
+// Machine labs (flat structure)
+$labs = $db->machine_labs->find(['email' => $user->getEmail()])->toArray();
 foreach ($labs as $lab) {
-    $ip = $lab['deploy']['internal_ip'] ?? null;
+    $ip = $lab['internal_ip'] ?? null;
     if (!$ip) continue;
     foreach ($allResources as &$res) {
         if ($res['ip_addr'] === $ip) {
-            $labType = $lab['deploy']['lab_type'] ?? $lab['template'] ?? 'Lab';
-            $res['tag'] = ucfirst($labType);
-            $res['tag_bg'] = 'bg-primary';
+            $labType = $lab['lab_type'] ?? 'Lab';
+            $isRunning = ($lab['status'] ?? '') === 'running';
+            $res['tag'] = $isRunning ? ucfirst($labType) : 'Unallocated';
+            $res['tag_bg'] = $isRunning ? 'bg-primary' : 'bg-danger';
         }
     }
 }
@@ -74,14 +75,14 @@ $found = [];
 foreach ($myIPs as $ip) { $found[$ip['ip_addr']] = true; }
 
 foreach ($labs as $lab) {
-    $ip = $lab['deploy']['internal_ip'] ?? null;
+    $ip = $lab['internal_ip'] ?? null;
     if ($ip && !isset($found[$ip])) {
         $db->ip_registry->updateOne(
             ['ip_addr' => $ip],
             ['$set' => ['status' => 'reserved', 'email' => $user->getEmail(), 'user_id' => $user->getUserId()]],
             ['upsert' => true]
         );
-        $labType = $lab['deploy']['lab_type'] ?? $lab['template'] ?? 'Lab';
+        $labType = $lab['lab_type'] ?? 'Lab';
         $allResources[] = [
             'ip_addr' => $ip,
             'iface'   => 'wg0',
@@ -109,6 +110,6 @@ foreach ($instances as $inst) {
     }
 }
 
-Session::$pageTitle = "My Network"; 
+Session::$pageTitle = "Network"; 
 Session::set('network_resources', $allResources);
 Session::loadMaster();

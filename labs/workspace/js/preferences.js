@@ -331,6 +331,51 @@ function copyFromInput(inputId) {
     const input = document.getElementById(inputId);
     copyText(input.value);
 }
+
+async function saveErrorPage() {
+    const editor = window.errorPageEditor;
+    if (!editor) return;
+    
+    const content = editor.getValue();
+    if (content.length > 65536) {
+        CoreUI.Toast.show('Content exceeds 64 KB limit', 'error');
+        return;
+    }
+    
+    const hash = window.SESSION_HASH;
+    if (!hash) return;
+    
+    const btn = document.querySelector('button[onclick="saveErrorPage()"]');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Saving...';
+    }
+    
+    try {
+        const formData = new FormData();
+        formData.append('hash', hash);
+        formData.append('custom_error_page', content);
+        
+        const resp = await fetch('/api/labs/save_error_page.php', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await resp.json();
+        
+        if (data.status === 'ok') {
+            CoreUI.Toast.show('Error page saved successfully', 'success');
+        } else {
+            CoreUI.Toast.show(data.error || 'Failed to save', 'error');
+        }
+    } catch (e) {
+        CoreUI.Toast.show('Network error', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bx bx-save"></i> Save Error Page';
+        }
+    }
+}
 window.onPageLoad( updateProxyDomainOptions);
 
 
@@ -348,6 +393,7 @@ window.onPageLoad( updateProxyDomainOptions);
     window.togglePasswordVisibility = togglePasswordVisibility;
     window.addProxyRow = addProxyRow;
     window.removeProxyRow = removeProxyRow;
+    window.saveErrorPage = saveErrorPage;
 
   })();
 } catch (e) {

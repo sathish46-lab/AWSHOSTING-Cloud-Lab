@@ -89,6 +89,12 @@ Session::set('seo_keywords', 'Sign In, Tom Labs Login, Virtual Labs, Secure Acce
     </style>
 </head>
 <body data-no-boost="true" hx-boost="false">
+<script>
+// Safari BFCache fix — force reload when page is restored from back-forward cache
+window.addEventListener('pageshow', function(e) {
+    if (e.persisted) { window.location.reload(); }
+});
+</script>
 
 
 <div class="min-vh-100 d-flex align-items-center">

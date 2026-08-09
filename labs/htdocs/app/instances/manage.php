@@ -10,7 +10,7 @@ if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
         echo '<div class="alert alert-danger">Unauthorized.</div>';
         exit;
     }
-    Session::$pageTitle = "Instances / Manage";
+    Session::$pageTitle = "Instances | Manage";
     Session::loadMaster();
     exit;
 }

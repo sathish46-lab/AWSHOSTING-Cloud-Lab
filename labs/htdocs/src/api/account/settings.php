@@ -199,6 +199,7 @@ if ($lastLogin) {
 // ── Response ──
 echo json_encode([
     'success' => true,
+    'two_factor_enabled' => !empty($userDoc['two_factor_enabled']),
     'limits' => [
         'devices' => ['used' => $devices, 'limit' => $devicesLimit],
         'domains' => ['used' => $domainCount, 'limit' => $domainsLimit],

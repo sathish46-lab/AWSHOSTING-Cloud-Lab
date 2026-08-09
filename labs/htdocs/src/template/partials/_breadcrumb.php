@@ -108,9 +108,9 @@ foreach ($titleParts as $index => $part) {
     $boostAttr = ($href === '/' || $href === '/home' || stripos($href, '/logout') !== false) ? ' hx-boost="false"' : '';
     
     if ($isLast) {
-        echo '<li class="breadcrumb-item active"><a href="' . $href . '"' . $boostAttr . ' class="text-decoration-none small fw-bold theme-text transition-all">' . htmlspecialchars($displayPart) . '</a></li>';
+        echo '<li class="breadcrumb-item active"><a href="' . $href . '"' . $boostAttr . ' class="text-decoration-none fw-semibold" style="color: var(--cui-body-color); font-size: 0.85rem;">' . htmlspecialchars($displayPart) . '</a></li>';
     } else {
-        echo '<li class="breadcrumb-item"><a href="' . $href . '"' . $boostAttr . ' class="text-decoration-none hover-theme-text small fw-medium transition-all" style="color: var(--glass-text-muted);">' . htmlspecialchars($displayPart) . '</a></li>';
+        echo '<li class="breadcrumb-item"><a href="' . $href . '"' . $boostAttr . ' class="text-decoration-none fw-medium" style="color: var(--cui-secondary-color); font-size: 0.85rem;">' . htmlspecialchars($displayPart) . '</a></li>';
     }
 }
 ?>

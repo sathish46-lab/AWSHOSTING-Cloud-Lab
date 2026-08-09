@@ -41,9 +41,10 @@ services:
       - ./wireguard-conf:/etc/wireguard
       - ./apache-logs:/var/log/apache2
       - ./traefik-conf:/etc/traefik
-      - labsstorage:/var/labsstorage
+      - ./tomlabs/storage:/var/tomlabs/storage
     networks:
       tomlabs_dev_net: {}
+      labs_bridge: {}
       dev_lab_frontend:
         aliases:
           - mysql.tomweb.in
@@ -107,6 +108,9 @@ networks:
         - subnet: 10.20.144.0/20
           gateway: 10.20.144.1
     driver: bridge
+  labs_bridge:
+    name: labs_bridge
+    external: true
   dev_lab_frontend:
     name: dev_lab_frontend
     driver: bridge

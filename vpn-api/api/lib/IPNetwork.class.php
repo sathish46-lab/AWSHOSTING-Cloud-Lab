@@ -6,7 +6,6 @@ require_once __DIR__ . '/../../vendor/autoload.php';
 class IPNetwork {
     private $db;
     private $collection;
-    private $network = NULL;
     public $cidr;
     public $wgdevice;
     
@@ -14,136 +13,48 @@ class IPNetwork {
         $this->cidr = $cidr;
         $this->wgdevice = $wgdevice;
         $this->db = Database::getConnection();
-        $this->collection = $this->db->networks;
-        $this->network = $this->getNetwork();
-    }
-
-    public function getNetwork(){
-        if(!$this->network){
-            $val = $this->collection->findOne([
-                'cidr' => $this->cidr
-            ]);
-            return Database::getArray($val);
-        } else {
-            return $this->network;
-        } 
-    }
-
-    public function constructNetworkFile(){
-        $ip_file = $this->getNetworkFilePath($this->wgdevice);
-        $cmd = 'sudo nmap -sL -n '.$this->cidr.' | awk \'/Nmap scan report/{print $NF}\'';
-        $result = shell_exec($cmd);
-        if ($result === null) {
-            $result = ""; // Handle empty result to prevent null file write
-        }
-        $file = fopen($ip_file, "w"); 
-        fwrite($file, $result);
-        fclose($file);
-    }
-
-    public function getNetworkFilePath(){
-        $file_name = str_replace('.', '_', $this->cidr);
-        $file_name = str_replace('/', '_', $file_name."_".$this->wgdevice);
-        //print($_SERVER['DOCUMENT_ROOT'] . '/api/networks/' . $file_name);
-        return '/tmp/' . $file_name;
-
-    }
-
-    public function getNextInsertID(){
-        $last_ip = $this->collection->findOne([], [
-            'limit' => 1,
-            'sort' => ['_id' => -1],
-        ]);
-        if (!$last_ip || !isset($last_ip['_id']) || !is_numeric($last_ip['_id'])) {
-            return 1;
-        }
-        return $last_ip['_id'] + 1;
-    }
-
-    /**
-     * Used to generate list of IP addresses when generating a new network node on Wireguard. 
-     * Known Issue: If you call this multiple times, multiple documents gets inserted. Avoid this to keep the network consistant.
-     */
-    public function syncNetworkFile(){
-        if(file_exists($this->getNetworkFilePath($this->wgdevice))){
-            $data = file_get_contents($this->getNetworkFilePath($this->wgdevice));
-            $data = explode(PHP_EOL, $data);
-            $data = array_slice($data, 2, count($data) - 4);
-            $documents = array();
-            $id = $this->getNextInsertID();
-            foreach($data as $datum){
-                if(empty($datum)){
-                    continue;
-                }
-                $val = [
-                    '_id' => $id++,
-                    'network_cidr' => $this->cidr,
-                    'ip_addr' => $datum,
-                    'wgdevice' => $this->wgdevice,
-                    'allocated' => False,
-                    'creationTime' => time(),
-                    'allocationTime' => '',
-                    'public_key' => '',
-                    'private_key' => '',
-                    'reserved' => false
-                ];
-                array_push($documents, $val);
-            }
-            $this->collection->deleteMany([
-                "wgdevice" => $this->wgdevice
-            ]);
-            return $this->collection->insertMany($documents);
-
-        } else {
-            throw new Exception('Network file not present.');
-        }
+        // Single source of truth: ip_registry in tom_labs_db
+        $this->collection = $this->db->ip_registry;
     }
 
     public function getNextIP($email=null, $ip = null){
         $opt_config = json_decode(@file_get_contents('/opt/labs-control-panel/config.json'), true) ?: [];
-        $tunnel_prefix = $opt_config['tunnel_ip'];
-        $prefix = preg_replace('/\.0\.$/', '.1.', $tunnel_prefix);
+        $tunnel_prefix = $opt_config['tunnel_ip'] ?? '172.31.0.';
+        $prefix = $tunnel_prefix;
 
+        // Protected IPs: .0 (network) and .1 (gateway/server)
         $protected_ips = [];
-        // Protected Gateway/Router IPs in the client subnet just in case
-        for($i=1; $i<=9; $i++) {
+        for($i=0; $i<=1; $i++) {
             $protected_ips[] = $prefix . $i;
         }
 
         $base_query = [
-            "allocated" => false,
-            "wgdevice" => $this->wgdevice,
-            // SECURITY: Regex enforce the subnet so we never allocate outside 172.30.1.x
-            // even if the DB contains other IPs.
+            "status" => "available",
             "ip_addr" => [
                 '$regex' => '^' . str_replace('.', '\.', $prefix),
                 '$nin' => $protected_ips
             ]
         ];
 
-        if($ip and $email){
+        if($ip && $email){
             // Try to find if this specific user has this specific IP reserved
             $result = $this->collection->findOne(array_merge($base_query, [
-                "reserved" => true,
+                "status" => "reserved",
                 "ip_addr" => $ip,
-                'email' => $email,  
-            ]), ["sort" => ['id' => 1]]);
+                'reserved_to' => $email,
+            ]), ["sort" => ['ip_numeric' => 1]]);
 
             if(!$result){
-                // If not found, find the first available unreserved IP above .9
-                $result = $this->collection->findOne(array_merge($base_query, [
-                    "reserved" => false,
-                ]), ["sort" => ['id' => 1]]);
+                // If not found, find the first available IP
+                $result = $this->collection->findOne($base_query, ["sort" => ['ip_numeric' => 1]]);
             }
         } else {
-            // Find the first available unreserved IP above .9
-            $result = $this->collection->findOne(array_merge($base_query, [
-                "reserved" => false,
-            ]), ["sort" => ['id' => 1]]);
+            // Find the first available IP
+            $result = $this->collection->findOne($base_query, ["sort" => ['ip_numeric' => 1]]);
         }
 
         if (!$result) {
-            throw new Exception("No available IPs found in the allowed range (.10 - .254)");
+            throw new Exception("No available IPs found in the allowed range");
         }
 
         return $result['ip_addr'];
@@ -152,14 +63,12 @@ class IPNetwork {
     public function allocateIP($ip, $email, $public_key, $reserved){
         try {
             $result = $this->collection->updateOne([
-                'ip_addr' => $ip,
-                'wgdevice' => $this->wgdevice
+                'ip_addr' => $ip
             ], [
                 '$set' => [
-                    'allocated' => true,
+                    'status' => 'reserved',
                     'email' => $email,
-                    'public_key' => $public_key,
-                    'reserved' => $reserved
+                    'reserved_to' => $email,
                 ]
             ]);
             return $ip;
@@ -169,52 +78,64 @@ class IPNetwork {
     }
 
     public function reserveIP($email, $ip, $reserve=true){
-    try {
-        $updateData = ['$set' => ['reserved' => $reserve]];
-        
-        // Professional Logic: If unreserving, wipe the email ownership
-        if (!$reserve) {
-            $updateData['$set']['email'] = ""; 
-        }
+        try {
+            if ($reserve) {
+                $updateData = ['$set' => [
+                    'status' => 'reserved',
+                    'reserved_to' => $email,
+                    'email' => $email,
+                ]];
+            } else {
+                $updateData = ['$set' => [
+                    'status' => 'available',
+                    'reserved_to' => null,
+                    'email' => null,
+                ]];
+            }
 
-        $result = $this->collection->updateOne([
-            'ip_addr' => $ip,
-            'wgdevice' => $this->wgdevice,
-            'email' => $email
-        ], $updateData);
-        
-        return boolval($result->getModifiedCount());
-    } catch (Exception $e) {
-        return false;
+            $result = $this->collection->updateOne([
+                'ip_addr' => $ip
+            ], $updateData);
+            
+            return boolval($result->getModifiedCount());
+        } catch (Exception $e) {
+            return false;
+        }
     }
-}
 
     public function unallocateIP($public_key, $reserved){
         try {
+            // Find the IP by looking up public_key in devices collection
+            $devices = $this->db->devices;
+            $device = $devices->findOne(['public_key' => $public_key]);
+            
+            if (!$device) {
+                return false;
+            }
+            
+            $ip = $device['assigned_ip'] ?? null;
+            if (!$ip) {
+                return false;
+            }
+
             if($reserved){
-                // If just deleting device but KEEPING reservation
+                // Keep reservation but remove allocation
                 $result = $this->collection->updateOne([
-                    'public_key' => $public_key,
-                    'wgdevice' => $this->wgdevice
+                    'ip_addr' => $ip
                 ], [
                     '$set' => [
-                        'allocated' => false,
-                        'reserved' => true,
-                        'public_key' => ""
-                        // Email remains so user still "owns" the reservation
+                        'status' => 'reserved',
                     ]
                 ]);
             } else {
-                // FULL RELEASE: Clear everything so others can use it
+                // FULL RELEASE: Clear everything
                 $result = $this->collection->updateOne([
-                    'public_key' => $public_key,
-                    'wgdevice' => $this->wgdevice
+                    'ip_addr' => $ip
                 ], [
                     '$set' => [
-                        'allocated' => false,
-                        'email' => "", // CRITICAL: Clear email
-                        'reserved' => false,
-                        'public_key' => ""
+                        'status' => 'available',
+                        'email' => null,
+                        'reserved_to' => null,
                     ]
                 ]);
             }
@@ -225,19 +146,9 @@ class IPNetwork {
     }
 
     public function getAll(){
-        return iterator_to_array($this->collection->find(
-            [
-                '$and' => [
-                    [
-                    'email'=>[
-                        '$ne' => ""
-                    ],],[
-                    'email'=>[
-                        '$exists' => true
-                    ],]
-                ],
-                'wgdevice' => $this->wgdevice
-            ]
-        ));
+        return iterator_to_array($this->collection->find([
+            'status' => 'reserved',
+            'email' => ['$ne' => null, '$exists' => true]
+        ]));
     }
 }

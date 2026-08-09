@@ -155,23 +155,10 @@ class Wireguard{
     }
 
     /**
-     * Automatically populates the MongoDB network table if empty.
+     * Initialize VPN service - no longer needs network sync.
+     * IP allocation now uses ip_registry directly.
      */
     public function initialize($token = '09b693f6-e6b4-4cdc-a7c6-14a337fae61d') {
-        $ipnet = new IPNetwork($this->getCIDR(), $this->device);
-        
-        // 1. Check if auth exists
-        $authCount = $this->db->auth->countDocuments(['active' => 1]);
-        if ($authCount < 1) {
-            new Signup("tom_labs_vpn", $token, "admin@dev.tomweb.in", 1);
-        }
-
-        // 2. Check if networks are already synced
-        $netCount = $this->db->networks->countDocuments(['wgdevice' => $this->device]);
-        if ($netCount < 10) { // If empty or nearly empty
-            $ipnet->constructNetworkFile();
-            return $ipnet->syncNetworkFile();
-        }
         return true;
     }
     

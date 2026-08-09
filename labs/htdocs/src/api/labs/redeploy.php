@@ -19,44 +19,38 @@ if (empty($hash)) {
 $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
 
 $inst = $db->machine_labs->findOne(
-    ['deploy.instance_hash' => $hash],
-    ['projection' => ['deploy' => 1, 'lab_type' => 1, 'lab_name' => 1, 'user_id' => 1]]
+    ['instance_hash' => $hash],
+    ['projection' => ['lab_type' => 1, 'user_id' => 1, 'instance_hash' => 1, 'internal_ip' => 1, 'credentials' => 1, 'status' => 1, 'code_domain' => 1, 'gui_domain' => 1, 'domains' => 1, 'expose_web' => 1, 'http_proxies' => 1]]
 );
 if ($inst) {
-    $labData = $inst['deploy'] ?? [];
-    $labData['lab_type'] = $labData['lab_type'] ?? $inst['lab_type'] ?? 'essentials';
-    $labData['lab_name'] = $inst['lab_name'] ?? '';
-    $labData['user_id'] = $inst['user_id'] ?? null;
+    $labData = $inst;
+    $labData['lab_type'] = $inst['lab_type'] ?? 'essentials';
 } else {
     $labData = [];
 }
 $user = Session::getUser();
 $fullHash = $hash;
 
-// Fresh deploy: use defaults so modal still opens
 $labType = $labData['lab_type'] ?? 'essentials';
 $status = $labData['status'] ?? 'not_deployed';
 $isRunning = ($status === 'running');
 $creds = $labData['credentials'] ?? null;
 
-// Get device IP from ip_registry (unified source)
 $deviceIp = $labData['internal_ip'] ?? '0.0.0.0';
 
-// Get all user's reserved IPs (not in use by other labs/instances/devices)
 $ipReg = $db->ip_registry;
 $myIPs = $ipReg->find(['email' => $user->getEmail(), 'status' => 'reserved'])->toArray();
 
-// Find IPs in use by other labs
 $inUseIps = [];
-$labs = $db->machine_labs->find(['deploy.email' => $user->getEmail()])->toArray();
+$labs = $db->machine_labs->find(['email' => $user->getEmail()])->toArray();
 foreach ($labs as $l) {
-    $ip = $l['deploy']['internal_ip'] ?? null;
+    $ip = $l['internal_ip'] ?? null;
     if ($ip) $inUseIps[$ip] = true;
 }
 $instDb = DatabaseConnection::getClient()->selectDatabase('tom_labs_instances_db');
 $instances = $instDb->instances->find(['email' => $user->getEmail()])->toArray();
-foreach ($instances as $inst) {
-    $ip = $inst['deploy']['internal_ip'] ?? null;
+foreach ($instances as $i) {
+    $ip = $i['internal_ip'] ?? null;
     if ($ip) $inUseIps[$ip] = true;
 }
 $devices = $db->devices->find(['user_id' => $user->getUserId()])->toArray();
@@ -65,7 +59,6 @@ foreach ($devices as $dev) {
     if ($ip) $inUseIps[$ip] = true;
 }
 
-// Available IPs = reserved but not in use by anything
 $availableIPs = [];
 foreach ($myIPs as $ip) {
     if (!isset($inUseIps[$ip['ip_addr']]) || $ip['ip_addr'] === $deviceIp) {
@@ -80,7 +73,6 @@ $currConsole = rtrim($currConsole, '/');
 $currApi = str_replace(['https://', 'http://'], '', $creds['s3_api_url'] ?? $sysApi);
 $currApi = rtrim($currApi, '/');
 
-// Get user domains
 $userId = $user->getUserId();
 $userDomainsCursor = $db->domains->find(['user_id' => $userId, 'verified' => true]);
 $userDomainsList = iterator_to_array($userDomainsCursor);
@@ -287,16 +279,19 @@ ob_start();
                                 ?>
                                     <div class="form-check domain-item p-2 rounded mx-1 mb-1 cursor-pointer" onclick="toggleCheckbox('dom_<?= $d['_id'] ?>')">
                                         <input class="form-check-input domain-selector ms-0 me-2" type="checkbox" value="<?= htmlspecialchars($d['domain']) ?>" id="dom_<?= $d['_id'] ?>" <?= $isChecked ? 'checked' : '' ?> onchange="updateSelectedDomains()" onclick="event.stopPropagation()">
-                                        <label class="form-check-label small" for="dom_<?= $d['_id'] ?>" onclick="event.stopPropagation()"><?= htmlspecialchars($d['domain']) ?></label>
+                                        <label class="form-check-label text-white small" for="dom_<?= $d['_id'] ?>">
+                                            <?= htmlspecialchars($d['domain']) ?>
+                                            <?php if (!empty($domainUsageMap[$d['domain']])): ?>
+                                                <span class="badge bg-secondary ms-1"><?= count($domainUsageMap[$d['domain']]) ?> lab(s)</span>
+                                            <?php endif; ?>
+                                        </label>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
                         </div>
-                        <div class="form-text small opacity-50 mt-2 px-1">Your lab's port 80 will be visible over the chosen domain with automatic SSL certificates.</div>
                     </div>
                 </div>
 
-                <!-- HTTP Proxies -->
                 <?php if (\TomLabs\Labs\LabFeatures::supports($labType, 'http_proxies')): ?>
                 <div id="http_proxies_wrapper">
                     <p class="mb-2 mt-3 modal-section-title">HTTP PROXIES</p>

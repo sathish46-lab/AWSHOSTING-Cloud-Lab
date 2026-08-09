@@ -143,34 +143,33 @@ $services = [
     <div class="row row-cols-1 row-cols-md-3 g-4 pb-4 align-items-start" id="masonry-area" data-masonry='{"percentPosition": true }'>
 
     <?php foreach ($services as $i => $svc): ?>
-    <div class="col">
-        <div class="card shadow-lg rounded-4 overflow-hidden border-0 blur card-entrance">
-            <div class="card-body p-3">
-                <div class="row p-2 align-items-center">
-                    <div class="col-3 d-flex justify-content-center">
+    <div class="col card-entrance">
+        <div class="card glass-lab-card h-100 border-0 shadow-lg rounded-4 blur" style="--card-accent: var(--accent-muted);">
+            <div class="glass-lab-card-glow"></div>
+            <div class="glass-lab-card-body d-flex flex-column h-100 p-4 position-relative" style="z-index: 2;">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="glass-lab-avatar">
                         <?php if($svc['title'] == 'Adminer'): ?>
-                            <div class="bg-white rounded d-flex justify-content-center align-items-center shadow-sm" style="width: 60px; height: 60px; padding: 12px;">
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#2196F3" style="width: 100%; height: 100%;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-                            </div>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#2196F3" style="width: 28px; height: 28px;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
                         <?php else: ?>
-                            <div class="bg-white rounded d-flex justify-content-center align-items-center shadow-sm p-1" style="width: 60px; height: 60px;">
-                                <img src="<?= htmlspecialchars($svc['img']) ?>" class="img-fluid" style="max-height: 40px; object-fit: contain;">
-                            </div>
+                            <img src="<?= htmlspecialchars($svc['img']) ?>" style="width: 28px; height: 28px; object-fit: contain;">
                         <?php endif; ?>
                     </div>
-                    <div class="col-9 ps-3">
-                        <h5 class="card-title fw-bold mb-1"> <?= htmlspecialchars($svc['title']) ?> </h5>
-                        <span class="badge bg-info bg-opacity-25 text-info border border-info border-opacity-25 rounded-pill px-2 py-1" style="cursor:pointer;" data-coreui-toggle="tooltip" data-coreui-placement="right" data-coreui-original-title="This hostname is reachable from within your lab.">
-                            <?= htmlspecialchars($svc['host']) ?>
-                        </span>
+                    <div class="flex-grow-1 min-w-0">
+                        <h5 class="glass-lab-title fw-bold mb-0 text-truncate">
+                            <?= htmlspecialchars($svc['title']) ?>
+                        </h5>
+                        <div class="glass-lab-subtitle d-flex align-items-center gap-2 mt-1">
+                            <span class="glass-badge"><?= htmlspecialchars($svc['host']) ?></span>
+                        </div>
                     </div>
                 </div>
-                <br>
-                <p class="text-secondary mb-4" style="font-size: 0.85rem; line-height: 1.5;"><?= htmlspecialchars($svc['desc']) ?></p>
-                
+
+                <p class="text-secondary mb-3" style="font-size: 0.85rem; line-height: 1.5; opacity: 0.8;"><?= htmlspecialchars($svc['desc']) ?></p>
+
                 <!-- Ports Section -->
                 <div class="bg-dark bg-opacity-50 rounded p-2 px-3 mb-3 border border-light border-opacity-10">
-                    <?php 
+                    <?php
                     $ports_array = array_merge(["Hostname" => $svc['host']], $svc['ports']);
                     $port_count = count($ports_array);
                     $p_idx = 0;
@@ -187,12 +186,12 @@ $services = [
                     </div>
                     <?php endforeach; ?>
                 </div>
-                
+
                 <!-- Port Forwarding Section -->
                 <?php if (!empty($svc['pf'])): ?>
                 <h6 class="text-white fw-bold mb-2" style="font-size: 0.8rem;">Port Forwarding</h6>
                 <div class="bg-dark bg-opacity-50 rounded p-2 px-3 border border-light border-opacity-10">
-                    <?php 
+                    <?php
                     $pf_count = count($svc['pf']);
                     $pf_idx = 0;
                     foreach ($svc['pf'] as $name => $val):
@@ -210,11 +209,14 @@ $services = [
                 </div>
                 <?php endif; ?>
 
-            </div>
-
-            <div class="card-footer bg-transparent border-top-0 d-flex justify-content-end gap-2 p-3 pt-0">
-                <a href="<?= htmlspecialchars($svc['manage']) ?>" class="btn btn-primary rounded-pill px-4" style="background: #6366f1; border: none; font-size: 0.85rem; font-weight: 600;">Manage</a>
-                <a href="<?= htmlspecialchars($svc['learn']) ?>" target="_blank" class="btn btn-success rounded-pill px-4 text-white" style="font-size: 0.85rem; font-weight: 600;">Learn More</a>
+                <div class="mt-auto d-flex gap-2 pt-3">
+                    <a href="<?= htmlspecialchars($svc['manage']) ?>" class="glass-btn glass-btn-primary flex-grow-1">
+                        <i class='bx bx-cog'></i> Manage
+                    </a>
+                    <a href="<?= htmlspecialchars($svc['learn']) ?>" target="_blank" class="glass-btn glass-btn-success flex-grow-1">
+                        <i class='bx bx-book-open'></i> Learn More
+                    </a>
+                </div>
             </div>
         </div>
     </div>

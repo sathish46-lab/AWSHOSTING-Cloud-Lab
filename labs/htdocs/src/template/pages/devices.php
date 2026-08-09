@@ -47,7 +47,7 @@ $defaultIp = !empty($resources) ? end($resources)['ip_addr'] : "";
 
 <div class="modal fade" id="addDeviceModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+        <div class="modal-content shadow-lg rounded-4 overflow-hidden">
             <form id="vpnAddForm" hx-boost="false">
                 <div class="modal-header border-bottom border-light border-opacity-10 p-4">
                     <h5 class="modal-title fw-bold">Add Device</h5>
@@ -66,7 +66,7 @@ $defaultIp = !empty($resources) ? end($resources)['ip_addr'] : "";
 
 <div class="modal fade" id="configModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+        <div class="modal-content shadow-lg rounded-4 overflow-hidden">
             <div class="modal-header border-bottom border-light border-opacity-10 p-4">
                 <h5 class="modal-title fw-bold" id="configTitle">Wireguard Configuration</h5>
                 <button type="button" class="btn-close" data-coreui-dismiss="modal"></button>

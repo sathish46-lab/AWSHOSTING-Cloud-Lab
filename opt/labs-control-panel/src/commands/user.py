@@ -45,9 +45,9 @@ class UserCmd(Command):
         auth_content = "\n".join([k["public_key"] for k in user_keys if "public_key" in k])
 
         # Find storage path
-        user_lab = self.db.machine_labs.find_one({"deploy.username": username})
+        user_lab = self.db.machine_labs.find_one({"username": username})
         if user_lab:
-            storage_path = (user_lab.get('deploy') or {}).get("storage_path")
+            storage_path = user_lab.get("storage_path")
         else:
             storage_path = f"/var/tomlabs/storage/{username}"
 

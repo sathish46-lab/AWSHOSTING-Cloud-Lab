@@ -6,7 +6,7 @@ if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
     exit;
 }
 
-Session::$pageTitle = "Dashboard | Learn AI";
+Session::$pageTitle = "Learn AI";
 Session::set('is_learn_ai', true);
 Session::addCustomJs('/js/learnAI/layout.js');
 Session::loadMaster();

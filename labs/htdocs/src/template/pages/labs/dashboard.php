@@ -2,18 +2,16 @@
     $fullHash = Session::get('full_instance_hash');
     $db = DatabaseConnection::getDefaultDatabase();
 
-    // Query instances collection — deploy data lives in instances.deploy subdocument
     $inst = $db->machine_labs->findOne(
-        ['deploy.instance_hash' => $fullHash],
-        ['projection' => ['deploy' => 1, 'lab_type' => 1]]
+        ['instance_hash' => $fullHash],
+        ['projection' => ['lab_type' => 1, 'internal_ip' => 1, 'credentials' => 1, 'status' => 1, 'code_domain' => 1, 'gui_domain' => 1, 'domains' => 1, 'expose_web' => 1, 'http_proxies' => 1]]
     );
     if ($inst) {
-        $labData = $inst['deploy'] ?? [];
+        $labData = $inst;
     } else {
         $labData = null;
     }
 
-    // CRITICAL FIX: Define missing variables
     $user = Session::getUser();
     $currentUsername = $user->getUsername();
 

@@ -16,11 +16,7 @@ ENVFLAGS
 chmod 644 /var/labsdata/.service_flags
 echo "[*] Service flags loaded (code-server=off, apache=off)"
 
-# ── 1. SSH Host Keys ──────────────────────────────────────────
-rm -f /etc/ssh/ssh_host_*
-yes | ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q 2>/dev/null || true
-yes | ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N "" -q 2>/dev/null || true
-yes | ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q 2>/dev/null || true
+# ── 1. Start SSH (keys already exist from image build) ─────────
 service ssh start 2>/dev/null || true
 echo "[✓] SSH started"
 

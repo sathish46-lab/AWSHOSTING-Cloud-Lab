@@ -60,6 +60,7 @@ body {
 .header-sticky {
   height: 4rem;
   overflow: visible !important;
+  z-index: 1050;
 }
 
 // Adjust the top margin of the wrapper to match the new smaller header

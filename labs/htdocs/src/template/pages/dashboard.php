@@ -9,19 +9,18 @@ $uiPrefs = $user ? ($user->getUiPreferences() ?? []) : [];
 $activeContinueTab = $uiPrefs['active_continue_tab'] ?? 'setup';
 
 // 1. Fetch Labs
-$activeLabsCount = $db->machine_labs->countDocuments(['user_id' => $userId, 'deploy.status' => 'running']);
+$activeLabsCount = $db->machine_labs->countDocuments(['user_id' => $userId, 'status' => 'running']);
 $labsLimit = 5;
-$deployedLabs = $db->machine_labs->find(['user_id' => $userId, 'deploy.status' => 'running'], ['sort' => ['created_at' => -1]]);
+$deployedLabs = $db->machine_labs->find(['user_id' => $userId, 'status' => 'running'], ['sort' => ['created_at' => -1]]);
 
 $labsList = [];
 foreach ($deployedLabs as $lab) {
-    $deploy = $lab['deploy'] ?? [];
     $labsList[] = [
-        'name' => ucfirst($deploy['lab_type'] ?? 'Lab'),
-        'ip' => $deploy['internal_ip'] ?? 'Unknown',
-        'status' => $deploy['status'] ?? 'unknown',
-        'hash' => $deploy['instance_hash'] ?? '',
-        'type' => $deploy['lab_type'] ?? 'unknown'
+        'name' => ucfirst($lab['lab_type'] ?? 'Lab'),
+        'ip' => $lab['internal_ip'] ?? 'Unknown',
+        'status' => $lab['status'] ?? 'unknown',
+        'hash' => $lab['instance_hash'] ?? '',
+        'type' => $lab['lab_type'] ?? 'unknown'
     ];
 }
 
@@ -130,9 +129,8 @@ $labs = $db->machine_labs->find(
     ['sort' => ['created_at' => -1], 'limit' => 5]
 );
     foreach ($labs as $l) {
-    $deploy = $l['deploy'] ?? [];
-    $time = isset($deploy['created_at']) ? (int)$deploy['created_at'] : time();
-    $isStopped = isset($deploy['status']) && $deploy['status'] === 'stopped';
+    $time = isset($l['created_at']) ? (int)$l['created_at'] : time();
+    $isStopped = isset($l['status']) && $l['status'] === 'stopped';
     
     $activitiesList[] = [
         'timestamp' => $time,
@@ -140,7 +138,7 @@ $labs = $db->machine_labs->find(
         'color' => $isStopped ? "#636e72" : "#10ac84",
         'bg' => $isStopped ? "rgba(99, 110, 114, 0.15)" : "rgba(16, 172, 132, 0.15)",
         'border' => $isStopped ? "rgba(99, 110, 114, 0.30)" : "rgba(16, 172, 132, 0.30)",
-        'text' => ($isStopped ? "Stopped" : "Deployed") . " <strong>" . ucfirst($deploy['lab_type'] ?? 'sandbox') . "</strong> Lab"
+        'text' => ($isStopped ? "Stopped" : "Deployed") . " <strong>" . ucfirst($l['lab_type'] ?? 'sandbox') . "</strong> Lab"
     ];
 }
 
@@ -175,6 +173,77 @@ foreach ($keys as $k) {
         'bg' => "rgba(231, 76, 60, 0.15)",
         'border' => "rgba(231, 76, 60, 0.30)",
         'text' => "Added SSH Key: <strong>" . htmlspecialchars($k['title']) . "</strong>"
+    ];
+}
+
+// 5. Dynamic Activity Lessons (from ai_chat_history + ai_lessons + ai_chapters)
+$myLessons = [];
+$chatLessons = $db->ai_chat_history->find(
+    ['user_id' => $userId],
+    ['sort' => ['messages.timestamp' => -1]]
+);
+$seenLessons = [];
+foreach ($chatLessons as $chat) {
+    $lid = (string)($chat['lesson_id'] ?? '');
+    if (!$lid || isset($seenLessons[$lid])) continue;
+    $seenLessons[$lid] = true;
+
+    $lesson = $db->ai_lessons->findOne(['_id' => new MongoDB\BSON\ObjectId($lid)]);
+    if (!$lesson) continue;
+
+    $totalChapters = (int)($lesson['chapters_count'] ?? 0);
+    $completedChapters = $db->ai_chapters->countDocuments([
+        'lesson_id' => new MongoDB\BSON\ObjectId($lid),
+        'status' => 'completed'
+    ]);
+    $inProgressChapters = $db->ai_chapters->countDocuments([
+        'lesson_id' => new MongoDB\BSON\ObjectId($lid),
+        'status' => 'in_progress'
+    ]);
+    $progress = $totalChapters > 0 ? round(($completedChapters / $totalChapters) * 100) : 0;
+
+    $level = $lesson['level'] ?? 'Beginner';
+    $levelColor = 'success';
+    if ($level === 'Intermediate') $levelColor = 'warning';
+    if ($level === 'Advanced') $levelColor = 'danger';
+
+    $tags = $lesson['tags'] ?? [];
+    $tagColors = ['n8n' => 'info', 'ai-assistant' => 'warning', 'database-design' => 'primary', 'automation' => 'success', 'workflow' => 'info'];
+
+    $myLessons[] = [
+        'id' => $lid,
+        'title' => $lesson['title'] ?? 'Untitled',
+        'level' => $level,
+        'levelColor' => $levelColor,
+        'tags' => array_slice((array)$tags, 0, 2),
+        'tagColors' => $tagColors,
+        'progress' => $progress,
+        'completedChapters' => $completedChapters,
+        'totalChapters' => $totalChapters,
+        'inProgress' => $inProgressChapters > 0,
+        'thumbnail' => $lesson['thumbnail'] ?? '/assets/images/learn/ai-assistant.png',
+    ];
+}
+
+// 6. Recommended Lessons (lessons user hasn't interacted with)
+$recommendedLessons = [];
+$allLessons = $db->ai_lessons->find(['visibility' => 'Public'], ['sort' => ['created_at' => -1], 'limit' => 10]);
+foreach ($allLessons as $rl) {
+    $rlid = (string)$rl['_id'];
+    if (isset($seenLessons[$rlid])) continue;
+    $level = $rl['level'] ?? 'Beginner';
+    $levelColor = 'success';
+    if ($level === 'Intermediate') $levelColor = 'warning';
+    if ($level === 'Advanced') $levelColor = 'danger';
+    $recommendedLessons[] = [
+        'id' => $rlid,
+        'title' => $rl['title'] ?? 'Untitled',
+        'level' => $level,
+        'levelColor' => $levelColor,
+        'description' => mb_substr($rl['description'] ?? '', 0, 80) . '...',
+        'tags' => array_slice((array)($rl['tags'] ?? []), 0, 2),
+        'chapters' => $rl['chapters_count'] ?? 0,
+        'thumbnail' => $rl['thumbnail'] ?? '/assets/images/learn/ai-assistant.png',
     ];
 }
 
@@ -490,153 +559,56 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                         
                         <!-- Pane 1: Your Activity -->
                         <div class="continue-tab-pane <?= $activeContinueTab === 'activity' ? '' : 'd-none' ?>" id="continue-pane-activity">
+                            <?php if (!empty($myLessons)): ?>
                             <div class="row g-3">
+                                <?php foreach ($myLessons as $ml): ?>
                                 <div class="col-md-6 col-lg-4">
-                                    <a href="#" class="text-decoration-none d-block h-100">
+                                    <a href="/learn/lesson/<?= $ml['id'] ?>" class="text-decoration-none d-block h-100">
                                         <div class="liquid-rim simple-whitebg p-3 h-100 d-flex flex-column">
                                             <div class="d-flex align-items-start gap-2 mb-2">
-                                                <div class="rounded p-2 flex-shrink-0" style="background: rgba(var(--cui-success-rgb), 0.1);">
-                                                    <i class="bx bx-book" style="color: rgb(var(--cui-success-rgb));"></i>
+                                                <div class="rounded p-2 flex-shrink-0" style="background: rgba(var(--cui-<?= $ml['levelColor'] ?>-rgb), 0.1);">
+                                                    <i class="bx bx-book" style="color: rgb(var(--cui-<?= $ml['levelColor'] ?>-rgb));"></i>
                                                 </div>
                                                 <div class="flex-grow-1 overflow-hidden">
-                                                    <p class="fw-bold mb-0 small text-truncate" title="Secure Ports and Port Security">Secure Ports and Port Security...</p>
-                                                    <small class="text-body-secondary" style="font-size:0.7rem;">Beginner · 2/2 chapters</small>
+                                                    <p class="fw-bold mb-0 small text-truncate" title="<?= htmlspecialchars($ml['title']) ?>"><?= htmlspecialchars($ml['title']) ?></p>
+                                                    <small class="text-body-secondary" style="font-size:0.7rem;"><?= $ml['level'] ?> · <?= $ml['completedChapters'] ?>/<?= $ml['totalChapters'] ?> chapters<?= $ml['inProgress'] ? ' · in progress' : '' ?></small>
                                                 </div>
                                             </div>
+                                            <?php if (!empty($ml['tags'])): ?>
                                             <div class="d-flex gap-1 flex-wrap mb-2">
-                                                <span class="badge bg-success rounded-pill">ports</span>
-                                                <span class="badge bg-success rounded-pill">port security</span>
+                                                <?php foreach ($ml['tags'] as $tag): ?>
+                                                    <?php $tc = $ml['tagColors'][$tag] ?? 'secondary'; ?>
+                                                    <span class="badge bg-<?= $tc ?> rounded-pill"><?= htmlspecialchars($tag) ?></span>
+                                                <?php endforeach; ?>
                                             </div>
+                                            <?php endif; ?>
                                             <div class="mt-auto">
                                                 <div class="d-flex justify-content-between align-items-center mb-1">
-                                                    <small class="fw-bold" style="font-size:0.75rem; color: rgb(var(--cui-success-rgb));">20%</small>
-                                                    <small class="text-body-secondary" style="font-size:0.65rem;">May 5</small>
+                                                    <small class="fw-bold" style="font-size:0.75rem; color: rgb(var(--cui-<?= $ml['levelColor'] ?>-rgb));"><?= $ml['progress'] ?>%</small>
                                                 </div>
                                                 <div class="progress" style="height: 4px;">
-                                                    <div class="progress-bar" style="width: 20%; background: rgb(var(--cui-success-rgb));"></div>
+                                                    <div class="progress-bar" style="width: <?= $ml['progress'] ?>%; background: rgb(var(--cui-<?= $ml['levelColor'] ?>-rgb));"></div>
                                                 </div>
                                             </div>
                                         </div>
                                     </a>
                                 </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <a href="#" class="text-decoration-none d-block h-100">
-                                        <div class="liquid-rim simple-whitebg p-3 h-100 d-flex flex-column">
-                                            <div class="d-flex align-items-start gap-2 mb-2">
-                                                <div class="rounded p-2 flex-shrink-0" style="background: rgba(var(--cui-warning-rgb), 0.1);">
-                                                    <i class="bx bx-code-alt" style="color: rgb(var(--cui-warning-rgb));"></i>
-                                                </div>
-                                                <div class="flex-grow-1 overflow-hidden">
-                                                    <p class="fw-bold mb-0 small text-truncate" title="Designing and Managing AI Learning">Designing and Managing AI Le...</p>
-                                                    <small class="text-body-secondary" style="font-size:0.7rem;">Intermediate · 7/4 chapters</small>
-                                                </div>
-                                            </div>
-                                            <div class="d-flex gap-1 flex-wrap mb-2">
-                                                <span class="badge bg-warning rounded-pill">ai-assistant</span>
-                                                <span class="badge bg-warning rounded-pill">database-design</span>
-                                            </div>
-                                            <div class="mt-auto">
-                                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                                    <small class="fw-bold" style="font-size:0.75rem; color: rgb(var(--cui-warning-rgb));">35%</small>
-                                                    <small class="text-body-secondary" style="font-size:0.65rem;">Apr 25</small>
-                                                </div>
-                                                <div class="progress" style="height: 4px;">
-                                                    <div class="progress-bar" style="width: 35%; background: rgb(var(--cui-warning-rgb));"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <a href="#" class="text-decoration-none d-block h-100">
-                                        <div class="liquid-rim simple-whitebg p-3 h-100 d-flex flex-column">
-                                            <div class="d-flex align-items-start gap-2 mb-2">
-                                                <div class="rounded p-2 flex-shrink-0" style="background: rgba(var(--cui-success-rgb), 0.1);">
-                                                    <i class="bx bx-book" style="color: rgb(var(--cui-success-rgb));"></i>
-                                                </div>
-                                                <div class="flex-grow-1 overflow-hidden">
-                                                    <p class="fw-bold mb-0 small text-truncate" title="Secure Headers: A Beginner's Guide">Secure Headers: A Beginner's...</p>
-                                                    <small class="text-body-secondary" style="font-size:0.7rem;">Beginner · 5/3 chapters</small>
-                                                </div>
-                                            </div>
-                                            <div class="d-flex gap-1 flex-wrap mb-2">
-                                                <span class="badge bg-success rounded-pill">HTTP</span>
-                                                <span class="badge bg-success rounded-pill">security headers</span>
-                                            </div>
-                                            <div class="mt-auto">
-                                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                                    <small class="fw-bold" style="font-size:0.75rem; color: rgb(var(--cui-success-rgb));">63%</small>
-                                                    <small class="text-body-secondary" style="font-size:0.65rem;">Apr 21</small>
-                                                </div>
-                                                <div class="progress" style="height: 4px;">
-                                                    <div class="progress-bar" style="width: 63%; background: rgb(var(--cui-success-rgb));"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <a href="#" class="text-decoration-none d-block h-100">
-                                        <div class="liquid-rim simple-whitebg p-3 h-100 d-flex flex-column">
-                                            <div class="d-flex align-items-start gap-2 mb-2">
-                                                <div class="rounded p-2 flex-shrink-0" style="background: rgba(var(--cui-success-rgb), 0.1);">
-                                                    <i class="bx bx-book" style="color: rgb(var(--cui-success-rgb));"></i>
-                                                </div>
-                                                <div class="flex-grow-1 overflow-hidden">
-                                                    <p class="fw-bold mb-0 small text-truncate" title="Application Security Development">Application Security Develop...</p>
-                                                    <small class="text-body-secondary" style="font-size:0.7rem;">Beginner · 9/9 chapters</small>
-                                                </div>
-                                            </div>
-                                            <div class="d-flex gap-1 flex-wrap mb-2">
-                                                <span class="badge bg-success rounded-pill">appsec</span>
-                                                <span class="badge bg-success rounded-pill">secure coding</span>
-                                            </div>
-                                            <div class="mt-auto">
-                                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                                    <small class="fw-bold" style="font-size:0.75rem; color: rgb(var(--cui-success-rgb));">20%</small>
-                                                    <small class="text-body-secondary" style="font-size:0.65rem;">Apr 20</small>
-                                                </div>
-                                                <div class="progress" style="height: 4px;">
-                                                    <div class="progress-bar" style="width: 20%; background: rgb(var(--cui-success-rgb));"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <a href="#" class="text-decoration-none d-block h-100">
-                                        <div class="liquid-rim simple-whitebg p-3 h-100 d-flex flex-column">
-                                            <div class="d-flex align-items-start gap-2 mb-2">
-                                                <div class="rounded p-2 flex-shrink-0" style="background: rgba(var(--cui-warning-rgb), 0.1);">
-                                                    <i class="bx bx-code-alt" style="color: rgb(var(--cui-warning-rgb));"></i>
-                                                </div>
-                                                <div class="flex-grow-1 overflow-hidden">
-                                                    <p class="fw-bold mb-0 small text-truncate" title="WebSockets, STOMP, Message Queues">WebSockets, STOMP, Message...</p>
-                                                    <small class="text-body-secondary" style="font-size:0.7rem;">Intermediate · 3/3 chapters</small>
-                                                </div>
-                                            </div>
-                                            <div class="d-flex gap-1 flex-wrap mb-2">
-                                                <span class="badge bg-warning rounded-pill">WebSocket</span>
-                                                <span class="badge bg-warning rounded-pill">STOMP</span>
-                                            </div>
-                                            <div class="mt-auto">
-                                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                                    <small class="fw-bold" style="font-size:0.75rem; color: rgb(var(--cui-warning-rgb));">20%</small>
-                                                    <small class="text-body-secondary" style="font-size:0.65rem;">Apr 20</small>
-                                                </div>
-                                                <div class="progress" style="height: 4px;">
-                                                    <div class="progress-bar" style="width: 20%; background: rgb(var(--cui-warning-rgb));"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </a>
-                                </div>
+                                <?php endforeach; ?>
                             </div>
+                            <?php else: ?>
+                            <div class="text-center py-5 text-body-secondary">
+                                <i class="bx bx-book-open d-block fs-1 mb-2 opacity-20"></i>
+                                <p class="small mb-2">No lessons in progress yet.</p>
+                                <a href="/learn" class="btn btn-sm btn-primary rounded-pill">Start Learning</a>
+                            </div>
+                            <?php endif; ?>
+                            <?php if (count($myLessons) > 0): ?>
                             <div class="d-flex justify-content-end mt-2">
                                 <a class="text-decoration-none small" href="/learn?tab=continue">
                                     View all <i class='bx bx-chevron-right align-middle'></i>
                                 </a>
                             </div>
+                            <?php endif; ?>
                         </div>
 
                         <!-- Pane 2: Your Setup (DYNAMIC!) -->
@@ -673,7 +645,7 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                         </div>
                                                         <div class="min-w-0">
                                                             <p class="fw-bold mb-0 small text-truncate"><?= htmlspecialchars($lab['name']) ?></p>
-                                                            <small class="text-body-secondary" style="font-size:0.7rem;">ONLINE</small>
+                                                            <small class="text-body-secondary" style="font-size:0.7rem;"><?= $lab['status'] === 'running' ? 'ONLINE' : 'OFFLINE' ?></small>
                                                         </div>
                                                     </div>
                                                     <div class="text-end d-flex align-items-center gap-2 flex-shrink-0">
@@ -688,24 +660,13 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                 </div>
                                                 <?php endforeach; ?>
                                             <?php else: ?>
-                                                <div class="d-flex align-items-center justify-content-between py-2">
-                                                    <div class="d-flex align-items-center gap-3 min-w-0">
-                                                        <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 36px; height: 36px; background: rgba(233, 84, 32, 0.15); border: 1px solid rgba(233, 84, 32, 0.30);">
-                                                            <i class='bx bxl-tux' style="color: #e95420;"></i>
+                                                <div class="d-flex align-items-center justify-content-center py-3">
+                                                    <div class="text-center text-body-secondary">
+                                                        <i class='bx bx-desktop d-block fs-2 mb-1 opacity-20'></i>
+                                                        <small>No devices online</small>
+                                                        <div class="mt-2">
+                                                            <a href="/labs" class="btn btn-sm btn-primary rounded-pill">Deploy a Lab</a>
                                                         </div>
-                                                        <div class="min-w-0">
-                                                            <p class="fw-bold mb-0 small">Essentials Lab</p>
-                                                            <small class="text-body-secondary" style="font-size:0.7rem;">ONLINE</small>
-                                                        </div>
-                                                    </div>
-                                                    <div class="text-end d-flex align-items-center gap-2 flex-shrink-0">
-                                                        <div>
-                                                            <div class="fw-bold font-monospace" style="font-size:0.8rem;">172.30.0.28</div>
-                                                            <small class="text-body-secondary" style="font-size:0.6rem;">INTERNAL IP</small>
-                                                        </div>
-                                                        <button class="btn btn-sm btn-link p-0 text-body-secondary hover-text-primary transition-all btn-copy" data-copy="172.30.0.28">
-                                                            <i class="bx bx-copy"></i>
-                                                        </button>
                                                     </div>
                                                 </div>
                                             <?php endif; ?>
@@ -845,53 +806,17 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                          <button onclick="openCodeModal('<?= $lab['hash'] ?>', '<?= $lab['name'] ?> Lab', '<?= strtolower($lab['status']) ?>')" class="btn btn-sm btn-success rounded-pill d-flex align-items-center gap-1">
                                                              <i class='bx bx-code-alt'></i> Code
                                                          </button>
-                                                         <button onclick="openConnectionModal('<?= $lab['hash'] ?>', '<?= $lab['name'] ?> Lab', '<?= strtolower($lab['status']) ?>')" class="btn btn-sm btn-secondary rounded-circle d-flex align-items-center justify-content-center" title="Connection Info">
+                                                         <button onclick="openConnectionModal('<?= $lab['hash'] ?>', '<?= $lab['name'] ?>', '<?= strtolower($lab['status']) ?>')" class="btn btn-sm btn-secondary rounded-circle d-flex align-items-center justify-content-center" title="Connection Info">
                                                              <i class='bx bx-info-circle'></i>
                                                          </button>
                                                      </div>
                                                  </div>
                                                  <?php endforeach; ?>
                                                                  <?php else: ?>
-                                                 <div class="liquid-rim simple-whitebg p-3">
-                                                     <div class="d-flex align-items-center justify-content-between w-100">
-                                                         <div class="d-flex align-items-center gap-2">
-                                                             <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0" style="width: 32px; height: 32px; background: rgba(233, 84, 32, 0.15); border: 1px solid rgba(233, 84, 32, 0.30);">
-                                                                 <i class="bx bxl-tux" style="color: #e95420;"></i>
-                                                             </div>
-                                                             <div class="d-flex flex-column gap-0.5">
-                                                                 <span class="fw-bold small">Essentials Lab</span>
-                                                                 <div class="d-flex gap-1 align-items-center">
-                                                                     <span class="badge bg-primary rounded-pill">beta</span>
-                                                                     <span class="badge bg-success rounded-pill">running</span>
-                                                                 </div>
-                                                             </div>
-                                                         </div>
-                                                         <div class="d-flex align-items-center gap-3 text-center">
-                                                             <div class="d-flex flex-column align-items-center">
-                                                                 <div class="fw-bold small">0.02%</div>
-                                                                 <small class="text-body-secondary" style="font-size:0.6rem;">CPU</small>
-                                                             </div>
-                                                             <div class="d-flex flex-column align-items-center">
-                                                                 <div class="fw-bold small">3.76%</div>
-                                                                 <small class="text-body-secondary" style="font-size:0.6rem;">Mem</small>
-                                                             </div>
-                                                             <div class="d-flex flex-column align-items-center">
-                                                                 <div class="fw-bold small" style="font-size:0.7rem;">0.00, 0.00, 0.00</div>
-                                                                 <small class="text-body-secondary" style="font-size:0.6rem;">Load</small>
-                                                             </div>
-                                                         </div>
-                                                     </div>
-                                                     <div class="d-flex justify-content-end w-100 mt-2 gap-2">
-                                                         <a href="/labs/dashboard/<?= $user->getLabHash('essentials') ?>" class="btn btn-sm btn-primary rounded-pill d-flex align-items-center gap-1">
-                                                             <i class='bx bx-grid-alt'></i> Dashboard
-                                                         </a>
-                                                         <button onclick="openCodeModal('<?= $user->getLabHash('essentials') ?>', 'Essentials Lab', 'running')" class="btn btn-sm btn-success rounded-pill d-flex align-items-center gap-1">
-                                                             <i class='bx bx-code-alt'></i> Code
-                                                         </button>
-                                                         <button onclick="openConnectionModal('<?= $user->getLabHash('essentials') ?>', 'Essentials Lab', 'running')" class="btn btn-sm btn-secondary rounded-circle d-flex align-items-center justify-content-center" title="Connection Info">
-                                                             <i class='bx bx-info-circle'></i>
-                                                         </button>
-                                                     </div>
+                                                 <div class="liquid-rim simple-whitebg p-3 text-center py-4">
+                                                     <i class='bx bx-desktop d-block fs-2 mb-2 opacity-20'></i>
+                                                     <p class="text-body-secondary small mb-2">No labs running</p>
+                                                     <a href="/labs" class="btn btn-sm btn-primary rounded-pill">Deploy a Lab</a>
                                                  </div>
                                                  <?php endif; ?>
                                         </div>
@@ -916,72 +841,11 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                                                             <span class="fw-bold small text-truncate" title="<?= htmlspecialchars($clab['name']) ?>"><?= htmlspecialchars($clab['name']) ?></span>
                                                             <div class="d-flex gap-1 align-items-center mt-1">
                                                                 <span class="badge rounded-pill fw-bold" style="font-size:0.55rem; background: <?= $clab['diffColor'] ?>22; border: 1px solid <?= $clab['diffColor'] ?>45; color: <?= $clab['diffColor'] ?>;"><?= htmlspecialchars(strtolower($clab['difficulty'])) ?></span>
-                                                                <span class="badge bg-success rounded-pill fw-bold"><?= htmlspecialchars(strtolower($clab['status'])) ?></span>
-        </div>
-
-        <!-- Clan Card -->
-        <div class="col-lg-4">
-            <div class="card blur p-0 h-100 position-relative overflow-hidden clan-card">
-                <div class="position-relative p-3 h-100 d-flex flex-column" style="z-index: 1;">
-                    <div class="d-flex align-items-center gap-3 mb-2">
-                        <div class="rounded-circle overflow-hidden flex-shrink-0" style="width: 44px; height: 44px; border: 2px solid rgba(255,255,255,0.3);">
-                            <span class="fw-bold text-white d-flex align-items-center justify-content-center w-100 h-100" style="background: rgba(0,0,0,0.45);">ZB</span>
-                        </div>
-                        <div class="rounded px-2 py-1" style="background: rgba(0,0,0,0.45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);">
-                            <h6 class="fw-bold mb-0" style="color: #fff;">Zero Byte</h6>
-                            <small style="color: rgba(255,255,255,0.7);">@<?= $username ?></small>
-                        </div>
-                    </div>
-                    <div class="rounded p-2 mb-2 flex-grow-1" style="background: rgba(0,0,0,0.35); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);">
-                        <div class="row g-2 text-center">
-                            <div class="col-4">
-                                <div class="d-flex align-items-center justify-content-center gap-1">
-                                    <i class="bx bxs-hot" style="font-size: 13px; color:#f9a825;"></i>
-                                    <small class="fw-bold" style="color:#fff;">15,941</small>
-                                </div>
-                                <small style="font-size:0.6rem;color:rgba(255,255,255,0.6);">Zeal</small>
-                            </div>
-                            <div class="col-4">
-                                <div class="d-flex align-items-center justify-content-center gap-1">
-                                    <i class="bx bxs-user-detail" style="font-size: 13px; color:rgba(255,255,255,0.8);"></i>
-                                    <small class="fw-bold" style="color:#fff;">2</small>
-                                </div>
-                                <small style="font-size:0.6rem;color:rgba(255,255,255,0.6);">Members</small>
-                            </div>
-                            <div class="col-4">
-                                <div class="d-flex align-items-center justify-content-center gap-1">
-                                    <i class="bx bxs-award" style="font-size: 13px; color:rgba(255,255,255,0.8);"></i>
-                                    <small class="fw-bold" style="color:#fff;">98</small>
-                                </div>
-                                <small style="font-size:0.6rem;color:rgba(255,255,255,0.6);">Badges</small>
-                            </div>
-                        </div>
-                        <div class="row g-2 text-center mt-1">
-                            <div class="col-6">
-                                <div class="d-flex align-items-center justify-content-center gap-1">
-                                    <i class="bx bx-check-square" style="font-size: 13px; color:rgba(255,255,255,0.8);"></i>
-                                    <small class="fw-bold" style="color:#fff;">35</small>
-                                </div>
-                                <small style="font-size:0.6rem;color:rgba(255,255,255,0.6);">Missions</small>
-                            </div>
-                            <div class="col-6">
-                                <div class="d-flex align-items-center justify-content-center gap-1">
-                                    <i class="bx bx-desktop" style="font-size: 13px; color:rgba(255,255,255,0.8);"></i>
-                                    <small class="fw-bold" style="color:#fff;">17/56</small>
-                                </div>
-                                <small style="font-size:0.6rem;color:rgba(255,255,255,0.6);">Labs Done</small>
-                            </div>
-                        </div>
-                    </div>
-                    <a href="#" class="btn btn-primary btn-sm w-100 d-flex align-items-center justify-content-center gap-2">
-                        <i class="bx bx-group"></i> View Clan
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
-                                                    </div>
-                                                    <div class="d-flex gap-1 align-items-center flex-shrink-0 ms-1">
+                                                                 <span class="badge bg-success rounded-pill fw-bold"><?= htmlspecialchars(strtolower($clab['status'])) ?></span>
+                                                             </div>
+                                                         </div>
+                                                     </div>
+                                                     <div class="d-flex gap-1 align-items-center flex-shrink-0 ms-1">
                                                         <a href="/challenges/dashboard/<?= $clab['hash'] ?>" class="btn btn-sm btn-success rounded-circle d-flex align-items-center justify-content-center" title="Dashboard">
                                                             <i class='bx bxs-grid-alt'></i>
                                                         </a>
@@ -1011,78 +875,31 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
                         <!-- Pane 3: Recommended -->
                         <div class="continue-tab-pane <?= $activeContinueTab === 'recommended' ? '' : 'd-none' ?>" id="continue-pane-recommended">
                             <h6 class="fw-bold mb-3">Recommended For You</h6>
+                            <?php if (!empty($recommendedLessons)): ?>
                             <div class="row g-3">
+                                <?php foreach ($recommendedLessons as $rec): ?>
                                 <div class="col-md-6 col-lg-4">
-                                    <a href="#" class="text-decoration-none d-block h-100">
+                                    <a href="/learn/lesson/<?= $rec['id'] ?>" class="text-decoration-none d-block h-100">
                                         <div class="liquid-rim simple-whitebg p-3 h-100 d-flex flex-column">
                                             <div class="d-flex justify-content-between align-items-start mb-2">
                                                 <div class="rounded p-2" style="background: rgba(var(--cui-primary-rgb), 0.1);">
                                                     <i class='bx bx-code-alt' style="color: rgb(var(--cui-primary-rgb));"></i>
                                                 </div>
-                                                <span class="badge bg-primary rounded-pill">Next Lesson</span>
+                                                <span class="badge bg-primary rounded-pill">Start</span>
                                             </div>
-                                            <h6 class="fw-bold mb-1" style="font-size:0.85rem;">Introduction to Cybersecurity for Beginners</h6>
-                                            <small class="text-body-secondary">Beginner</small>
+                                            <h6 class="fw-bold mb-1" style="font-size:0.85rem;"><?= htmlspecialchars(mb_substr($rec['title'], 0, 50)) ?><?= mb_strlen($rec['title']) > 50 ? '...' : '' ?></h6>
+                                            <small class="text-body-secondary"><?= $rec['level'] ?> · <?= $rec['chapters'] ?> chapters</small>
                                         </div>
                                     </a>
                                 </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <a href="#" class="text-decoration-none d-block h-100">
-                                        <div class="liquid-rim simple-whitebg p-3 h-100 d-flex flex-column">
-                                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                                <div class="rounded p-2" style="background: rgba(var(--cui-primary-rgb), 0.1);">
-                                                    <i class='bx bx-code-alt' style="color: rgb(var(--cui-primary-rgb));"></i>
-                                                </div>
-                                                <span class="badge bg-primary rounded-pill">Next Lesson</span>
-                                            </div>
-                                            <h6 class="fw-bold mb-1" style="font-size:0.85rem;">Elite Ethical Hacking Roadmap: Beginner to...</h6>
-                                            <small class="text-body-secondary">Beginner</small>
-                                        </div>
-                                    </a>
-                                </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <a href="#" class="text-decoration-none d-block h-100">
-                                        <div class="liquid-rim simple-whitebg p-3 h-100 d-flex flex-column">
-                                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                                <div class="rounded p-2" style="background: rgba(var(--cui-success-rgb), 0.1);">
-                                                    <i class='bx bx-terminal' style="color: rgb(var(--cui-success-rgb));"></i>
-                                                </div>
-                                                <span class="badge bg-success rounded-pill">Practice</span>
-                                            </div>
-                                            <h6 class="fw-bold mb-1" style="font-size:0.85rem;">Calculate the sum of squares by caching co...</h6>
-                                            <small class="text-body-secondary">Easy</small>
-                                        </div>
-                                    </a>
-                                </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <a href="#" class="text-decoration-none d-block h-100">
-                                        <div class="liquid-rim simple-whitebg p-3 h-100 d-flex flex-column">
-                                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                                <div class="rounded p-2" style="background: rgba(var(--cui-success-rgb), 0.1);">
-                                                    <i class='bx bx-terminal' style="color: rgb(var(--cui-success-rgb));"></i>
-                                                </div>
-                                                <span class="badge bg-success rounded-pill">Practice</span>
-                                            </div>
-                                            <h6 class="fw-bold mb-1" style="font-size:0.85rem;">Place stones strategically to cross river ...</h6>
-                                            <small class="text-body-secondary">Easy</small>
-                                        </div>
-                                    </a>
-                                </div>
-                                <div class="col-md-6 col-lg-4">
-                                    <a href="#" class="text-decoration-none d-block h-100">
-                                        <div class="liquid-rim simple-whitebg p-3 h-100 d-flex flex-column">
-                                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                                <div class="rounded p-2" style="background: rgba(var(--cui-info-rgb), 0.1);">
-                                                    <i class='bx bx-chat' style="color: rgb(var(--cui-info-rgb));"></i>
-                                                </div>
-                                                <span class="badge bg-primary rounded-pill">Join Discussion</span>
-                                            </div>
-                                            <h6 class="fw-bold mb-1" style="font-size:0.85rem;">Community Discussions</h6>
-                                            <small class="text-body-secondary">Ask questions, share knowledge</small>
-                                        </div>
-                                    </a>
-                                </div>
+                                <?php endforeach; ?>
                             </div>
+                            <?php else: ?>
+                            <div class="text-center py-4 text-body-secondary">
+                                <i class="bx bx-sparkles d-block fs-2 mb-2 opacity-20"></i>
+                                <p class="small">No new lessons available. Check back later!</p>
+                            </div>
+                            <?php endif; ?>
                         </div>
 
                     </div>
@@ -1161,30 +978,24 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
 
 <!-- Code Info Modal (Simplified IDE Launch) -->
 <div class="modal fade" id="codeInfoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden bg-body-tertiary glass-modal-content">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg blur rounded-4 overflow-hidden modal-code-access">
             <div class="modal-header border-0 p-4 pb-0">
-                <h5 class="modal-title fw-bold text-body mb-0">Code Server Access</h5>
-                <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title fw-bold text-white mb-0" id="codeModalTitle">Launch</h5>
+                <button type="button" class="btn-close btn-close-white" data-coreui-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <div class="mb-3">
-                    <span class="badge rounded-pill bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-2" id="codeModalLabName">Lab Name</span>
-                </div>
                 <div id="codeModalLoading" class="text-center py-5">
                     <div class="spinner-grow text-primary" role="status"></div>
                 </div>
                 <div id="codeModalOffline" class="text-center py-5 d-none">
                     <i class='bx bx-power-off text-danger fs-1 mb-3'></i>
                     <h6 class="text-body fw-bold">Instance is Offline</h6>
+                    <p class="text-body-secondary small">Please deploy the lab first.</p>
                 </div>
                 <div id="codeModalContent" class="d-none">
                     <div id="codeFields"></div>
                 </div>
-            </div>
-            <div class="modal-footer border-0 p-4 pt-0">
-                <button type="button" class="btn btn-secondary bg-opacity-25 border-0 fw-bold px-4 rounded-pill" data-coreui-dismiss="modal">Dismiss</button>
-                <div id="codeModalActionBtn"></div>
             </div>
         </div>
     </div>
@@ -1192,27 +1003,28 @@ $greetingText = str_replace($username, '<span class="text-primary">' . htmlspeci
 
 <!-- Technical Connection Info Modal -->
 <div class="modal fade" id="connectionInfoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden bg-body-tertiary glass-modal-content">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg blur rounded-4 overflow-hidden modal-connection-info">
             <div class="modal-header border-0 p-4 pb-0">
-                <h5 class="modal-title fw-bold text-body mb-0">Technical Connection Info</h5>
-                <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
+                <h5 class="modal-title fw-bold text-white mb-0">Connection Information</h5>
+                <button type="button" class="btn-close btn-close-white" data-coreui-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
                 <div class="mb-3">
                     <span class="badge rounded-pill bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-3 py-2" id="modalLabName">Lab Name</span>
                 </div>
-                <div id="modalLoading" class="text-center py-5"><div class="spinner-border text-info" role="status"></div></div>
+                <div id="modalLoading" class="text-center py-5"><div class="spinner-grow text-info" role="status"></div></div>
                 <div id="modalOffline" class="text-center py-5 d-none">
-                    <i class='bx bx-server text-muted fs-1 mb-3'></i>
-                    <h6 class="text-body fw-bold">Offline</h6>
+                    <i class='bx bx-power-off text-danger fs-1 mb-3'></i>
+                    <h6 class="text-body fw-bold">Instance is Offline</h6>
+                    <p class="text-body-secondary small">Please deploy the lab first.</p>
                 </div>
                 <div id="modalContent" class="d-none">
                     <div id="connectionFields"></div>
                 </div>
             </div>
             <div class="modal-footer border-0 p-4 pt-0">
-                <button type="button" class="btn btn-secondary bg-opacity-25 border-0 fw-bold px-4 rounded-pill w-100" data-coreui-dismiss="modal">Close Details</button>
+                <button type="button" class="btn btn-warning fw-bold px-4 rounded-pill" data-coreui-dismiss="modal">Okay</button>
             </div>
         </div>
     </div>

@@ -442,4 +442,20 @@ window.addEventListener('DOMContentLoaded', function() {
         try { data = JSON.parse(xhr.responseText); } catch(e) {}
         showRateLimitToast(data);
     });
+
+    // 2. Global fetch() 429 interceptor — catches ALL fetch-based API calls
+    var originalFetch = window.fetch;
+    window.fetch = function() {
+        return originalFetch.apply(this, arguments).then(function(response) {
+            if (response.status === 429) {
+                var clone = response.clone();
+                clone.json().then(function(data) {
+                    showRateLimitToast(data);
+                }).catch(function() {
+                    showRateLimitToast({ error: 'Too many requests. Please slow down.', retry_after: 30 });
+                });
+            }
+            return response;
+        });
+    };
 })();

@@ -13,13 +13,17 @@ CODE_PASS=$4
 LAB_PRIV_KEY=$5
 TUNNEL_IP=$6
 SERVER_PUBKEY=$7
+USER_EMAIL=$8
 VPS_DOCKER_IP=${10}
 SU_PASS=${11}
 
+# Compute hash from email (matches Python hashlib.md5)
+USER_HASH=$(echo -n "$USER_EMAIL" | md5sum | cut -d' ' -f1)
 SYSTEM_PASS="${SU_PASS:-${USER_NAME}@098}"
 
 echo "[*] Starting user configuration..."
 echo "[*] Username: $USER_NAME"
+echo "[*] User Hash: $USER_HASH"
 echo "[*] Docker IP: $DOCKER_IP"
 echo "[*] Tunnel IP: $TUNNEL_IP"
 
@@ -42,11 +46,12 @@ mkdir -p "$USER_HOME/.ssh"
 printf "%b" "$PUB_KEYS" > "$USER_HOME/.ssh/authorized_keys"
 chmod 700 "$USER_HOME/.ssh"
 chmod 600 "$USER_HOME/.ssh/authorized_keys"
-chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME"
+chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME" 2>/dev/null || true
 
 sed -i 's/^#\?StrictModes .*/StrictModes no/' /etc/ssh/sshd_config
-service ssh restart || systemctl restart ssh || /etc/init.d/ssh restart || true
-echo "[✓] SSH configured and restarted"
+# Restart SSH without systemd (service works in containers)
+service ssh reload 2>/dev/null || service ssh restart 2>/dev/null || /etc/init.d/ssh reload 2>/dev/null || /etc/init.d/ssh restart 2>/dev/null || true
+echo "[✓] SSH configured and reloaded"
 
 # ── 3. Bash Configuration ─────────────────────────────────────
 cat << 'BASHRC_EOF' > "$USER_HOME/.bashrc"
@@ -72,6 +77,11 @@ if [ -n "$LAB_PRIV_KEY" ] && [ -n "$SERVER_PUBKEY" ]; then
     WG_ENDPOINT="${VPS_DOCKER_IP:-172.31.0.1}"
     TUNNEL_PREFIX=$(echo "$WG_ENDPOINT" | awk -F. '{print $1"."$2"."$3"."}')
 
+    # Clean up existing wg0 interface if present
+    wg-quick down wg0 2>/dev/null || true
+    ip link delete wg0 2>/dev/null || true
+    sleep 1
+
     cat <<EOF > /etc/wireguard/wg0.conf
 [Interface]
 PrivateKey = $LAB_PRIV_KEY
@@ -88,8 +98,6 @@ EOF
 
     chmod 600 /etc/wireguard/wg0.conf
 
-    wg-quick down wg0 2>/dev/null || true
-    sleep 1
     wg-quick up wg0
 
     if wg show wg0 &>/dev/null; then
@@ -185,7 +193,7 @@ if [ -L "/etc/apache2/mods-enabled" ]; then
 fi
 
 # Permissions
-chown -R "$USER_NAME:$USER_NAME" "$HTDOCS" "$HTCONFIG"
+chown -R "$USER_NAME:$USER_NAME" "$HTDOCS" "$HTCONFIG" 2>/dev/null || true
 chmod -R 755 "$HTDOCS"
 chmod -R 755 "$HTCONFIG"
 
@@ -210,7 +218,7 @@ password: $CODE_PASS
 cert: false
 CODE_CONFIG
 
-chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME/.config"
+chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME/.config" 2>/dev/null || true
 chmod 644 "$USER_CONFIG"
 
 # Optimized code-server startup with performance flags
@@ -228,3 +236,15 @@ else
 fi
 
 echo "[✓] User configuration complete"
+
+# ── 7. Firewall: Block access to server infrastructure ──────────
+echo "[*] Applying firewall rules..."
+# Block access to Dev_lab container (172.30.0.2) — prevents access to MongoDB, RabbitMQ, etc.
+iptables -A OUTPUT -d 172.30.0.2 -j DROP 2>/dev/null || true
+# Allow DNS resolution (Docker's internal DNS at 127.0.0.11)
+iptables -A OUTPUT -d 127.0.0.11 -j ACCEPT 2>/dev/null || true
+# Allow WireGuard traffic (UDP 51820)
+iptables -A OUTPUT -p udp --dport 51820 -j ACCEPT 2>/dev/null || true
+# Allow loopback
+iptables -A OUTPUT -d 127.0.0.0/8 -j ACCEPT 2>/dev/null || true
+echo "[✓] Firewall rules applied"

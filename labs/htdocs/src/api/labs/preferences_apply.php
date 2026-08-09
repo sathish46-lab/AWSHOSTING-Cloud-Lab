@@ -35,8 +35,8 @@ try {
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
     $col = $db->machine_labs;
 
-    $inst = $col->findOne(['deploy.instance_hash' => $instanceHash]);
-    $existing = $inst ? ($inst['deploy'] ?? []) : null;
+    $inst = $col->findOne(['instance_hash' => $instanceHash]);
+    $existing = $inst;
     if (!$existing) {
         throw new Exception('Lab not found. Please deploy first.');
     }
@@ -123,19 +123,19 @@ try {
 
     // 1. Save to DB first
     $col->updateOne(
-        ['deploy.instance_hash' => $instanceHash],
+        ['instance_hash' => $instanceHash],
         [
             '$set' => [
-                'deploy.http_proxies' => $httpProxies,
-                'deploy.always_on'    => $alwaysOn,
-                'deploy.init_script'  => $initScript,
-                'deploy.prefs_updated_at' => time(),
-                'deploy.staged_preferences.su_pass' => $updateData['staged_preferences.su_pass'] ?? null,
-                'deploy.staged_preferences.code_server_pass' => $updateData['staged_preferences.code_server_pass'] ?? null,
-                'deploy.staged_preferences.password' => $updateData['staged_preferences.password'] ?? null,
+                'http_proxies' => $httpProxies,
+                'always_on'    => $alwaysOn,
+                'init_script'  => $initScript,
+                'prefs_updated_at' => time(),
+                'staged_preferences.su_pass' => $updateData['staged_preferences.su_pass'] ?? null,
+                'staged_preferences.code_server_pass' => $updateData['staged_preferences.code_server_pass'] ?? null,
+                'staged_preferences.password' => $updateData['staged_preferences.password'] ?? null,
             ],
             '$push' => [
-                'deploy.activity_log' => [
+                'activity_log' => [
                     '$each' => [
                         [
                             'action' => 'Fast Apply',

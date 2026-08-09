@@ -1,8 +1,8 @@
 <?php
     $fullHash = Session::get('full_instance_hash');
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-    $inst = $db->machine_labs->findOne(['deploy.instance_hash' => $fullHash]);
-    $labData = $inst ? ($inst['deploy'] ?? []) : null;
+    $inst = $db->machine_labs->findOne(['instance_hash' => $fullHash]);
+    $labData = $inst;
     
     // CRITICAL FIX: Define missing variables
     $user = Session::getUser();
@@ -30,16 +30,18 @@
     $isRunning = ($status === 'running');
     
     // Determine init script path based on lab type
-    $initScriptPath = "/home/{$currentUsername}/init.sh";
+    $userEmail = $user->getEmail();
+    $userHash = md5($userEmail);
+    $initScriptPath = "/var/labsstorage/home/{$userHash}/init.sh";
     $initScriptName = "init.sh";
     if ($labType === 'minio') {
-        $initScriptPath = "/home/{$currentUsername}/.init/minio.sh";
+        $initScriptPath = "/var/labsstorage/home/{$userHash}/.init/minio.sh";
         $initScriptName = "minio.sh";
     } elseif ($labType === 'docker_lab') {
-        $initScriptPath = "/home/{$currentUsername}/.init/docker.sh";
+        $initScriptPath = "/var/labsstorage/home/{$userHash}/.init/docker.sh";
         $initScriptName = "docker.sh";
     } elseif ($labType === 'n8n') {
-        $initScriptPath = "/home/{$currentUsername}/.init/n8n.sh";
+        $initScriptPath = "/var/labsstorage/home/{$userHash}/.init/n8n.sh";
         $initScriptName = "n8n.sh";
     }
 
@@ -521,6 +523,75 @@
                 </div>
             </div>
         <?php endif; ?>
+
+        <!-- Custom Error Page Section -->
+            <div class="col-12">
+                <div class="card border-0 shadow-sm blur rounded-4">
+                    <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <i class='bx bx-error text-muted'></i>
+                                <span class="fw-bold small">Custom Error Page</span>
+                                <span class="text-muted small fst-italic">shown on your domains when this lab is down or starting (502-504)</span>
+                            </div>
+                        </div>
+                        <span class="text-muted small fst-italic">empty = platform default &middot; max 64 KB</span>
+                    </div>
+                    <div class="card-body p-4 pt-2">
+                        <?php
+                            $customErrorPage = '';
+                            if ($labData && isset($labData['custom_error_page'])) {
+                                $customErrorPage = (string)$labData['custom_error_page'];
+                            }
+                        ?>
+                        <div class="position-relative">
+                            <textarea id="error-page-editor" class="form-control font-monospace bg-dark text-white border-0 rounded-3 p-3 pref-script-editor" rows="10"><?= htmlspecialchars($customErrorPage) ?></textarea>
+
+                            <script>
+                                document.addEventListener("DOMContentLoaded", function() {
+                                    setTimeout(function() {
+                                        var editorArea = document.getElementById("error-page-editor");
+                                        if (editorArea && typeof CodeMirror !== 'undefined') {
+                                            var isLight = document.documentElement.getAttribute('data-coreui-theme') === 'light';
+                                            var activeTheme = isLight ? "default" : "dracula";
+                                            
+                                            window.errorPageEditor = CodeMirror.fromTextArea(editorArea, {
+                                                mode: "htmlmixed",
+                                                theme: activeTheme,
+                                                lineNumbers: true,
+                                                matchBrackets: true,
+                                                viewportMargin: Infinity
+                                            });
+                                            
+                                            var wrapper = window.errorPageEditor.getWrapperElement();
+                                            wrapper.style.borderRadius = "8px";
+                                            wrapper.style.fontSize = "13.5px";
+                                            wrapper.style.padding = "10px 0";
+                                            wrapper.style.fontFamily = "var(--bs-font-monospace)";
+                                            wrapper.style.border = "1px solid var(--cui-border-color, rgba(255,255,255,0.1))";
+                                            
+                                            var themeObserver = new MutationObserver(function(mutations) {
+                                                mutations.forEach(function(mutation) {
+                                                    if (mutation.attributeName === 'data-coreui-theme') {
+                                                        var nowLight = document.documentElement.getAttribute('data-coreui-theme') === 'light';
+                                                        window.errorPageEditor.setOption("theme", nowLight ? "default" : "dracula");
+                                                    }
+                                                });
+                                            });
+                                            themeObserver.observe(document.documentElement, { attributes: true });
+                                        }
+                                    }, 200);
+                                });
+                            </script>
+                        </div>
+                        <div class="d-flex justify-content-end mt-3">
+                            <button type="button" class="btn btn-secondary rounded-pill px-4 py-2 d-inline-flex align-items-center gap-2 fw-bold" onclick="saveErrorPage()">
+                                <i class='bx bx-save'></i> Save Error Page
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
         <!-- Save / Apply Buttons -->
             <div class="col-12">

@@ -181,8 +181,74 @@ function indent($string, $indent = 4) {
     return implode(PHP_EOL, $newline);
 }
 
-// CENTRALIZED LOGOUT HANDLER
-if (isset($_GET['logout']) && $_GET['logout'] == 1) {
+/**
+ * Parse User-Agent string into browser name + OS.
+ */
+function parse_user_agent($ua = null) {
+    $ua = $ua ?? ($_SERVER['HTTP_USER_AGENT'] ?? '');
+    $browser = 'Unknown';
+    $os = 'Unknown';
+
+    // Browser detection
+    if (preg_match('/Edge|Edg\//i', $ua)) {
+        $browser = 'Edge';
+    } elseif (preg_match('/OPR|Opera/i', $ua)) {
+        $browser = 'Opera';
+    } elseif (preg_match('/Chrome/i', $ua) && !preg_match('/Edg|Edge|OPR/i', $ua)) {
+        $browser = 'Chrome';
+    } elseif (preg_match('/Firefox/i', $ua)) {
+        $browser = 'Firefox';
+    } elseif (preg_match('/Safari/i', $ua) && !preg_match('/Chrome|Chromium/i', $ua)) {
+        $browser = 'Safari';
+    } elseif (preg_match('/MSIE|Trident/i', $ua)) {
+        $browser = 'Internet Explorer';
+    }
+
+    // OS detection
+    if (preg_match('/Windows/i', $ua)) {
+        $os = 'Windows';
+    } elseif (preg_match('/Mac OS X/i', $ua)) {
+        $os = 'macOS';
+    } elseif (preg_match('/iPhone|iPad/i', $ua)) {
+        $os = preg_match('/iPad/i', $ua) ? 'iPad' : 'iPhone';
+    } elseif (preg_match('/Android/i', $ua)) {
+        $os = 'Android';
+    } elseif (preg_match('/Linux/i', $ua)) {
+        $os = 'Linux';
+    } elseif (preg_match('/CrOS/i', $ua)) {
+        $os = 'Chrome OS';
+    }
+
+    // Mobile detection
+    $mobile = (bool) preg_match('/Mobile|Android|iPhone|iPad/i', $ua);
+
+    return compact('browser', 'os', 'mobile');
+}
+
+/**
+ * Get real client IP behind proxies.
+ */
+function get_client_ip() {
+    $headers = [
+        'HTTP_CF_CONNECTING_IP',
+        'HTTP_X_REAL_IP',
+        'HTTP_X_FORWARDED_FOR',
+        'REMOTE_ADDR'
+    ];
+    foreach ($headers as $header) {
+        if (!empty($_SERVER[$header])) {
+            $ip = explode(',', $_SERVER[$header])[0];
+            $ip = trim($ip);
+            if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+    }
+    return '0.0.0.0';
+}
+
+// CENTRALIZED LOGOUT HANDLER (POST only — prevents CSRF logout via img tags)
+if (isset($_POST['logout']) && $_POST['logout'] == 1) {
     UserSession::logout(); 
     header("Location: /");
     exit;

@@ -18,10 +18,11 @@ $expires = time() + 60; // strictly 60 seconds
 $context = $_GET['action'] ?? 'enable';
 
 try {
+    $otpHash = password_hash($otp, PASSWORD_DEFAULT);
     $db->users->updateOne(
         ['email' => $email],
         ['$set' => [
-            'two_factor_otp' => $otp,
+            'two_factor_otp' => $otpHash,
             'two_factor_expires' => $expires
         ]]
     );

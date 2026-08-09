@@ -8,6 +8,9 @@ try {
 
 function openConnectionModal(hash, name, status) {
     // 1. Set static info
+    const modalEl = document.getElementById('connectionInfoModal');
+    if (!modalEl) return;
+
     document.getElementById('modalLabName').textContent = name;
 
     // 2. Reset View State
@@ -16,103 +19,66 @@ function openConnectionModal(hash, name, status) {
     const contentEl = document.getElementById('modalContent');
     const fieldsEl = document.getElementById('connectionFields');
 
-    loadingEl.style.display = 'block';
-    offlineEl.style.display = 'none';
-    contentEl.style.display = 'none';
+    loadingEl.classList.remove('d-none');
+    offlineEl.classList.add('d-none');
+    contentEl.classList.add('d-none');
     fieldsEl.innerHTML = '';
 
     // 3. Show Modal
-    const modal = new coreui.Modal(document.getElementById('connectionInfoModal'));
+    const modal = new coreui.Modal(modalEl, { backdrop: true, keyboard: true });
     modal.show();
 
     // 4. Check Status
     if (status !== 'running') {
-        loadingEl.style.display = 'none';
-        offlineEl.style.display = 'block';
+        loadingEl.classList.add('d-none');
+        offlineEl.classList.remove('d-none');
         return;
     }
 
-    // 5. Fetch Technical Connection Info
+    // 5. Fetch Technical Connection Info (returns HTML)
     fetch(`/api/labs/connection_info?hash=${hash}`)
-        .then(response => response.json())
-        .then(data => {
-            loadingEl.style.display = 'none';
+        .then(response => {
+            if (!response.ok) throw new Error('Network response was not ok');
+            return response.text();
+        })
+        .then(html => {
+            loadingEl.classList.add('d-none');
 
-            if (data.status === 'success') {
-                contentEl.style.display = 'block';
-
-                // Set Title
-                if (data.data.title) {
-                    document.querySelector('#connectionInfoModal .modal-title').textContent = data.data.title;
-                }
-
-                // Render Technical Fields
-                renderConnectionFields(data.data.fields, fieldsEl);
-
-            } else {
-                alert('Failed to load connection details: ' + (data.error || 'Unknown error'));
-                modal.hide();
+            if (!html || html.trim() === '' || html.trim().startsWith('<div class="text-center text-danger')) {
+                fieldsEl.innerHTML = '<div class="text-center text-danger py-3"><i class="bx bx-error-circle fs-4 mb-2 d-block"></i>Failed to load connection details.</div>';
+                contentEl.classList.remove('d-none');
+                return;
             }
+
+            contentEl.classList.remove('d-none');
+            fieldsEl.innerHTML = html;
+
+            // Copy button functionality
+            fieldsEl.querySelectorAll('[data-copy]').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const text = this.getAttribute('data-copy');
+                    navigator.clipboard.writeText(text).then(() => {
+                        const icon = this.querySelector('i');
+                        if (icon) {
+                            icon.className = 'bx bx-check';
+                            setTimeout(() => { icon.className = 'bx bx-copy'; }, 1500);
+                        }
+                    });
+                });
+            });
         })
         .catch(err => {
-            console.error(err);
-            loadingEl.style.display = 'none';
-            alert('Network error occurred.');
-            modal.hide();
+            console.error('Connection info error:', err);
+            loadingEl.classList.add('d-none');
+            fieldsEl.innerHTML = '<div class="text-center text-danger py-3"><i class="bx bx-error-circle fs-4 mb-2 d-block"></i>Network error. Please try again.</div>';
+            contentEl.classList.remove('d-none');
         });
-}
-
-function renderConnectionFields(fields, container) {
-    let html = '<div class="d-flex flex-column gap-3">';
-    fields.forEach(field => {
-        const isLink = (field.type === 'link');
-        const inputType = (field.type === 'password') ? 'password' : 'text';
-        const isMono = field.mono ? 'font-monospace' : '';
-
-        let valueHtml = '';
-
-        if (isLink) {
-            valueHtml = `
-                <a href="${field.value}" target="_blank" class="text-decoration-none small fw-bold">
-                    ${field.value} <i class='bx bx-link-external ms-1'></i>
-                </a>`;
-        } else {
-            const escapedValue = field.value.replace(/'/g, "\\'");
-            const copyBtn = field.copy ? `
-                <button class="btn btn-outline-secondary ms-2 rounded-pill px-3" 
-                        data-copy="${escapedValue}">
-                    <i class='bx bx-copy'></i>
-                </button>` : '';
-
-            valueHtml = `
-                <div class="input-group input-group-sm">
-                    <input type="${inputType}" 
-                        class="form-control rounded-pill border-secondary bg-body-tertiary text-body px-3 ${isMono}" 
-                        value="${field.value}" 
-                        readonly style="opacity: 0.85; background: rgba(255,255,255,0.05) !important; color: white !important;">
-                    ${copyBtn}
-                </div>`;
-        }
-
-        html += `
-            <div class="row align-items-center">
-                <div class="col-4 text-white-50 small fw-bold">
-                    ${field.label}
-                </div>
-                <div class="col-8">
-                    ${valueHtml}
-                </div>
-            </div>`;
-    });
-    html += '</div>';
-    container.innerHTML = html;
 }
 
     
 
     // --- Explicit Window Exports for Inline HTML ---
     window.openConnectionModal = openConnectionModal;
-    window.renderConnectionFields = renderConnectionFields;
 
   })();
 } catch (e) {

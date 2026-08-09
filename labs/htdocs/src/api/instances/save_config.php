@@ -55,7 +55,7 @@ $newConfig = [
     ],
     'storage' => [
         'home_mount_enabled' => $config['home_mount_enabled'] ?? $existingConfig['storage']['home_mount_enabled'] ?? !empty($instance['home_mount_enabled']),
-        'home_mount_path'    => $config['home_mount_path']    ?? $existingConfig['storage']['home_mount_path']    ?? $instance['home_mount_path'] ?? '/var/labsstorage',
+        'home_mount_path'    => $config['home_mount_path']    ?? $existingConfig['storage']['home_mount_path']    ?? $instance['home_mount_path'] ?? '/home',
         'bind_mounts'        => $config['bind_mounts']        ?? $existingConfig['storage']['bind_mounts']        ?? ($instance['bind_mounts'] ?? []),
     ],
 ];

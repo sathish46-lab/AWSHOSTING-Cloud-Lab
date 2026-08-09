@@ -11,7 +11,11 @@ CODE_PASS=$4
 LAB_PRIV_KEY=$5
 TUNNEL_IP=$6
 SERVER_PUBKEY=$7
+USER_EMAIL=$8
 VPS_DOCKER_IP=${10}
+
+# Compute hash from email (matches Python hashlib.md5)
+USER_HASH=$(echo -n "$USER_EMAIL" | md5sum | cut -d' ' -f1)
 
 # THE SHARED PATH: physically at /home/sathish46/.labs/miniostorage
 S3_DATA_DIR="/home/$USER_NAME/.labs/miniostorage"
@@ -40,7 +44,7 @@ if [ -n "$PUB_KEYS" ]; then
     # Critical Permissions for SSH Daemon
     chmod 700 "$USER_SSH_DIR"
     chmod 600 "$USER_SSH_DIR/authorized_keys"
-    chown -R "$USER_NAME":"$USER_NAME" "$USER_SSH_DIR"
+    chown -R "$USER_NAME":"$USER_NAME" "$USER_SSH_DIR" 2>&1 || true
     
     # Disable StrictModes for shared volume mounts and restart SSH
     sed -i 's/^#\?StrictModes .*/StrictModes no/' /etc/ssh/sshd_config
@@ -54,7 +58,7 @@ fi
 # 2. Storage Setup
 mkdir -p "$S3_DATA_DIR"
 # Ensure the user owns their entire home directory and S3 storage
-chown -R "$USER_NAME":"$USER_NAME" "/home/$USER_NAME"
+chown -R "$USER_NAME":"$USER_NAME" "/home/$USER_NAME" 2>&1 || true
 chmod -R 755 "$S3_DATA_DIR"
 
 # 3. WireGuard Mesh Networking

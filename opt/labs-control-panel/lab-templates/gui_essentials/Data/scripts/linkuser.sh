@@ -17,10 +17,13 @@ CODE_PASS=$4
 LAB_PRIV_KEY=$5
 TUNNEL_IP=$6
 SERVER_PUBKEY=$7
+USER_EMAIL=$8
 VPS_DOCKER_IP=${10}
 SU_PASS=${11}
 VNC_PASS=${12}
 
+# Compute hash from email (matches Python hashlib.md5)
+USER_HASH=$(echo -n "$USER_EMAIL" | md5sum | cut -d' ' -f1)
 SYSTEM_PASS="${SU_PASS:-${USER_NAME}@098}"
 # Use user-set VNC password if provided, otherwise generate random
 if [ -n "$VNC_PASS" ]; then
@@ -33,6 +36,7 @@ fi
 
 echo "[*] Starting user configuration..."
 echo "[*] Username: $USER_NAME"
+echo "[*] User Hash: $USER_HASH"
 echo "[*] Docker IP: $DOCKER_IP"
 echo "[*] Tunnel IP: $TUNNEL_IP"
 
@@ -71,17 +75,14 @@ mkdir -p "$USER_HOME/.ssh"
 printf "%b" "$PUB_KEYS" > "$USER_HOME/.ssh/authorized_keys"
 chmod 700 "$USER_HOME/.ssh"
 chmod 600 "$USER_HOME/.ssh/authorized_keys"
-chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME"
+chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME" 2>&1 || true
 
 echo "[*] Regenerating SSH host keys..."
 rm -f /etc/ssh/ssh_host_* 2>/dev/null || true
-yes | ssh-keygen -t rsa -b 4096 -f /etc/ssh/ssh_host_rsa_key -N "" -q 2>/dev/null || true
-yes | ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N "" -q 2>/dev/null || true
-yes | ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N "" -q 2>/dev/null || true
-
 sed -i 's/^#\?StrictModes .*/StrictModes no/' /etc/ssh/sshd_config 2>/dev/null || true
-service ssh restart 2>/dev/null || /etc/init.d/ssh restart 2>/dev/null || true
-echo "[✓] SSH configured and restarted"
+# Reload SSH without systemd (service works in containers)
+service ssh reload 2>/dev/null || service ssh restart 2>/dev/null || /etc/init.d/ssh reload 2>/dev/null || /etc/init.d/ssh restart 2>/dev/null || true
+echo "[✓] SSH configured and reloaded"
 
 # ── 3. Bash Configuration ─────────────────────────────────────
 cat << 'BASHRC_EOF' > "$USER_HOME/.bashrc"
@@ -207,7 +208,7 @@ if [ -L "/etc/apache2/mods-enabled" ]; then
     echo "[*] Restored Apache mods-enabled from mods-available"
 fi
 
-chown -R "$USER_NAME:$USER_NAME" "$HTDOCS" "$HTCONFIG"
+chown -R "$USER_NAME:$USER_NAME" "$HTDOCS" "$HTCONFIG" 2>&1 || true
 chmod -R 755 "$HTDOCS"
 chmod -R 755 "$HTCONFIG"
 
@@ -239,7 +240,7 @@ if [ ! -f "$USER_HOME/.vnc/self.pem" ]; then
     openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
         -keyout "$USER_HOME/.vnc/self.pem" -out "$USER_HOME/.vnc/self.pem" \
         -subj "/CN=localhost" 2>/dev/null
-    chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/.vnc"
+    chown -R "$USER_NAME:$USER_NAME" "$USER_HOME/.vnc" 2>&1 || true
     echo "[✓] SSL cert generated in $USER_HOME/.vnc/"
 else
     echo "[✓] SSL cert already exists in $USER_HOME/.vnc/"

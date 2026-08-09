@@ -122,7 +122,7 @@ def log_to_user(channel, exchange_name, routing_key, message):
     except Exception as e:
         print(f"Failed to log to user: {e}")
 
-def _save_deploy_logs(instance_hash, logs, error_msg, is_build=False, action='deploy'):
+def _save_deploy_logs(instance_hash, logs, error_msg, is_build=False, action='deploy', duration=None, exit_code=None, user=None):
     try:
         db = _get_mongo_client('tom_labs_instances_db')
         if not db:
@@ -146,7 +146,7 @@ def _save_deploy_logs(instance_hash, logs, error_msg, is_build=False, action='de
 
         db.instances.update_one({'instance_hash': instance_hash}, {'$set': set_fields})
 
-        # Also update machine_labs so the UI reflects the status (flat structure)
+        # Push to deploy_history array in machine_labs
         labs_db = _get_mongo_client('tom_labs_db')
         if labs_db:
             flat_fields = {
@@ -155,14 +155,31 @@ def _save_deploy_logs(instance_hash, logs, error_msg, is_build=False, action='de
             }
             if status_val is not None:
                 flat_fields['status'] = status_val
+
+            history_entry = {
+                'status': 'success' if not error_msg else 'failed',
+                'action': action,
+                'user': user or '',
+                'duration': duration or '',
+                'exit_code': exit_code if exit_code is not None else '',
+                'timestamp': now
+            }
             labs_db.machine_labs.update_one(
                 {'instance_hash': instance_hash},
-                {'$set': flat_fields}
+                {
+                    '$set': flat_fields,
+                    '$push': {
+                        'deploy_history': {
+                            '$each': [history_entry],
+                            '$position': 0
+                        }
+                    }
+                }
             )
     except Exception as e:
         print(f" [_save_deploy_logs] FAILED: {e}")
 
-def _run_job(job_data, delivery_tag=None):
+def _run_job(job_data):
     """Execute a single job — thread owns its own AMQP connection"""
     instance_hash = None
     routing_key = None
@@ -229,6 +246,9 @@ def _run_job(job_data, delivery_tag=None):
                     error_lines.append(clean_line)
 
         process.wait()
+        duration_secs = round(time.time() - start_time, 1)
+        duration_str = f"{duration_secs}s"
+        exit_code = process.returncode
 
         is_build = (action == 'build')
         if process.returncode == 0:
@@ -238,20 +258,19 @@ def _run_job(job_data, delivery_tag=None):
                 log_to_user(ch, "amq.topic", routing_key, "[*] Your lab is up and ready to experiment... Page will reload in few seconds.")
             log_to_user(ch, "amq.topic", routing_key, "[*] reload")
             _file_log(f"[OK] {action} completed for {instance_hash}")
-            _save_deploy_logs(instance_hash, all_logs, None, is_build, action)
+            _save_deploy_logs(instance_hash, all_logs, None, is_build, action, duration_str, exit_code, user)
         else:
             error_msg = error_lines[-1] if error_lines else f"Exit code {process.returncode}"
             log_to_user(ch, "amq.topic", routing_key, f"[!] {error_msg}")
             log_to_user(ch, "amq.topic", routing_key, "[*] reload")
             _file_log(f"[FAIL] {action} failed for {instance_hash}: {error_msg}")
-            _save_deploy_logs(instance_hash, all_logs, error_msg, is_build, action)
+            _save_deploy_logs(instance_hash, all_logs, error_msg, is_build, action, duration_str, exit_code, user)
 
         conn.close()
 
     except Exception as e:
         print(f" [!] [{thread_name}] Error: {e}")
         _file_log(f"[SYSERR] {e}")
-        # Q1: Publish failed job to DLQ for later inspection
         _publish_to_dlq(job_data, reason=str(e))
         if routing_key:
             try:
@@ -282,7 +301,6 @@ def main():
         try:
             connection = _get_amqp_connection()
             channel = connection.channel()
-            # Q1: Configure DLQ for dead letter exchange
             channel.queue_declare(
                 queue=DLQ_NAME,
                 durable=True,
@@ -312,11 +330,12 @@ def main():
 
                     body_str = body.decode('utf-8') if isinstance(body, bytes) else body
 
-                    # Q1: Do NOT ACK here — pass delivery_tag to _run_job for ACK after execution
-                    # This prevents job loss if worker crashes or thread pool is full
+                    # ACK immediately on main channel to prevent prefetch stall
+                    # (delivery_tag can't be used across connections in threads)
+                    channel.basic_ack(delivery_tag=method_frame.delivery_tag)
 
                     # Submit to thread pool — threads never touch main channel
-                    executor.submit(_run_job, body_str, method_frame.delivery_tag)
+                    executor.submit(_run_job, body_str)
 
                 except Exception as e:
                     print(f" Poll error: {e}")

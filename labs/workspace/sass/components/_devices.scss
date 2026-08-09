@@ -10,6 +10,8 @@
     border-radius: 12px;
     font-family: monospace;
     color: #fff !important;
+    // backdrop-filter: blur(10px);
+    // box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .config-header {
@@ -24,20 +26,20 @@
     color: #ffcc00 !important;
 }
 
-// Card Entrance Animation
+// Card Entrance Animation (sna-style scale zoom)
 @keyframes flipInCard {
     0% {
         opacity: 0;
-        transform: perspective(1200px) rotateX(-20deg) translateY(20px);
+        transform: scale(0.88);
     }
     100% {
         opacity: 1;
-        transform: perspective(1200px) rotateX(0deg) translateY(0);
+        transform: scale(1);
     }
 }
 
 .card-entrance {
-    animation: flipInCard 0.5s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+    animation: flipInCard 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards;
 }
 
 

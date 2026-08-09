@@ -32,8 +32,8 @@ try {
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
     $col = $db->machine_labs;
 
-    $inst = $col->findOne(['deploy.instance_hash' => $instanceHash]);
-    $existing = $inst ? ($inst['deploy'] ?? []) : null;
+    $inst = $col->findOne(['instance_hash' => $instanceHash]);
+    $existing = $inst;
     $status = $existing['status'] ?? 'not_deployed';
 
     // Sanitize HTTP proxies
@@ -82,29 +82,29 @@ try {
     }
 
     $setFields = [
-        'deploy.http_proxies' => $httpProxies,
-        'deploy.always_on'    => $alwaysOn,
-        'deploy.init_script'  => $initScript,
-        'deploy.prefs_updated_at' => time(),
+        'http_proxies' => $httpProxies,
+        'always_on'    => $alwaysOn,
+        'init_script'  => $initScript,
+        'prefs_updated_at' => time(),
     ];
 
     if (isset($input['su_pass'])) {
-        $setFields['deploy.staged_preferences.su_pass'] = trim((string)$input['su_pass']);
+        $setFields['staged_preferences.su_pass'] = trim((string)$input['su_pass']);
         $currentSuPass = $existing['staged_preferences']['su_pass'] ?? $existing['credentials']['su_pass'] ?? '';
         if ($currentSuPass !== trim((string)$input['su_pass'])) {
             $changes['passwords'] = true;
         }
     }
     if (isset($input['code_server_pass'])) {
-        $setFields['deploy.staged_preferences.code_server_pass'] = trim((string)$input['code_server_pass']);
-        $setFields['deploy.staged_preferences.password'] = trim((string)$input['code_server_pass']);
+        $setFields['staged_preferences.code_server_pass'] = trim((string)$input['code_server_pass']);
+        $setFields['staged_preferences.password'] = trim((string)$input['code_server_pass']);
         $currentCodePass = $existing['staged_preferences']['code_server_pass'] ?? $existing['credentials']['code_server_pass'] ?? '';
         if ($currentCodePass !== trim((string)$input['code_server_pass'])) {
             $changes['passwords'] = true;
         }
     }
     if (isset($input['vnc_pass'])) {
-        $setFields['deploy.staged_preferences.vnc_pass'] = trim((string)$input['vnc_pass']);
+        $setFields['staged_preferences.vnc_pass'] = trim((string)$input['vnc_pass']);
         $currentVncPass = $existing['staged_preferences']['vnc_pass'] ?? $existing['credentials']['vnc_pass'] ?? '';
         if ($currentVncPass !== trim((string)$input['vnc_pass'])) {
             $changes['passwords'] = true;
@@ -112,16 +112,16 @@ try {
     }
 
     $col->updateOne(
-        ['deploy.instance_hash' => $instanceHash],
+        ['instance_hash' => $instanceHash],
         [
             '$set' => $setFields,
             '$setOnInsert' => [
-                'deploy.user_id'       => $user->getUserId(),
-                'deploy.email'         => $user->getEmail(),
-                'deploy.username'      => $user->getUsername(),
-                'deploy.lab_type'      => $labName,
-                'deploy.status'        => 'not_deployed',
-                'deploy.created_at'    => time()
+                'user_id'       => $user->getUserId(),
+                'email'         => $user->getEmail(),
+                'username'      => $user->getUsername(),
+                'lab_type'      => $labName,
+                'status'        => 'not_deployed',
+                'created_at'    => time()
             ]
         ],
         ['upsert' => true]

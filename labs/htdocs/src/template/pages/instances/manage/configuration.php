@@ -30,7 +30,7 @@ $sshEnabled  = cfg('users.ssh_enabled', 'ssh_enabled', false);
 $runAsUser   = cfg('users.run_as_signed_in_user', 'run_as_signed_in_user', false);
 $usersRaw    = cfg('users.list', 'users', []);
 $homeEnabled = cfg('storage.home_mount_enabled', 'home_mount_enabled', false);
-$homePath    = cfg('storage.home_mount_path', 'home_mount_path', '/var/labsstorage');
+$homePath    = cfg('storage.home_mount_path', 'home_mount_path', '/home');
 $bindRaw     = cfg('storage.bind_mounts', 'bind_mounts', []);
 
 // Normalize ports

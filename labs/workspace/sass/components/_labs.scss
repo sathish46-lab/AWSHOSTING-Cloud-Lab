@@ -1,6 +1,8 @@
 /* ==========================================================================
    Labs Page Component & Modal Classes
    ========================================================================== */
+
+/* Page Header */
 .labs-page-title {
   font-size: 1.8rem !important;
   letter-spacing: -0.5px !important;
@@ -37,40 +39,244 @@
   letter-spacing: 0.8px !important;
 }
 
-/* Lab Card Styles */
-.lab-card-bg-icon {
-  z-index: 1 !important;
+/* ==========================================================================
+   Lab Cards — Dark Glass (Old Colors + New Structure)
+   ========================================================================== */
+
+.glass-lab-card {
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  transition: all 0.3s ease;
+  position: relative;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5),
+                0 0 0 1px rgba(255, 255, 255, 0.15) !important;
+
+    .glass-lab-card-glow {
+      opacity: 1;
+    }
+  }
 }
 
-.lab-card-icon-lg {
-  font-size: 140px !important;
-  color: currentColor !important;
+.glass-lab-card-glow {
+  position: absolute;
+  top: 0;
+  left: 1px;
+  right: 1px;
+  height: 2px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 3;
+  border-radius: 2px 2px 0 0;
 }
 
-.lab-card-content {
-  z-index: 2 !important;
+.glass-lab-card-body {
+  z-index: 2;
 }
 
-.lab-card-title {
-  color: var(--glass-text) !important;
-  letter-spacing: -0.2px !important;
+/* Avatar */
+.glass-lab-avatar {
+  width: 52px;
+  height: 52px;
+  min-width: 52px;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 34px;
+  color: rgba(255, 255, 255, 0.4);
+  transition: all 0.3s ease;
+
+  &.is-running {
+    background: rgba(74, 222, 128, 0.12);
+    border-color: rgba(74, 222, 128, 0.3);
+    color: #4ade80;
+    box-shadow: 0 0 20px rgba(74, 222, 128, 0.15);
+  }
 }
 
+/* Title */
+.glass-lab-title {
+  font-size: 1.05rem;
+  color: #fff;
+  letter-spacing: -0.2px;
+}
+
+.glass-lab-subtitle {
+  font-size: 0.8rem;
+}
+
+/* Status Dot */
+.glass-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+
+  &.running {
+    background: #4ade80;
+    box-shadow: 0 0 8px #4ade80;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.2); }
+}
+
+/* Info Button */
+.glass-info-btn.bx {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.8);
+  }
+}
+
+/* Badges */
+.glass-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-transform: uppercase;
+
+  &.badge-public {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.25);
+  }
+
+  &.badge-running {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+    border-color: rgba(74, 222, 128, 0.3);
+  }
+
+  &.badge-offline {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.25);
+  }
+}
+
+/* Buttons */
+.glass-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  i {
+    font-size: 15px;
+  }
+}
+
+.glass-btn-primary {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.25);
+
+  &:hover {
+    background: rgba(59, 130, 246, 0.3);
+    border-color: rgba(59, 130, 246, 0.4);
+    color: #93c5fd;
+  }
+}
+
+.glass-btn-success {
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.25);
+
+  &:hover {
+    background: rgba(74, 222, 128, 0.3);
+    border-color: rgba(74, 222, 128, 0.4);
+    color: #86efac;
+  }
+}
+
+.glass-btn-info {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  border-color: rgba(255, 255, 255, 0.1);
+  padding: 10px 12px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.8);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* ==========================================================================
+   Tooltip — Above Icon (Old Look)
+   ========================================================================== */
+
+.terminal-info-wrapper {
+  position: relative;
+
+  .terminal-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    width: 200px;
+    padding: 10px 12px;
+    background: rgba(10, 10, 15, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+    z-index: 100;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    pointer-events: none;
+  }
+
+  &:hover .terminal-tooltip {
+    display: block;
+  }
+}
+
+/* Legacy classes */
 .terminal-tooltip-title {
   font-size: 10px !important;
 }
 
-.badge-lab-tag {
-  font-size: 9px !important;
-  padding-top: 2px !important;
-  padding-bottom: 2px !important;
-}
+/* ==========================================================================
+   Modals & JS Toggle Helpers
+   ========================================================================== */
 
-.badge-lab-status {
-  font-size: 10px !important;
-}
-
-/* Modals & JS Toggle Helpers */
 .modal-code-access {
   background: rgba(15, 15, 20, 0.98) !important;
   backdrop-filter: saturate(200%) blur(18px) !important;
@@ -81,7 +287,6 @@
   backdrop-filter: saturate(200%) blur(18px) !important;
 }
 
-/* Used for elements controlled by JS style.display - DO NOT add !important */
 .initially-hidden {
   display: none;
 }

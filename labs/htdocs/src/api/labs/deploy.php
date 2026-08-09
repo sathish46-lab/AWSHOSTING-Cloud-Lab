@@ -23,17 +23,17 @@ try {
     
     $ipManager = new IPManager();
     
-    $rabbit = new RabbitClient(); // Defaults to amq.topic
+    $rabbit = new RabbitClient();
     $log_topic = "logs." . $instanceHash;
-    // We can use $rabbit->sendMessage($msg, $log_topic) if we want to send logs from PHP
-    $inst = $col->findOne(['deploy.instance_hash' => $instanceHash]);
-    $existing = $inst ? ($inst['deploy'] ?? []) : null;
+    
+    // Flat structure: query by instance_hash directly
+    $inst = $col->findOne(['instance_hash' => $instanceHash]);
+    $existing = $inst ?: null;
 
     // 1. CAPTURE NEW UI FIELDS
     $user_domains = $_POST['domains'] ?? []; 
     $expose_web = (isset($_POST['expose_web']) && filter_var($_POST['expose_web'], FILTER_VALIDATE_BOOLEAN));
 
-    // FIX: If user provides domains, they implicitly want to expose web
     if (!empty($user_domains)) {
         $expose_web = true;
     }
@@ -58,37 +58,49 @@ try {
         }
     }
     
-    // error_log("PHPLOG: User selected domain: " . $code_domain);
+    // Compute docker_ip from internal_ip (last octet)
+    // Uses labs_bridge network subnet 172.30.0.0/16
+    $computeDockerIp = function($ip) {
+        if (!$ip) return null;
+        $parts = explode('.', $ip);
+        $lastOctet = (int)$parts[3];
+        // Avoid gateway IP (.1) — use .2 instead for first lab
+        if ($lastOctet <= 1) $lastOctet = 2;
+        return '172.30.0.' . $lastOctet;
+    };
 
     if (!$existing || empty($existing['internal_ip'])) {
-        // Reserve IP for this lab — use selected IP if provided, otherwise auto-assign
+        // First deploy — reserve IP
         $selectedIp = $_POST['internal_ip'] ?? null;
         if ($selectedIp && $selectedIp !== 'new') {
             $internalIp = $ipManager->reserve($email, $user->getUserId(), $selectedIp);
         } else {
             $internalIp = $ipManager->reserve($email, $user->getUserId());
         }
+        $dockerIp = $computeDockerIp($internalIp);
         
         $updateResult = $col->updateOne(
-            ['deploy.instance_hash' => $instanceHash],
+            ['instance_hash' => $instanceHash],
             ['$set' => [
-                'deploy.user_id'       => $user->getUserId(),
-                'deploy.email'         => $email,
-                'deploy.username'      => $user->getUsername(),
-                'deploy.instance_hash' => $instanceHash,
-                'deploy.lab_type'      => $labName,
-                'deploy.internal_ip'   => $internalIp, 
-                'deploy.domains'       => $user_domains,
-                'deploy.code_domain'   => $code_domain,
-                'deploy.gui_domain'    => $gui_domain,
-                'deploy.expose_web'    => $expose_web,
-                'deploy.http_proxies'  => $httpProxies,
-                'deploy.status'        => 'deploying',
-                'deploy.created_at'    => time(),
-                'deploy.storage_path'  => "/var/labsstorage/" . $user->getUsername()
+                'user_id'       => $user->getUserId(),
+                'email'         => $email,
+                'username'      => $user->getUsername(),
+                'instance_hash' => $instanceHash,
+                'lab_type'      => $labName,
+                'internal_ip'   => $internalIp, 
+                'docker_ip'     => $dockerIp,
+                'tunnel_ip'     => $internalIp,
+                'domains'       => $user_domains,
+                'code_domain'   => $code_domain,
+                'gui_domain'    => $gui_domain,
+                'expose_web'    => $expose_web,
+                'http_proxies'  => $httpProxies,
+                'status'        => 'deploying',
+                'created_at'    => time(),
+                'storage_path'  => get_config('storage_base') . "/" . md5($user->getEmail())
             ],
             '$push' => [
-                'deploy.activity_log'  => [
+                'activity_log'  => [
                     '$each' => [
                         [
                             'action' => 'Deployed',
@@ -108,22 +120,35 @@ try {
         }
         
     } else {
-        $internalIp = $existing['internal_ip'];
-        
-        // Update domains, expose_web, AND code_domain on redeploy
+        // Redeploy — check if user selected different IP
+        $selectedIp = $_POST['internal_ip'] ?? null;
+        if ($selectedIp && $selectedIp !== 'new' && $selectedIp !== $existing['internal_ip']) {
+            $internalIp = $ipManager->reserve($email, $user->getUserId(), $selectedIp);
+        } else {
+            if ($selectedIp === 'new') {
+                $internalIp = $ipManager->reserve($email, $user->getUserId());
+            } else {
+                $internalIp = $existing['internal_ip'];
+            }
+        }
+        $dockerIp = $computeDockerIp($internalIp);
+
         $col->updateOne(
-            ['deploy.instance_hash' => $instanceHash],
+            ['instance_hash' => $instanceHash],
             ['$set' => [
-                'deploy.domains'     => $user_domains, 
-                'deploy.expose_web'  => $expose_web,
-                'deploy.code_domain' => $code_domain,
-                'deploy.gui_domain'  => $gui_domain,
-                'deploy.http_proxies'=> $httpProxies,
-                'deploy.storage_path'=> "/var/labsstorage/" . $user->getUsername(),
-                'deploy.status'      => 'deploying'
+                'domains'      => $user_domains, 
+                'expose_web'   => $expose_web,
+                'code_domain'  => $code_domain,
+                'gui_domain'   => $gui_domain,
+                'http_proxies' => $httpProxies,
+                'storage_path' => get_config('storage_base') . "/" . md5($user->getEmail()),
+                'internal_ip'  => $internalIp,
+                'docker_ip'    => $dockerIp,
+                'tunnel_ip'    => $internalIp,
+                'status'       => 'deploying'
             ],
             '$push' => [
-                'deploy.activity_log' => [
+                'activity_log' => [
                     '$each' => [
                         [
                             'action' => 'Redeployed',
@@ -139,9 +164,7 @@ try {
         );
     }
 
-    // ============================================================
     // UPDATE DOMAIN INVENTORY STATUS
-    // ============================================================
     $domainsCol = $db->domains;
     $domainsCol->updateMany(
         ['user_id' => $user->getUserId()], 
@@ -155,42 +178,24 @@ try {
         );
     }
 
-    // 4. Trigger the Python Orchestrator via QUEUE (Scalable)
+    // Trigger Python Orchestrator via QUEUE
     $work = [
         'action' => 'deploy',
         'lab' => $labName, 
         'hash' => $instanceHash, 
         'user' => $user->getUsername(),
         'vsc_domain' => $code_domain,
-        'gui_domain' => $gui_domain
     ];
 
-    // Capture MinIO specific domains if present
-    if (!empty($_POST['minio_console_domain'])) {
-        $work['minio_console_domain'] = $_POST['minio_console_domain'];
-    }
-    if (!empty($_POST['minio_api_domain'])) {
-        $work['minio_api_domain'] = $_POST['minio_api_domain'];
-    }
-    if (!empty($_POST['n8n_domain'])) {
-        $work['n8n_domain'] = $_POST['n8n_domain'];
-    }
-    
-    // Create RabbitMQ Client for the Job Queue
-    // We reuse the existing client or create a specific one if needed. 
-    // The existing $rabbit was for logs, but we can reuse the connection for the queue.
     $rabbit->sendToQueue('labs_jobs', $work);
     
-    // Response (Immediate "Queued" status)
     echo json_encode([
-        'status' => 'success',
-        'message' => 'Employment queued', 
-        'hash'   => $instanceHash,
-        'ip'     => $internalIp,
-        'queued' => true
+        'status' => 'success', 
+        'message' => 'Deployment queued',
+        'hash' => $instanceHash
     ]);
 
 } catch (Exception $e) {
-    http_response_code(500);
+    error_log("Deploy API Error: " . $e->getMessage());
     echo json_encode(['status' => 'error', 'error' => $e->getMessage()]);
 }

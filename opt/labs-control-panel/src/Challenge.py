@@ -417,8 +417,10 @@ class Challenge(BaseOrchestrator):
         challenge_ip = f"10.20.0.{next_octet}"
 
         # Register in the VPN network pool
+        challenge_user = self.db.users.find_one({"username": username}) if self.db else None
+        challenge_email = challenge_user.get('email', username) if challenge_user else username
         vpn_db.networks.insert_one({
-            "email": username,
+            "email": challenge_email,
             "ip_addr": challenge_ip,
             "service_type": "challenge",
             "challenge_id": challenge_id,

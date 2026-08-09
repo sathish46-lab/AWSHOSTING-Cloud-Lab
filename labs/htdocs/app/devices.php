@@ -23,7 +23,6 @@ foreach ($myIPs as $ip) {
         'ip_addr'  => $ip['ip_addr'],
         'email'    => $ip['email'],
         'reserved' => true,
-        'allocated'=> false,
     ];
 }
 

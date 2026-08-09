@@ -44,6 +44,7 @@ $classString = implode(' ', $htmlClasses);
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <meta name="csrf-token" content="<?= Session::csrfToken() ?>">
     <title><?= Session::$pageTitle ?></title>
     <link rel="icon" type="image/png" href="<?= Session::cdn3('logo/favicon.png') ?>">
     <link rel="shortcut icon" type="image/png" href="<?= Session::cdn3('logo/favicon.png') ?>">
@@ -540,12 +541,13 @@ $classString = implode(' ', $htmlClasses);
                         <button type="button" class="btn btn-primary rounded-pill px-4 fw-semibold small" data-coreui-dismiss="modal">Okay</button>
                     </div>
                 </div>
-            </div>
+                    </div>
         </div>
     </div>
 
-
-
+    <?php if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN): ?>
+    <?php include __DIR__ . '/partials/_account_settings_modal.php'; ?>
+    <?php endif; ?>
 
     <script>
     window.TOM_CONFIG = {

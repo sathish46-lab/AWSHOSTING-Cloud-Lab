@@ -542,7 +542,8 @@ class SSLManager {
     public function getAutoManagedCount($certs) {
         $count = 0;
         foreach ($certs as $cert) {
-            if (isset($cert['resolver']) && !empty($cert['resolver'])) {
+            $resolver = $cert['resolver'] ?? '';
+            if (!empty($resolver) && stripos($resolver, 'custom') === false) {
                 $count++;
             }
         }

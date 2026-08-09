@@ -675,7 +675,7 @@ const LAB_FORM_CONFIG = {
 const LAB_ACTION_CONFIG = {
   minio:   { launch: 'minioModal' },
   n8n:     { launch: 'n8n_url' },
-  default: { launch: 'vscModal' },
+  default: { launch: 'codeInfoModal' },
 };
 
 function getLabFieldConfig(type) {
@@ -731,9 +731,10 @@ async function handleDeploy(btn, labType) {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const html = await response.text();
 
-    // 2. Inject into placeholder
-    const placeholder = document.getElementById('redeployModalPlaceholder');
-    if (placeholder) placeholder.innerHTML = html;
+    // 2. Remove any previous redeployModal, then inject into body
+    const oldModal = document.getElementById('redeployModal');
+    if (oldModal) oldModal.remove();
+    document.body.insertAdjacentHTML('beforeend', html);
 
     // 3. Reset dropdown state
     const domainDropdown = document.getElementById("domain_dropdown");
@@ -886,7 +887,12 @@ async function executeRedeploy(labType) {
  */
 function handleStop() {
   if (Dashboard.isProcessing) return;
-  new coreui.Modal(document.getElementById("stopModal")).show();
+  const modalEl = document.getElementById("stopModal");
+  if (!modalEl) { console.error("stopModal element not found"); return; }
+  let modal = coreui.Modal.getInstance(modalEl);
+  if (!modal) modal = new coreui.Modal(modalEl, { backdrop: true, keyboard: true });
+  document.getElementById("stop-confirm-btn").onclick = () => executeStop();
+  modal.show();
 }
 
 /**
@@ -1373,8 +1379,12 @@ function launchService(btn, type) {
       } else {
         alert("n8n URL not found. Please redeploy.");
       }
+    } else if (action.launch === 'codeInfoModal') {
+      openCodeModal(window.SESSION_HASH, window.LAB_TYPE, 'running');
     } else {
-      const modal = new coreui.Modal(document.getElementById(action.launch));
+      const modalEl = document.getElementById(action.launch);
+      if (!modalEl) return;
+      const modal = new coreui.Modal(modalEl);
       modal.show();
     }
 
@@ -1666,19 +1676,24 @@ function addDeployProxyRow() {
 
 // Server Logs Toggle
 window.onPageLoad( function() {
+    console.log('[DEBUG] Server Logs Toggle: onPageLoad fired');
     const logsBody = document.getElementById('terminal-viewport');
     const toggleBtn = document.getElementById('serverLogsToggleBtn');
     const chevrons = document.querySelectorAll('.server-logs-chevron');
+    console.log('[DEBUG] logsBody:', logsBody, 'toggleBtn:', toggleBtn);
 
     function setMinimizedState(isMinimized) {
+        console.log('[DEBUG] setMinimizedState called with:', isMinimized);
         if (isMinimized) {
             logsBody.classList.add('logs-minimized');
+            console.log('[DEBUG] Added logs-minimized, height:', getComputedStyle(logsBody).height);
             chevrons.forEach(chevron => {
                 chevron.classList.remove('bx-chevron-down');
                 chevron.classList.add('bx-chevron-up');
             });
         } else {
             logsBody.classList.remove('logs-minimized');
+            console.log('[DEBUG] Removed logs-minimized, height:', getComputedStyle(logsBody).height);
             chevrons.forEach(chevron => {
                 chevron.classList.remove('bx-chevron-up');
                 chevron.classList.add('bx-chevron-down');
@@ -1689,6 +1704,7 @@ window.onPageLoad( function() {
     if (toggleBtn && logsBody) {
         // Retrieve state directly from the HTML injected by PHP
         const isMinimized = toggleBtn.getAttribute('data-minimized') === 'true';
+        console.log('[DEBUG] Server Logs: initial isMinimized =', isMinimized);
         
         // Ensure scroll to bottom happens when new logs arrive if minimized
         const observer = new MutationObserver(() => {
@@ -1708,7 +1724,9 @@ window.onPageLoad( function() {
             if(e.target.closest('.terminal-info-wrapper')) return;
 
             const willMinimize = !logsBody.classList.contains('logs-minimized');
+            console.log('[DEBUG] Server Logs clicked: willMinimize =', willMinimize, 'classList before:', logsBody.className);
             setMinimizedState(willMinimize);
+            console.log('[DEBUG] Server Logs clicked: classList after:', logsBody.className);
             toggleBtn.setAttribute('data-minimized', willMinimize ? 'true' : 'false');
             
             // Save state in the database via the API

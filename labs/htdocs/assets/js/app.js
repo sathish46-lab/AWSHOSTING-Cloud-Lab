@@ -17004,6 +17004,7 @@ CodeMirror.defineMIME("text/x-markdown", "markdown");
             .then(r => r.json())
             .then(data => {
                 if (!data.success) return;
+                acct2faEnabled = !!data.two_factor_enabled;
                 render2FAStatus();
             })
             .catch(() => {});
@@ -17324,25 +17325,25 @@ CodeMirror.defineMIME("text/x-markdown", "markdown");
             if (!d || typeof d !== 'object' || !Object.keys(d).length) return '';
             const parts = [];
             for (const [k, v] of Object.entries(d)) {
-                if (v !== null && v !== undefined && v !== '') parts.push(`<span class="text-body-secondary">${escActivity(k)}:</span> ${escActivity(String(v).substring(0, 80))}`);
+                if (v !== null && v !== undefined && v !== '') parts.push(`<span class="detail-key">${escActivity(k)}</span><span class="detail-val">${escActivity(String(v).substring(0, 80))}</span>`);
             }
-            return parts.length ? '<br><small class="text-body-secondary">' + parts.join(' &middot; ') + '</small>' : '';
+            return parts.length ? '<div class="detail-grid">' + parts.join('') + '</div>' : '';
         };
         container.innerHTML = filtered.map(e => {
             const time = e.created_at ? new Date(e.created_at) : null;
             const timeStr = time ? time.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '';
-            return `<div class="d-flex gap-3 pb-3 mb-3 border-bottom act-timeline-item">
-                <div class="flex-shrink-0 mt-1"><i class="bx ${actionIcon(e.action)} fs-5"></i></div>
-                <div class="flex-grow-1 min-width-0">
-                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-1">
-                        <div><span class="fw-semibold">${escActivity(actionLabel(e.action))}</span>
-                        <span class="badge bg-body-secondary bg-opacity-10 text-body-secondary ms-1">${escActivity(entityLabel(e.entity_type))}</span>
-                        ${e.entity_id ? `<small class="text-body-secondary ms-1">#${escActivity(String(e.entity_id).substring(0, 8))}</small>` : ''}</div>
-                        <small class="text-body-secondary flex-shrink-0">${escActivity(timeStr)}</small>
+            return `<div class="act-timeline-item">
+                <div class="act-row-top">
+                    <div class="act-action-group">
+                        <span class="act-icon"><i class="bx ${actionIcon(e.action)}"></i></span>
+                        <span class="act-action">${escActivity(actionLabel(e.action))}</span>
+                        <span class="act-badge">${escActivity(entityLabel(e.entity_type))}</span>
+                        ${e.entity_id ? `<span class="act-id">#${escActivity(String(e.entity_id).substring(0, 12))}</span>` : ''}
                     </div>
-                    ${e.ip_address ? `<small class="text-body-secondary"><i class="bx bx-globe me-1"></i>${escActivity(e.ip_address)}</small>` : ''}
-                    ${detailsSummary(e.details)}
+                    <span class="act-time">${escActivity(timeStr)}</span>
                 </div>
+                ${e.ip_address ? `<div class="act-row-meta"><i class="bx bx-globe"></i> ${escActivity(e.ip_address)}</div>` : ''}
+                ${detailsSummary(e.details)}
             </div>`;
         }).join('');
     }
@@ -22419,19 +22420,24 @@ function addDeployProxyRow() {
 
 // Server Logs Toggle
 window.onPageLoad( function() {
+    console.log('[DEBUG] Server Logs Toggle: onPageLoad fired');
     const logsBody = document.getElementById('terminal-viewport');
     const toggleBtn = document.getElementById('serverLogsToggleBtn');
     const chevrons = document.querySelectorAll('.server-logs-chevron');
+    console.log('[DEBUG] logsBody:', logsBody, 'toggleBtn:', toggleBtn);
 
     function setMinimizedState(isMinimized) {
+        console.log('[DEBUG] setMinimizedState called with:', isMinimized);
         if (isMinimized) {
             logsBody.classList.add('logs-minimized');
+            console.log('[DEBUG] Added logs-minimized, height:', getComputedStyle(logsBody).height);
             chevrons.forEach(chevron => {
                 chevron.classList.remove('bx-chevron-down');
                 chevron.classList.add('bx-chevron-up');
             });
         } else {
             logsBody.classList.remove('logs-minimized');
+            console.log('[DEBUG] Removed logs-minimized, height:', getComputedStyle(logsBody).height);
             chevrons.forEach(chevron => {
                 chevron.classList.remove('bx-chevron-up');
                 chevron.classList.add('bx-chevron-down');
@@ -22442,6 +22448,7 @@ window.onPageLoad( function() {
     if (toggleBtn && logsBody) {
         // Retrieve state directly from the HTML injected by PHP
         const isMinimized = toggleBtn.getAttribute('data-minimized') === 'true';
+        console.log('[DEBUG] Server Logs: initial isMinimized =', isMinimized);
         
         // Ensure scroll to bottom happens when new logs arrive if minimized
         const observer = new MutationObserver(() => {
@@ -22461,7 +22468,9 @@ window.onPageLoad( function() {
             if(e.target.closest('.terminal-info-wrapper')) return;
 
             const willMinimize = !logsBody.classList.contains('logs-minimized');
+            console.log('[DEBUG] Server Logs clicked: willMinimize =', willMinimize, 'classList before:', logsBody.className);
             setMinimizedState(willMinimize);
+            console.log('[DEBUG] Server Logs clicked: classList after:', logsBody.className);
             toggleBtn.setAttribute('data-minimized', willMinimize ? 'true' : 'false');
             
             // Save state in the database via the API
@@ -27040,6 +27049,51 @@ function copyFromInput(inputId) {
     const input = document.getElementById(inputId);
     copyText(input.value);
 }
+
+async function saveErrorPage() {
+    const editor = window.errorPageEditor;
+    if (!editor) return;
+    
+    const content = editor.getValue();
+    if (content.length > 65536) {
+        CoreUI.Toast.show('Content exceeds 64 KB limit', 'error');
+        return;
+    }
+    
+    const hash = window.SESSION_HASH;
+    if (!hash) return;
+    
+    const btn = document.querySelector('button[onclick="saveErrorPage()"]');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> Saving...';
+    }
+    
+    try {
+        const formData = new FormData();
+        formData.append('hash', hash);
+        formData.append('custom_error_page', content);
+        
+        const resp = await fetch('/api/labs/save_error_page.php', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await resp.json();
+        
+        if (data.status === 'ok') {
+            CoreUI.Toast.show('Error page saved successfully', 'success');
+        } else {
+            CoreUI.Toast.show(data.error || 'Failed to save', 'error');
+        }
+    } catch (e) {
+        CoreUI.Toast.show('Network error', 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bx bx-save"></i> Save Error Page';
+        }
+    }
+}
 window.onPageLoad( updateProxyDomainOptions);
 
 
@@ -27057,6 +27111,7 @@ window.onPageLoad( updateProxyDomainOptions);
     window.togglePasswordVisibility = togglePasswordVisibility;
     window.addProxyRow = addProxyRow;
     window.removeProxyRow = removeProxyRow;
+    window.saveErrorPage = saveErrorPage;
 
   })();
 } catch (e) {

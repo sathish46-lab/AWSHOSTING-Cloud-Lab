@@ -67,20 +67,27 @@ try {
     $total = $db->audit_log->countDocuments($filter);
 
     // Fetch entries — sorted newest first
-    $cursor = $db->audit_log->find($filter)
-        ->sort(['created_at' => -1])
-        ->skip($offset)
-        ->limit($limit);
+    $cursor = $db->audit_log->find($filter, [
+        'sort' => ['created_at' => -1],
+        'skip' => $offset,
+        'limit' => $limit,
+    ]);
 
     $entries = [];
     foreach ($cursor as $doc) {
+        $createdAt = $doc['created_at'] ?? null;
+        // Convert MongoDB\BSON\UTCDateTime to unix timestamp (milliseconds for JS)
+        if ($createdAt instanceof \MongoDB\BSON\UTCDateTime) {
+            $createdAt = (int)$createdAt->toDateTime()->format('U') * 1000;
+        }
+
         $entries[] = [
             'action' => $doc['action'] ?? '',
             'entity_type' => $doc['entity_type'] ?? '',
             'entity_id' => $doc['entity_id'] ?? null,
             'details' => $doc['details'] ?? [],
             'ip_address' => $doc['ip_address'] ?? '',
-            'created_at' => $doc['created_at'] ?? null,
+            'created_at' => $createdAt,
         ];
     }
 
@@ -102,7 +109,7 @@ try {
         'summary' => $summary,
     ]);
 
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     error_log("Activity feed error: " . $e->getMessage());
     http_response_code(500);
     echo json_encode(['status' => 'error', 'error' => 'Failed to load activity feed']);

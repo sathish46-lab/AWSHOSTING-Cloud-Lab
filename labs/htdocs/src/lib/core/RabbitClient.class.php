@@ -23,11 +23,11 @@ class RabbitClient {
         $this->connection = new AMQPStreamConnection(
             $host, $port, $user, $pass, '/',
             false,  // insist
-            AMQPChannel::METHOD_PROTOCOL_091,  // channel_rpc_timeout
-            'rabbitmq-con-',  // consumer_tag
-            false,  // auto_decode
-            null,   // stream_context
-            5.0     // read_write_timeout (seconds)
+            'AMQPLAIN', // login_method
+            null,   // login_response
+            'en_US', // locale
+            5.0,    // connection_timeout
+            5.0     // read_write_timeout
         );
         $this->channel = $this->connection->channel();
 
@@ -57,8 +57,8 @@ class RabbitClient {
             if (is_array($message) || is_object($message)) {
                 $message = json_encode($message);
             }
-            // Ensure queue exists
-            $this->channel->queue_declare($queueName, false, true, false, false);
+            // Check if queue exists (passive=true avoids arg mismatch with worker)
+            $this->channel->queue_declare($queueName, true, true, false, false);
             
             $msg = new AMQPMessage($message, ['delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT]);
             $this->channel->basic_publish($msg, '', $queueName);

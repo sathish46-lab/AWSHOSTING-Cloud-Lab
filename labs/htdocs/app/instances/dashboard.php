@@ -10,5 +10,5 @@ if (Session::getAuthStatus() !== Constants::STATUS_LOGGEDIN) {
 
 $user = Session::getUser();
 
-Session::$pageTitle = "Instances - Developer Area | Tom Labs";
+Session::$pageTitle = "Instances - Developer Area";
 Session::loadMaster();

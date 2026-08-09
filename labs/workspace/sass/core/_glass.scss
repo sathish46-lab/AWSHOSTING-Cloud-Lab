@@ -12,9 +12,8 @@
 // --- Blur panel (sidebar, cards, modals) ---
 .blur {
   background-color: var(--glass-bg) !important;
-  backdrop-filter: saturate(200%) blur(18px) !important;
-  -webkit-backdrop-filter: saturate(200%) blur(18px) !important;
   border: 1px solid var(--cui-card-border-color, rgba(255, 255, 255, 0.08));
+  // No backdrop-filter by default — only applied when hwa-enabled
 }
 
 html[data-coreui-theme="light"] body .blur,
@@ -23,9 +22,16 @@ html[data-coreui-theme="light"] .blur {
   box-shadow: none !important;
 }
 
+// Only apply blur when visual blur is enabled
 body.hwa-enabled .blur {
-  backdrop-filter: saturate(200%) blur(18px);
-  -webkit-backdrop-filter: saturate(200%) blur(18px);
+  backdrop-filter: saturate(200%) blur(18px) !important;
+  -webkit-backdrop-filter: saturate(200%) blur(18px) !important;
+}
+
+// When visual blur is disabled, ensure no backdrop-filter
+body.hwa-disabled .blur {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 // --- Liquid rim (card hover effect) ---
@@ -77,12 +83,16 @@ body.hwa-enabled .blur {
   margin-top: auto;
   background-color: var(--glass-bg) !important;
   border-top: 1px solid var(--cui-card-border-color);
-  margin-left: -24px !important;
-  margin-right: -24px !important;
+  // margin-left: -24px !important;
+  // margin-right: -24px !important;
   overflow: visible !important;
   transition: background-color 0.5s ease;
   backdrop-filter: saturate(200%) blur(18px) !important;
   -webkit-backdrop-filter: saturate(200%) blur(18px) !important;
+
+  #mq-status-dot { font-size: 8px !important; }
+  .terminal-info-wrapper i { font-size: 14px !important; }
+  .server-logs-chevron { font-size: 18px !important; }
 }
 
 .server-logs-panel:not(.logs-panel-minimized) {
@@ -132,22 +142,7 @@ body.hwa-enabled .server-logs-panel {
   filter: drop-shadow(0 0 3px #0a4c04);
 }
 
-// --- Icon sizing inside panels ---
-.server-logs-panel {
-  #mq-status-dot {
-    font-size: 8px !important;
-  }
-
-  .terminal-info-wrapper i {
-    font-size: 14px !important;
-  }
-
-  .server-logs-chevron {
-    font-size: 18px !important;
-  }
-
-  .logs-body {
-    overflow-y: auto !important;
-    transition: height 0.3s ease !important;
-  }
+.server-logs-panel .logs-body {
+  overflow-y: auto !important;
+  transition: height 0.3s ease !important;
 }

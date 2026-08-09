@@ -28,7 +28,7 @@ if (time() > $userDoc['two_factor_expires']) {
 }
 
 // Verify OTP match
-if ($submittedOtp !== $userDoc['two_factor_otp']) {
+if (!password_verify($submittedOtp, $userDoc['two_factor_otp'])) {
     echo json_encode(['status' => 'error', 'error' => 'Incorrect OTP code.']); exit;
 }
 

@@ -50,7 +50,7 @@ try {
             ['$set' => [
                 'deploy' => [
                     'internal_ip'   => $internalIp,
-                    'storage_path'  => "/var/labsstorage/" . $user->getUsername(),
+                    'storage_path'  => get_config('storage_base') . "/" . md5($user->getEmail()),
                     'lab_type'      => $instance['template'] ?? 'essentials',
                     'domains'       => $domains,
                     'code_domain'   => $code_domain,

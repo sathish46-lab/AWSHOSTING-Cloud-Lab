@@ -8,6 +8,11 @@
     --glass-bg-solid: #0f1928;
     /* Solid fallback */
     --glass-border: rgba(255, 255, 255, 0.15);
+
+    /* Accent Colors */
+    --accent-green: #4ade80;
+    --accent-green-rgb: 74, 222, 128;
+    --accent-muted: rgba(255, 255, 255, 0.25);
 }
 
 [data-coreui-theme="light"] {
@@ -83,27 +88,23 @@
     /* Depth: Soft, diffused drop shadows for floating effect */
     box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.12) !important;
 
-    body.hwa-disabled & {
-        border: 1px solid rgba(0, 0, 0, 0.05) !important;
-    }
-
     body.hwa-disabled[data-coreui-theme="dark"] & {
-        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
     }
 }
 
-/* Sidebar - Border on Right Only */
-.sidebar {
-    border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+// /* Sidebar - Border on Right Only */
+// .sidebar {
+//     border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
 
-    body.hwa-disabled & {
-        border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
-    }
+//     body.hwa-disabled & {
+//         border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
+//     }
 
-    body.hwa-disabled[data-coreui-theme="dark"] & {
-        border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
-    }
-}
+//     body.hwa-disabled[data-coreui-theme="dark"] & {
+//         border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+//     }
+// }
 
 /* Headers & Footers - Remove border lines between structural sections */
 .header {

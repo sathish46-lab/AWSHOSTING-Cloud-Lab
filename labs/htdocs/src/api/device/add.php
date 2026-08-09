@@ -40,6 +40,10 @@ foreach ($instances as $inst) {
 
 $resources = [];
 foreach ($myIPs as $ip) {
+    // Skip IPs in .1-.9 range (reserved for system infrastructure by vpn-api)
+    $lastOctet = (int) substr(strrchr($ip['ip_addr'], '.'), 1);
+    if ($lastOctet >= 1 && $lastOctet <= 9) continue;
+
     if (!isset($usedIps[$ip['ip_addr']])) {
         $resources[] = ['ip_addr' => $ip['ip_addr']];
     }

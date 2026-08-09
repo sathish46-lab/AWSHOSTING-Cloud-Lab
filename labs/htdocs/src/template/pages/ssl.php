@@ -58,7 +58,7 @@ $serverIP = $dm->getServerIP();
 <div class="row g-4 mb-4" id="ssl-cards-container">
     <?php if (empty($certs)): ?>
     <div class="col-12">
-        <div class="card border-0 shadow-lg rounded-4 blur">
+        <div class="card rounded-4 blur">
             <div class="card-body text-center py-5">
                 <i class="bx bx-shield-x" style="font-size: 3rem; color: var(--glass-text-muted);"></i>
                 <h5 class="mt-3 fw-bold">No SSL Certificates Found</h5>
@@ -73,8 +73,8 @@ $serverIP = $dm->getServerIP();
     <?php foreach ($certs as $index => $cert): 
         $isAutoManaged = (!empty($cert['resolver']) && stripos($cert['resolver'], 'custom') === false);
     ?>
-    <div class="col-xl-4 col-md-6 <?php echo $isAutoManaged ? 'd-none auto-managed-card' : ''; ?>">
-        <div class="card border-0 shadow-lg rounded-4 h-100 ssl-cert-card blur" data-cert-index="<?php echo (int)$index; ?>">
+    <div class="col-xl-4 col-md-6 card-entrance <?php echo $isAutoManaged ? 'd-none auto-managed-card' : ''; ?>">
+        <div class="card rounded-4 h-100 ssl-cert-ssl-inner-card blur border-0" data-cert-index="<?php echo (int)$index; ?>">
             <div class="card-body d-flex justify-content-between align-items-start p-3">
                 <div class="w-100" style="margin-bottom: 6px;">
                     <!-- Main Domain -->
@@ -87,23 +87,19 @@ $serverIP = $dm->getServerIP();
                         <?php 
                         $badges = $cert['badges'] ?? [];
                         if (empty($badges)) {
-                            // Generate default badges
                             $badges = [];
                             if ($cert['is_valid']) $badges[] = 'valid';
                             
-                            // Check usage
                             if (!empty($cert['used_by']) && isset($cert['used_by_status']) && $cert['used_by_status'] === 'running') {
                                 $badges[] = 'in use';
                             } else {
                                 $badges[] = 'orphaned';
                             }
 
-                            // Add auto-managed indicator
                             if (!empty($cert['resolver']) && stripos($cert['resolver'], 'custom') === false) {
                                 $badges[] = 'auto-managed';
                             }
 
-                            // Add wildcard indicator
                             $hasWildcard = false;
                             if (strpos($cert['main_domain'], '*') !== false) {
                                 $hasWildcard = true;
@@ -120,7 +116,6 @@ $serverIP = $dm->getServerIP();
                             }
                         }
 
-                        // Apply dynamic modifications (so dev-mocked badges get updated too)
                         $finalBadges = [];
                         foreach ($badges as $badge) {
                             if (strtolower($badge) === 'in use') {
@@ -250,8 +245,8 @@ $serverIP = $dm->getServerIP();
 
 <!-- View Details Modal -->
 <div class="modal fade" id="sslDetailModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content border-0 shadow-lg rounded-4">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content blur shadow-lg rounded-4">
             <div class="modal-header border-0 pt-4 px-4">
                 <h4 class="modal-title fw-bold" id="sslDetailTitle">Certificate Details</h4>
                 <button type="button" class="btn-close btn-close-white" data-coreui-dismiss="modal"></button>
@@ -269,7 +264,7 @@ $serverIP = $dm->getServerIP();
 <!-- Troubleshoot Modal -->
 <div class="modal fade" id="sslTroubleshootModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
-        <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-content blur shadow-lg rounded-4">
             <div class="modal-header border-0 pt-4 px-4">
                 <h4 class="modal-title fw-bold">
                     <i class="bx bx-search-alt text-warning me-2"></i>
@@ -293,77 +288,23 @@ $serverIP = $dm->getServerIP();
 
 <style>
 .bg-purple { background-color: #7c3aed !important; }
-
-.ssl-cert-card {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.ssl-cert-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 40px rgba(0,0,0,0.25) !important;
-}
-
-/* SSL Detail Table styling */
-.ssl-detail-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
-}
-.ssl-detail-table th {
-    color: var(--glass-text-muted);
-    font-weight: 700;
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-}
-.ssl-detail-table td {
-    padding: 10px 12px;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-    vertical-align: middle;
-}
-.ssl-detail-table tr:last-child td {
-    border-bottom: none;
-}
-.ssl-detail-table .domain-link {
-    color: #22d3ee;
-    text-decoration: none;
-    font-weight: 600;
-}
-.ssl-detail-table .ip-mono {
-    font-family: 'Courier New', monospace;
-    color: var(--glass-text);
-    font-size: 0.82rem;
-}
-
-/* Troubleshoot status badges */
-.ts-badge-ok { background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.3); }
-.ts-badge-warning { background: rgba(234, 179, 8, 0.15); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.3); }
-.ts-badge-error { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
-
-/* Renewal badges */
-.renewal-auto { background: rgba(34, 197, 94, 0.12); color: #22c55e; }
-.renewal-renewable { background: rgba(34, 197, 94, 0.12); color: #22c55e; }
-.renewal-failed { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
-.renewal-risk { background: rgba(234, 179, 8, 0.12); color: #eab308; }
-
-.ssl-meta-section {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
+.ssl-inner-card {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-radius: 12px;
     padding: 14px 16px;
-    margin-top: 16px;
 }
-.ssl-meta-section .meta-item {
-    font-size: 0.82rem;
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+.ssl-inner-card table { background: transparent !important; }
+.ssl-inner-card th {
+    background: transparent !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
-.ssl-meta-section .meta-item i {
-    font-size: 1rem;
-    color: var(--glass-text-muted);
+.ssl-inner-card td {
+    background: transparent !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+.ssl-inner-card tr:last-child td {
+    border-bottom: none !important;
 }
 </style>
 
@@ -389,18 +330,20 @@ const SSLManager = {
 
         // "Domains in this certificate" label
         const label = document.createElement('p');
-        label.className = 'small text-secondary mb-3 fw-bold';
+        label.className = 'text-secondary small fw-bold mb-2';
         label.textContent = 'Domains in this certificate:';
         body.appendChild(label);
 
         // Build the table
         const table = document.createElement('table');
-        table.className = 'ssl-detail-table';
+        table.className = 'table table-borderless mb-0';
 
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
         ['Domain', 'Points to', 'Renewal'].forEach(text => {
             const th = document.createElement('th');
+            th.className = 'text-secondary fw-bold';
+            th.style.cssText = 'font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px;';
             th.textContent = text;
             headerRow.appendChild(th);
         });
@@ -411,27 +354,24 @@ const SSLManager = {
         (cert.sans || []).forEach(san => {
             const row = document.createElement('tr');
 
-            // Domain cell
             const domainTd = document.createElement('td');
             const domainLink = document.createElement('span');
-            domainLink.className = 'domain-link';
+            domainLink.className = 'text-info fw-semibold';
             domainLink.textContent = san;
             domainTd.appendChild(domainLink);
             row.appendChild(domainTd);
 
-            // Points to cell
             const ipTd = document.createElement('td');
             const ipSpan = document.createElement('span');
-            ipSpan.className = 'ip-mono';
+            ipSpan.className = 'font-monospace small';
             ipSpan.textContent = SSL_SERVER_IP;
             ipTd.appendChild(ipSpan);
             row.appendChild(ipTd);
 
-            // Renewal cell
             const renewalTd = document.createElement('td');
             const renewalBadge = document.createElement('span');
-            renewalBadge.className = 'badge rounded-pill px-2 py-1 fw-bold renewal-renewable';
-            renewalBadge.style.fontSize = '0.72rem';
+            renewalBadge.className = 'badge bg-success bg-opacity-10 text-success rounded-pill fw-bold';
+            renewalBadge.style.cssText = 'font-size:0.72rem;';
             renewalBadge.textContent = 'renewable';
             renewalTd.appendChild(renewalBadge);
             row.appendChild(renewalTd);
@@ -439,11 +379,18 @@ const SSLManager = {
             tbody.appendChild(row);
         });
         table.appendChild(tbody);
-        body.appendChild(table);
+
+        // Wrap table in a card
+        const tableCard = document.createElement('div');
+        tableCard.className = 'ssl-inner-card rounded-4 mb-3';
+        tableCard.appendChild(table);
+        body.appendChild(tableCard);
 
         // Metadata section
         const meta = document.createElement('div');
-        meta.className = 'ssl-meta-section';
+        meta.className = 'ssl-inner-card rounded-4';
+        const metaBody = document.createElement('div');
+        metaBody.className = 'card-body';
 
         const items = [
             { icon: 'bx-check-shield', label: 'Resolver', value: cert.resolver, color: 'text-success' },
@@ -454,10 +401,10 @@ const SSLManager = {
 
         items.forEach(item => {
             const div = document.createElement('div');
-            div.className = 'meta-item';
+            div.className = 'd-flex align-items-center gap-2 mb-1';
 
             const icon = document.createElement('i');
-            icon.className = 'bx ' + item.icon;
+            icon.className = 'bx ' + item.icon + ' text-secondary';
             div.appendChild(icon);
 
             const strong = document.createElement('strong');
@@ -470,9 +417,10 @@ const SSLManager = {
             span.textContent = item.value;
             div.appendChild(span);
 
-            meta.appendChild(div);
+            metaBody.appendChild(div);
         });
 
+        meta.appendChild(metaBody);
         body.appendChild(meta);
 
         // Show modal
@@ -514,17 +462,16 @@ const SSLManager = {
 
                 // Summary banner
                 const summary = document.createElement('div');
-                summary.className = 'p-3 rounded-3 mb-3';
+                summary.className = 'alert d-flex align-items-center gap-2 mb-3 fw-semibold';
                 summary.style.cssText = res.issues_found === 0
-                    ? 'background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2);'
-                    : 'background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);';
+                    ? 'background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.25); color:#22c55e;'
+                    : 'background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#ef4444;';
 
                 const summaryIcon = document.createElement('i');
-                summaryIcon.className = res.issues_found === 0 ? 'bx bx-check-circle text-success me-2 fs-5' : 'bx bx-error-circle text-danger me-2 fs-5';
+                summaryIcon.className = res.issues_found === 0 ? 'bx bx-check-circle fs-5' : 'bx bx-error-circle fs-5';
                 summary.appendChild(summaryIcon);
 
                 const summaryText = document.createElement('span');
-                summaryText.className = 'fw-bold small';
                 summaryText.textContent = res.issues_found === 0
                     ? 'All ' + res.total_sans + ' domains passed verification!'
                     : res.issues_found + ' of ' + res.total_sans + ' domains have issues.';
@@ -533,12 +480,14 @@ const SSLManager = {
 
                 // Results table
                 const table = document.createElement('table');
-                table.className = 'ssl-detail-table';
+                table.className = 'table table-borderless mb-0';
 
                 const thead = document.createElement('thead');
                 const headerRow = document.createElement('tr');
                 ['Domain', 'Points to', 'Status', 'Issues'].forEach(h => {
                     const th = document.createElement('th');
+                    th.className = 'text-secondary fw-bold';
+                    th.style.cssText = 'font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px;';
                     th.textContent = h;
                     headerRow.appendChild(th);
                 });
@@ -551,14 +500,14 @@ const SSLManager = {
 
                     const domainTd = document.createElement('td');
                     const domainSpan = document.createElement('span');
-                    domainSpan.className = 'domain-link';
+                    domainSpan.className = 'text-info fw-semibold';
                     domainSpan.textContent = d.domain;
                     domainTd.appendChild(domainSpan);
                     row.appendChild(domainTd);
 
                     const ipTd = document.createElement('td');
                     const ipSpan = document.createElement('span');
-                    ipSpan.className = 'ip-mono';
+                    ipSpan.className = 'font-monospace small';
                     ipSpan.textContent = d.points_to || 'N/A';
                     ipTd.appendChild(ipSpan);
                     row.appendChild(ipTd);
@@ -566,13 +515,13 @@ const SSLManager = {
                     const statusTd = document.createElement('td');
                     const statusBadge = document.createElement('span');
                     const statusMap = {
-                        'ok': { cls: 'ts-badge-ok', label: '✓ OK' },
-                        'warning': { cls: 'ts-badge-warning', label: '⚠ Warning' },
-                        'error': { cls: 'ts-badge-error', label: '✕ Error' }
+                        'ok': { cls: 'bg-success bg-opacity-10 text-success', label: 'OK' },
+                        'warning': { cls: 'bg-warning bg-opacity-10 text-warning', label: 'Warning' },
+                        'error': { cls: 'bg-danger bg-opacity-10 text-danger', label: 'Error' }
                     };
                     const s = statusMap[d.status] || statusMap['error'];
-                    statusBadge.className = 'badge rounded-pill px-2 py-1 fw-bold ' + s.cls;
-                    statusBadge.style.fontSize = '0.72rem';
+                    statusBadge.className = 'badge rounded-pill fw-bold ' + s.cls;
+                    statusBadge.style.cssText = 'font-size:0.72rem;';
                     statusBadge.textContent = s.label;
                     statusTd.appendChild(statusBadge);
                     row.appendChild(statusTd);
@@ -596,11 +545,18 @@ const SSLManager = {
                     tbody.appendChild(row);
                 });
                 table.appendChild(tbody);
-                results.appendChild(table);
+
+                // Wrap table in a card
+                const tableCard = document.createElement('div');
+                tableCard.className = 'ssl-inner-card rounded-4 mb-3';
+                tableCard.appendChild(table);
+                results.appendChild(tableCard);
 
                 // Certificate metadata
-                const metaDiv = document.createElement('div');
-                metaDiv.className = 'ssl-meta-section';
+                const metaCard = document.createElement('div');
+                metaCard.className = 'ssl-inner-card rounded-4';
+                const metaBody = document.createElement('div');
+                metaBody.className = 'card-body';
 
                 const metaItems = [
                     { icon: 'bx-check-shield', label: 'Resolver', value: res.resolver },
@@ -610,10 +566,10 @@ const SSLManager = {
                 ];
                 metaItems.forEach(item => {
                     const div = document.createElement('div');
-                    div.className = 'meta-item';
+                    div.className = 'd-flex align-items-center gap-2 mb-1';
 
                     const icon = document.createElement('i');
-                    icon.className = 'bx ' + item.icon;
+                    icon.className = 'bx ' + item.icon + ' text-secondary';
                     div.appendChild(icon);
 
                     const strong = document.createElement('strong');
@@ -625,9 +581,10 @@ const SSLManager = {
                     span.textContent = item.value;
                     div.appendChild(span);
 
-                    metaDiv.appendChild(div);
+                    metaBody.appendChild(div);
                 });
-                results.appendChild(metaDiv);
+                metaCard.appendChild(metaBody);
+                results.appendChild(metaCard);
             })
             .catch(err => {
                 loader.style.display = 'none';
@@ -640,52 +597,200 @@ const SSLManager = {
     },
 
     /**
-     * Troubleshoot ALL certificates sequentially.
+     * Troubleshoot ALL certificates via real-time API check.
      */
     troubleshootAll() {
         if (SSL_CERTS.length === 0) return;
-        // Troubleshoot the first cert to start (user can then pick others)
-        this.troubleshoot(SSL_CERTS[0].main_domain);
+
+        const titleEl = document.getElementById('troubleshootTitle');
+        titleEl.textContent = 'Troubleshoot All Certificates';
+
+        const loader = document.getElementById('troubleshootLoader');
+        const results = document.getElementById('troubleshootResults');
+        loader.style.display = 'block';
+        results.style.display = 'none';
+        results.replaceChildren();
+
+        const modal = new coreui.Modal(document.getElementById('sslTroubleshootModal'));
+        modal.show();
+
+        fetch('/api/ssl/troubleshoot_all')
+            .then(r => r.json())
+            .then(data => {
+                loader.style.display = 'none';
+                results.style.display = 'block';
+
+                if (!data.success) {
+                    const errP = document.createElement('p');
+                    errP.className = 'text-danger';
+                    errP.textContent = data.error || 'Troubleshoot failed.';
+                    results.appendChild(errP);
+                    return;
+                }
+
+                // Summary banner
+                const summary = document.createElement('div');
+                summary.className = 'alert d-flex align-items-center gap-2 mb-3 fw-semibold';
+                const noIssues = data.high === 0;
+                summary.style.cssText = noIssues
+                    ? 'background:rgba(34,197,94,0.1); border:1px solid rgba(34,197,94,0.25); color:#22c55e;'
+                    : 'background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.25); color:#ef4444;';
+
+                const summaryIcon = document.createElement('i');
+                summaryIcon.className = noIssues ? 'bx bx-check-circle fs-5' : 'bx bx-error-circle fs-5';
+                summary.appendChild(summaryIcon);
+
+                const summaryText = document.createElement('span');
+                summaryText.textContent = noIssues
+                    ? 'All ' + data.cert_count + ' certificates passed verification!'
+                    : data.high + ' of ' + data.cert_count + ' certificates have issues.';
+                summary.appendChild(summaryText);
+                results.appendChild(summary);
+
+                // Results table
+                const table = document.createElement('table');
+                table.className = 'table table-borderless mb-0';
+
+                const thead = document.createElement('thead');
+                const headerRow = document.createElement('tr');
+                ['Certificate', 'SANs', 'Status', 'Issues', 'Expires'].forEach(h => {
+                    const th = document.createElement('th');
+                    th.className = 'text-secondary fw-bold';
+                    th.style.cssText = 'font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px;';
+                    th.textContent = h;
+                    headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                const tbody = document.createElement('tbody');
+                (data.findings || []).forEach(f => {
+                    const row = document.createElement('tr');
+
+                    const domainTd = document.createElement('td');
+                    const domainSpan = document.createElement('span');
+                    domainSpan.className = 'text-info fw-semibold';
+                    domainSpan.textContent = f.domain;
+                    domainTd.appendChild(domainSpan);
+                    if (f.used_by) {
+                        const usedByDiv = document.createElement('div');
+                        usedByDiv.className = 'small text-secondary mt-1';
+                        usedByDiv.textContent = f.used_by;
+                        domainTd.appendChild(usedByDiv);
+                    }
+                    row.appendChild(domainTd);
+
+                    const sansTd = document.createElement('td');
+                    sansTd.className = 'font-monospace small';
+                    sansTd.textContent = f.total_sans || '-';
+                    row.appendChild(sansTd);
+
+                    const statusTd = document.createElement('td');
+                    const statusBadge = document.createElement('span');
+                    const statusMap = {
+                        'ok': { cls: 'bg-success bg-opacity-10 text-success', label: 'OK' },
+                        'warning': { cls: 'bg-warning bg-opacity-10 text-warning', label: 'Warning' },
+                        'error': { cls: 'bg-danger bg-opacity-10 text-danger', label: 'Error' }
+                    };
+                    const s = statusMap[f.status] || statusMap['error'];
+                    statusBadge.className = 'badge rounded-pill fw-bold ' + s.cls;
+                    statusBadge.style.cssText = 'font-size:0.72rem;';
+                    statusBadge.textContent = s.label;
+                    statusTd.appendChild(statusBadge);
+                    row.appendChild(statusTd);
+
+                    const issuesTd = document.createElement('td');
+                    issuesTd.className = f.issues > 0 ? 'text-danger fw-semibold' : 'text-success';
+                    issuesTd.textContent = f.issues || '0';
+                    row.appendChild(issuesTd);
+
+                    const expiresTd = document.createElement('td');
+                    expiresTd.className = 'small';
+                    if (f.days_left !== null) {
+                        const daysColor = f.days_left > 30 ? 'text-success' : (f.days_left > 7 ? 'text-warning' : 'text-danger');
+                        expiresTd.innerHTML = f.expires ? f.expires.split(' ').slice(0, 1).join(' ') : '-';
+                        const daysSpan = document.createElement('span');
+                        daysSpan.className = ' ' + daysColor;
+                        daysSpan.textContent = ' (' + f.days_left + 'd)';
+                        expiresTd.appendChild(daysSpan);
+                    } else {
+                        expiresTd.textContent = '-';
+                    }
+                    row.appendChild(expiresTd);
+
+                    tbody.appendChild(row);
+                });
+                table.appendChild(tbody);
+
+                const tableCard = document.createElement('div');
+                tableCard.className = 'ssl-inner-card rounded-4 mb-3';
+                tableCard.appendChild(table);
+                results.appendChild(tableCard);
+
+                // Checked at timestamp
+                const ts = document.createElement('div');
+                ts.className = 'text-secondary small text-end mt-2';
+                ts.textContent = 'Checked at: ' + new Date(data.checked_at * 1000).toLocaleString();
+                results.appendChild(ts);
+            })
+            .catch(err => {
+                loader.style.display = 'none';
+                results.style.display = 'block';
+                const errP = document.createElement('p');
+                errP.className = 'text-danger small';
+                errP.textContent = 'Network error: ' + err.message;
+                results.appendChild(errP);
+            });
     },
 
     /**
      * Refresh certificates via API.
      */
+    _refreshing: false,
     refresh() {
+        if (SSLManager._refreshing) return;
+        SSLManager._refreshing = true;
+
         const btn = document.getElementById('btnRefresh');
-        const originalContent = btn.textContent;
         btn.disabled = true;
         btn.replaceChildren();
         const spinner = document.createElement('span');
         spinner.className = 'spinner-border spinner-border-sm me-1';
         spinner.setAttribute('role', 'status');
         btn.appendChild(spinner);
-        const txt = document.createTextNode(' Refreshing...');
-        btn.appendChild(txt);
+        btn.appendChild(document.createTextNode(' Refreshing...'));
 
         fetch('/api/ssl/refresh')
-            .then(r => r.json())
+            .then(r => {
+                if (r.status === 429) {
+                    SSLManager._restoreRefreshBtn(btn);
+                    return null;
+                }
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
             .then(data => {
-                if (data.success) {
-                    // Reload the page to show fresh data
+                if (data && data.success) {
                     window.location.reload();
-                } else {
-                    btn.disabled = false;
-                    btn.replaceChildren();
-                    const icon = document.createElement('i');
-                    icon.className = 'bx bx-refresh me-1';
-                    btn.appendChild(icon);
-                    btn.appendChild(document.createTextNode(' Refresh'));
+                } else if (data && !data.success && data.error) {
+                    if (window.TomNotify) TomNotify.show(data.error, 'Refresh Failed', 'danger', 4000);
+                    SSLManager._restoreRefreshBtn(btn);
                 }
             })
             .catch(() => {
-                btn.disabled = false;
-                btn.replaceChildren();
-                const icon = document.createElement('i');
-                icon.className = 'bx bx-refresh me-1';
-                btn.appendChild(icon);
-                btn.appendChild(document.createTextNode(' Refresh'));
+                if (window.TomNotify) TomNotify.show('Network error while refreshing certificates.', 'Error', 'danger', 4000);
+                SSLManager._restoreRefreshBtn(btn);
             });
+    },
+
+    _restoreRefreshBtn(btn) {
+        SSLManager._refreshing = false;
+        btn.disabled = false;
+        btn.replaceChildren();
+        const icon = document.createElement('i');
+        icon.className = 'bx bx-refresh me-1';
+        btn.appendChild(icon);
+        btn.appendChild(document.createTextNode(' Refresh'));
     },
 
     toggleAutoManaged() {

@@ -21,17 +21,16 @@ foreach ($labTemplates as $tmpl) {
     // 1. FIXED: Use the specific template ID so each lab has a unique hash
     $hash = $user->getLabHash($tmpl['id']); 
     
-    $data = $db->machine_labs->findOne(['deploy.instance_hash' => $hash]);
-    $deploy = $data ? ($data['deploy'] ?? []) : null;
+    $data = $db->machine_labs->findOne(['instance_hash' => $hash]);
 
     $labsList[] = [
         'id'     => $tmpl['id'],
         'name'   => $tmpl['name'],
         'icon'   => $tmpl['icon'],
         'badges' => $tmpl['badges'],
-        'hash'   => $hash, // 2. FIXED: Matches the variable name above
-        'status' => ($deploy && ($deploy['status'] ?? '') === 'running') ? 'running' : 'offline',
-        'ip'     => ($deploy && ($deploy['status'] ?? '') === 'running' && isset($deploy['internal_ip'])) ? $deploy['internal_ip'] : 'Instance Down',
+        'hash'   => $hash,
+        'status' => ($data && ($data['status'] ?? '') === 'running') ? 'running' : 'offline',
+        'ip'     => ($data && ($data['status'] ?? '') === 'running' && isset($data['internal_ip'])) ? $data['internal_ip'] : 'Instance Down',
         'is_public' => ($data && isset($data['is_public'])) ? 'public' : 'private'
     ];
 }

@@ -39,10 +39,10 @@ if (empty($userId) || empty($command)) {
 try {
     $db = DatabaseConnection::getDefaultDatabase();
     $inst = $db->machine_labs->findOne([
-        'deploy.user_id' => (int)$userId,
-        'deploy.status' => 'running'
+        'user_id' => (int)$userId,
+        'status' => 'running'
     ]);
-    $labDoc = $inst ? ($inst['deploy'] ?? []) : null;
+    $labDoc = $inst;
 
     if (!$labDoc || empty($labDoc['instance_hash'])) {
         http_response_code(400);
@@ -74,8 +74,8 @@ foreach ($dangerousPatterns as $pattern) {
 
 try {
     $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-    $inst = $db->machine_labs->findOne(['deploy.instance_hash' => $instanceHash]);
-    $labData = $inst ? ($inst['deploy'] ?? []) : null;
+    $inst = $db->machine_labs->findOne(['instance_hash' => $instanceHash]);
+    $labData = $inst;
 
     if (!$labData) {
         throw new Exception('Lab not found for this instance hash');

@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import time
 import secrets
@@ -35,52 +36,58 @@ class LabCmd(Command):
 
     def _get_deploy_data(self, instance_id):
         if self.db is not None:
-            doc = self.db.machine_labs.find_one({"deploy.instance_hash": instance_id})
-            if doc:
-                return doc.get("deploy", {})
             doc = self.db.machine_labs.find_one({"instance_hash": instance_id})
-            if doc:
-                return doc.get("deploy", doc)
+            return doc
         return None
 
     def _set_deploy_field(self, instance_id, field, value):
         if self.db is not None:
-            result = self.db.machine_labs.update_one(
+            self.db.machine_labs.update_one(
                 {"instance_hash": instance_id},
                 {"$set": {field: value}}
             )
-            if result.matched_count == 0:
-                self.db.machine_labs.update_one(
-                    {"deploy.instance_hash": instance_id},
-                    {"$set": {f"deploy.{field}": value}}
-                )
 
     def _set_deploy_fields(self, instance_id, fields):
         if self.db is not None:
-            result = self.db.machine_labs.update_one(
+            self.db.machine_labs.update_one(
                 {"instance_hash": instance_id},
                 {"$set": fields}
             )
-            if result.matched_count == 0:
-                deploy_fields = {f"deploy.{k}": v for k, v in fields.items()}
-                self.db.machine_labs.update_one(
-                    {"deploy.instance_hash": instance_id},
-                    {"$set": deploy_fields}
-                )
 
     def _fail_deploy(self, instance_id, msg):
         self.log(msg, "error")
         self._set_deploy_field(instance_id, "status", "error")
         if self.db is not None:
-            result = self.db.machine_labs.update_one(
+            now = time.time()
+            self.db.machine_labs.update_one(
                 {"instance_hash": instance_id},
-                {"$set": {"last_error": msg, "error_at": time.time()}}
+                {"$set": {"last_error": msg, "error_at": now, "status": "error"}}
             )
-            if result.matched_count == 0:
-                self.db.machine_labs.update_one(
-                    {"deploy.instance_hash": instance_id},
-                    {"$set": {"deploy.last_error": msg, "deploy.error_at": time.time()}}
+        sys.exit(1)
+
+    def _cleanup_stale_docker_ips(self):
+        """Release Docker IPs claimed by non-running labs."""
+        docker_ip_col = self.db["docker_ip_registry"] if self.db else None
+        if not docker_ip_col:
+            return
+        claimed = docker_ip_col.find({"status": "claimed"})
+        released = 0
+        for doc in claimed:
+            iid = doc.get("instance_hash", "")
+            if not iid:
+                continue
+            lab = self.db.machine_labs.find_one(
+                {"instance_hash": iid},
+                {"status": 1}
+            )
+            if not lab or lab.get("status") != "running":
+                docker_ip_col.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {"status": "available", "instance_hash": "", "user": "", "claimed_at": 0}}
                 )
+                released += 1
+        if released:
+            self.log(f"Released {released} stale Docker IP(s)", "info")
 
     # ── Detect VPS Docker IP ────────────────────────────────────
 
@@ -232,6 +239,9 @@ class LabCmd(Command):
             self.log("Missing --hash", "error")
             return
 
+        # Clean up stale Docker IPs before allocating
+        self._cleanup_stale_docker_ips()
+
         lab_data = self._get_deploy_data(instance_id)
         if not lab_data:
             self._fail_deploy(instance_id, f"Lab not found: {instance_id}")
@@ -273,25 +283,44 @@ class LabCmd(Command):
             return
 
         # IPs — IPManager-style allocation from lab_ips pool
-        lab_ips_col = self.db["lab_ips"] if self.db else None
+        lab_ips_col = self.db["ip_registry"] if self.db else None
         instances_col = self.instances_db().instances if self.instances_db() else None
 
+        # Get user email for IP registry
+        user_profile = self.db.users.find_one({"username": username}) if self.db else None
+        user_email = user_profile.get('email', username) if user_profile else username
+
         allocated_ip = None
-        if lab_ips_col and instances_col:
+
+        # Priority 1: Check machine_labs for existing IP (most reliable)
+        existing_lab = self.db.machine_labs.find_one({"instance_hash": instance_id})
+        if existing_lab and existing_lab.get("internal_ip"):
+            allocated_ip = existing_lab["internal_ip"]
+            self.log(f"Reusing existing lab IP from DB: {allocated_ip}")
+
+        # Priority 2: Check ip_registry for IP allocated to this instance
+        if not allocated_ip and lab_ips_col:
             existing = lab_ips_col.find_one({"allocated_to": instance_id})
             if existing:
                 allocated_ip = existing["ip_addr"]
                 self.log(f"Reusing allocated IP: {allocated_ip}")
 
+        # Mark the IP as reserved in ip_registry
+        if allocated_ip and lab_ips_col:
+            lab_ips_col.update_one(
+                {"ip_addr": allocated_ip},
+                {"$set": {"status": "reserved", "allocated_to": instance_id, "email": user_email, "reserved_to": username}}
+            )
+
+        # Priority 3: Allocate new IP from pool
         if not allocated_ip and lab_ips_col:
             result = lab_ips_col.find_one_and_update(
-                {"allocated": False, "status": "available"},
+                {"status": "available", "ip_numeric": {"$gt": 1}},
                 {
                     "$set": {
-                        "status": "allocated",
-                        "allocated": True,
+                        "status": "reserved",
                         "allocated_to": instance_id,
-                        "email": username,
+                        "email": user_email,
                         "reserved_to": username,
                         "service_type": template_name,
                         "label": "{} Lab".format(template_name.title()),
@@ -313,7 +342,7 @@ class LabCmd(Command):
             try:
                 instances_col.update_one(
                     {"instance_hash": instance_id},
-                    {"$set": {"deploy.internal_ip": allocated_ip}}
+                    {"$set": {"internal_ip": allocated_ip}}
                 )
             except Exception:
                 pass
@@ -324,36 +353,41 @@ class LabCmd(Command):
         else:
             last_octet = allocated_ip.split(".")[-1]
 
-        docker_ip = f"{self.cfg.docker_ip}{last_octet}"
-        tunnel_ip = f"{self.cfg.tunnel_ip}{last_octet}"
-        self.log(f"Assigned Docker IP (eth0): {docker_ip}", "info")
-        self.log(f"Assigned Tunnel IP (wg0): {tunnel_ip}", "info")
+        tunnel_ip = allocated_ip  # tunnel_ip == internal_ip in flat structure
 
         # Resources
         res = lab_spec.get("resources", {})
         mem = res.get("memory", "512m")
         cpu = res.get("cpus", "0.2")
-        mount_target = lab_spec.get("storage", {}).get("mount_target", "/home/{user}").replace("{user}", username)
+        mount_target = lab_spec.get("storage", {}).get("mount_target", "/var/labsstorage/home/{user}").replace("{user}", username)
         storage_path = lab_data.get("storage_path", "")
 
         # Phase: CLEANUP
         self.log("Checking for conflicting containers...")
         if self.docker_exists(instance_id):
-            self.log("Existing container removed.")
+            self.log("Removing existing container...")
+            docker_network = self.cfg.docker_network
+            self.run(f"docker network disconnect -f {docker_network} {instance_id} 2>/dev/null || true")
         else:
             self.log("No existing container found.")
         self.docker_stop(instance_id)
 
-        # Phase: STORAGE
-        if storage_path.startswith("/"):
-            if not os.path.exists(storage_path):
-                os.makedirs(storage_path, exist_ok=True)
-                self.log(f"Setting up storage: {storage_path}")
-            else:
-                self.log(f"Volume verified: {storage_path}")
-            self._set_user_quota(username, storage_path)
+        # Phase: STORAGE — create SNA-style structure on first deploy, preserve on redeploy
+        import hashlib
+        storage_base = self.cfg.storage_base
+        user_email = lab_data.get("email", "")
+        user_hash = hashlib.md5(user_email.encode()).hexdigest() if user_email else username
+        # SNA-style: storage/{hash}/home/{username}/ + cron/ + usr/
+        user_storage = f"{storage_base}/{user_hash}"
+        user_home = f"{user_storage}/home/{username}"
+        if not os.path.exists(user_home):
+            os.makedirs(user_home, exist_ok=True)
+            # Create SNA-style root directories
+            os.makedirs(f"{user_storage}/cron", exist_ok=True)
+            os.makedirs(f"{user_storage}/usr", exist_ok=True)
+            self.log(f"Created storage: {user_home}")
         else:
-            self.log("Using Docker named volume.")
+            self.log(f"Storage preserved: {user_home}")
 
         # Phase: NETWORK — Clear stale WireGuard peers
         self.log(f"Clearing stale VPN sessions for {tunnel_ip}...")
@@ -403,12 +437,67 @@ class LabCmd(Command):
         tunnel_gw = f"{self.cfg.tunnel_ip}1"
         vpn_domain = self.cfg.vpn_domain
 
+        # -- Atomic Docker IP Allocation via MongoDB --
+        # findOneAndUpdate is atomic at document level -- only ONE process wins each claim.
+        docker_ip_col = self.db["docker_ip_registry"] if self.db else None
+        docker_ip = None
+
+        if docker_ip_col:
+            docker_ip_col.create_index("octet", unique=True, background=True)
+            if docker_ip_col.count_documents({}) == 0:
+                bulk = [{"octet": i, "ip": self.cfg.docker_ip + str(i), "status": "available"} for i in range(3, 255)]
+                try:
+                    docker_ip_col.insert_many(bulk, ordered=False)
+                except Exception:
+                    pass
+
+            claimed = docker_ip_col.find_one_and_update(
+                {"status": "available"},
+                {"$set": {
+                    "status": "claimed",
+                    "instance_hash": instance_id,
+                    "user": username,
+                    "claimed_at": time.time(),
+                }},
+                sort=[("octet", 1)],
+                return_document=True,
+            )
+            if claimed:
+                docker_ip = claimed["ip"]
+                self._set_deploy_field(instance_id, "docker_ip", docker_ip)
+            else:
+                self._fail_deploy(instance_id, "Docker IP pool exhausted!")
+                return
+        else:
+            code, in_use = self.run(
+                f"docker network inspect {docker_network} "
+                f"-f '{{{{range .Containers}}}}{{{{.IPv4Address}}}}{{{{end}}}}' 2>/dev/null",
+                capture=True
+            )
+            used_octets = {1, 2}
+            if in_use:
+                for addr in in_use.split("/"):
+                    if addr.startswith(self.cfg.docker_ip):
+                        try:
+                            used_octets.add(int(addr.replace(self.cfg.docker_ip, "").strip()))
+                        except ValueError:
+                            pass
+            docker_last_octet = int(last_octet)
+            while docker_last_octet in used_octets:
+                docker_last_octet += 1
+            docker_ip = self.cfg.docker_ip + str(docker_last_octet)
+
+        self.log(f"Assigned Docker IP (eth0): {docker_ip}", "info")
+
         docker_cmd = self.cfg.get("docker_run", "")
+        # Host-side base path (Mac) for Docker volume mount
+        STORAGE_HOST_BASE = "/Users/sathish/Development/Dev_lab/tomlabs/storage"
         mapping = {
             "lab_name": instance_id,
             "memory": mem,
             "cpus": cpu,
-            "storage": storage_path,
+            "storage_path": user_storage,
+            "storage_host_path": f"{STORAGE_HOST_BASE}/{user_hash}",
             "mount_target": mount_target,
             "user": username,
             "image": lab_data.get("image", f"{template_name}:lab"),
@@ -428,9 +517,19 @@ class LabCmd(Command):
 
         from src.DockerHelper import DockerHelper
         docker = DockerHelper()
+
+        mapping["ip"] = docker_ip
         result = docker.run_command(docker_cmd, mapping)
+
         if not result:
             self._fail_deploy(instance_id, "Container failed to start")
+            # Release the Docker IP we claimed
+            docker_ip_col = self.db["docker_ip_registry"] if self.db else None
+            if docker_ip_col:
+                docker_ip_col.update_one(
+                    {"instance_hash": instance_id, "status": "claimed"},
+                    {"$set": {"status": "available", "instance_hash": "", "user": "", "claimed_at": 0}}
+                )
             return
 
         self.log("Waiting for container services to initialize...")
@@ -438,6 +537,13 @@ class LabCmd(Command):
             if self.docker_running(instance_id):
                 break
             time.sleep(0.5)
+
+        # Ensure /home symlink and proper ownership
+        self.run(
+            f"docker exec {instance_id} bash -c '"
+            f"rm -rf /home && ln -s /var/labsstorage/home /home && "
+            f"chown -R 1000:1000 /var/labsstorage/home/{username} 2>/dev/null'"
+        )
 
         # Phase: ROUTING
         self.log("Configuring network routing and firewall...")
@@ -497,9 +603,6 @@ service apache2 reload 2>/dev/null || true
             su_pass = existing_creds.get("su_pass", f"{username}@098")
 
         self.log(f"sudo Password: {su_pass}")
-
-        user_profile = self.db.users.find_one({"username": username}) if self.db else None
-        user_email = user_profile.get('email', username) if user_profile else username
 
         # Execute linkuser.sh
         self.log("Configuring user environment...")
@@ -574,8 +677,8 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
 
         # Phase: METADATA
         self.log("Finalizing routing metadata...")
-        code_domain = args.flag("vsc_domain") or lab_data.get("code_domain") or f"code-{instance_id}.{self.cfg.code_domain}"
-        gui_domain = args.flag("gui_domain") or lab_data.get("gui_domain") or f"gui-{instance_id}.{self.cfg.code_domain}"
+        code_domain = getattr(args, 'vsc_domain', None) or lab_data.get("code_domain") or f"code-{instance_id}.{self.cfg.code_domain}"
+        gui_domain = getattr(args, 'gui_domain', None) or lab_data.get("gui_domain") or f"gui-{instance_id}.{self.cfg.code_domain}"
         credentials.update({
             "ssh": f"ssh {username}@{tunnel_ip}",
             "ssh_proxy": f'ssh -o "ProxyCommand=ssh -W %h:%p -i ~/.ssh/id_ed25519 root@127.0.0.1 -p 2222" {username}@{docker_ip}',
@@ -600,7 +703,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
                 "password": dynamic_pass,
                 "email": user_email,
                 "su_pass": su_pass,
-            "vnc_pass": vnc_pass,
+                "vnc_pass": vnc_pass,
             }
             for key, val in cred_template.items():
                 if isinstance(val, str):
@@ -608,7 +711,14 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
                 else:
                     credentials[key] = val
 
-        self._set_deploy_fields(instance_id, {"status": "running", "credentials": credentials})
+        # Save to database
+        self.db.machine_labs.update_one(
+            {"instance_hash": instance_id},
+            {"$set": {
+                "status": "running",
+                "credentials": credentials
+            }}
+        )
 
         # Phase: CODE-SERVER MONITOR
         self._ensure_codeserver(instance_id, username)
@@ -625,8 +735,8 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
         base_domain = self.cfg.code_domain
         db_domain = lab_data.get("code_domain")
         db_gui_domain = lab_data.get("gui_domain")
-        vsc_domain = (args.flag("vsc_domain") if args else None)
-        gui_domain_arg = (args.flag("gui_domain") if args else None)
+        vsc_domain = getattr(args, 'vsc_domain', None) if args else None
+        gui_domain_arg = getattr(args, 'gui_domain', None) if args else None
         code_domain = vsc_domain or db_domain or f"code-{instance_id}.{base_domain}"
         gui_domain = gui_domain_arg or db_gui_domain or f"gui-{instance_id}.{base_domain}"
 
@@ -714,7 +824,7 @@ while true; do
     if ! pgrep -u $USER -f code-server > /dev/null; then
         exit 0
     fi
-    HEARTBEAT="/home/$USER/.local/share/code-server/heartbeat"
+    HEARTBEAT="/var/labsstorage/home/$USER/.local/share/code-server/heartbeat"
     if [ -f "$HEARTBEAT" ]; then
         LAST_MOD=$(stat -c %Y "$HEARTBEAT")
         NOW=$(date +%s)
@@ -760,6 +870,16 @@ done
             self.log("Stopping Docker container...")
             self.run(f"docker stop {instance_id} && docker rm -f {instance_id}")
             self._set_deploy_field(instance_id, "status", "stopped")
+
+            # Release Docker IP back to pool
+            docker_ip_col = self.db["docker_ip_registry"] if self.db else None
+            if docker_ip_col:
+                docker_ip_col.update_one(
+                    {"instance_hash": instance_id, "status": "claimed"},
+                    {"$set": {"status": "available", "instance_hash": "", "user": "", "claimed_at": 0}}
+                )
+                self.log("Docker IP released to pool.")
+
             self.log("Container and process-space cleared.", "success")
         else:
             self.log("No container found, skipping stop.")
@@ -883,6 +1003,11 @@ done
             self.log(f"No SSH keys found for {username}", "warn")
             return
 
+        import hashlib
+        user_profile = self.db.users.find_one({"username": username}) if self.db else None
+        user_email = user_profile.get("email", username) if user_profile else username
+        user_hash = hashlib.md5(user_email.encode()).hexdigest()
+
         auth_content = "\n".join([k['public_key'] for k in user_keys if 'public_key' in k])
 
         labs = list(self.db.machine_labs.find({"username": username, "status": "running"}))
@@ -907,12 +1032,12 @@ done
                 f.write(auth_content + "\n")
                 tmp_key = f.name
 
-            self.run(f"docker exec {iid} mkdir -p /home/{username}/.ssh")
-            self.run(f"docker cp {tmp_key} {iid}:/home/{username}/.ssh/authorized_keys")
+            self.run(f"docker exec {iid} mkdir -p /var/labsstorage/home/{user_hash}/.ssh")
+            self.run(f"docker cp {tmp_key} {iid}:/var/labsstorage/home/{user_hash}/.ssh/authorized_keys")
             os.unlink(tmp_key)
-            self.run(f"docker exec {iid} chmod 700 /home/{username}/.ssh")
-            self.run(f"docker exec {iid} chmod 600 /home/{username}/.ssh/authorized_keys")
-            self.run(f"docker exec {iid} chown -R {username} /home/{username}/.ssh 2>/dev/null || true")
+            self.run(f"docker exec {iid} chmod 700 /var/labsstorage/home/{user_hash}/.ssh")
+            self.run(f"docker exec {iid} chmod 600 /var/labsstorage/home/{user_hash}/.ssh/authorized_keys")
+            self.run(f"docker exec {iid} chown -R {username} /var/labsstorage/home/{user_hash}/.ssh 2>/dev/null || true")
 
             self.log(f"SSH keys updated in {iid}", "success")
 

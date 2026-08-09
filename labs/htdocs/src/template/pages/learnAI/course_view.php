@@ -565,7 +565,7 @@ $dbSizesArr = is_string($dbSizesRaw) ? json_decode($dbSizesRaw, true) : $dbSizes
 </div>
 
 <!-- Code + Connection modals (API-driven, shared partial) -->
-<?php include __DIR__ . '/../labs/partials/lab_action_modals.php'; ?>
+<?php include __DIR__ . '/../labs/partials/lab_modals.php'; ?>
 
 <style>
 .learn-app-wrapper { background: transparent; }

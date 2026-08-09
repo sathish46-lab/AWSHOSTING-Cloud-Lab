@@ -20,8 +20,8 @@ if (empty($instanceHash)) {
 }
 
 $db = DatabaseConnection::getClient()->selectDatabase('tom_labs_db');
-$labDoc = $db->machine_labs->findOne(['deploy.instance_hash' => $instanceHash]);
-$labData = $labDoc ? ($labDoc['deploy'] ?? []) : null;
+$labDoc = $db->machine_labs->findOne(['instance_hash' => $instanceHash]);
+$labData = $labDoc;
 
 // 2. If Lab is new, identify type by hash comparison
 if (!$labData) {
