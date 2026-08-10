@@ -220,9 +220,9 @@ def get_or_create_cached_context(user_id, lesson_id, system_context_text, histor
         if redis_client:
             try:
                 redis_client.setex(cache_redis_key, 1500, cache_name)
-            except Exception:
-                pass
-        
+            except Exception as e:
+                print(f"   > Warning: failed to cache key in Redis: {e}")
+
         return cache_name
     except Exception as e:
         print(f"   > Context caching unavailable (min token threshold not met or API error): {e}")
@@ -261,9 +261,9 @@ def generate_summary_via_lm_studio(messages_to_summarize):
             models_data = models_resp.json()
             if 'data' in models_data and len(models_data['data']) > 0:
                 model_id = models_data['data'][0]['id']
-    except Exception:
-        pass
-    
+    except Exception as e:
+        print(f"   > Warning: could not fetch LM Studio model list: {e}")
+
     payload = {
         "model": model_id,
         "messages": [
@@ -311,9 +311,49 @@ def generate_summary_via_gemini(messages_to_summarize):
     return None
 
 def maybe_summarize(user_id, lesson_id, chapter_id, ai_model='lm_studio'):
-    """Check if conversation needs summarization and perform it if needed"""
+    """Check if conversation needs summarization and perform it if needed.
+
+    Queries the chat_history collection for the given user/lesson/chapter.
+    If the message count exceeds SUMMARIZE_THRESHOLD, the oldest messages
+    (beyond KEEP_RECENT) are summarized and replaced with a single summary
+    document so the AI context window stays manageable.
+    """
     try:
-        pass # Database interaction removed. 
+        chat_col = db["chat_history"]
+        query = {"user_id": user_id, "lesson_id": lesson_id, "chapter_id": chapter_id}
+        messages = list(chat_col.find(query).sort("timestamp", 1))
+
+        if len(messages) <= SUMMARIZE_THRESHOLD:
+            return
+
+        to_summarize = messages[:-KEEP_RECENT]
+        recent = messages[-KEEP_RECENT:]
+
+        summary_text = None
+        if ai_model == "gemini":
+            summary_text = generate_summary_via_gemini(to_summarize)
+        else:
+            summary_text = generate_summary_via_lm_studio(to_summarize)
+
+        if not summary_text:
+            print(f" [!] Summarization produced no text for user {user_id}")
+            return
+
+        # Replace old messages with a single summary document
+        ids_to_remove = [m["_id"] for m in to_summarize if "_id" in m]
+        if ids_to_remove:
+            chat_col.delete_many({"_id": {"$in": ids_to_remove}})
+
+        chat_col.insert_one({
+            "user_id": user_id,
+            "lesson_id": lesson_id,
+            "chapter_id": chapter_id,
+            "role": "system",
+            "content": f"[Conversation Summary] {summary_text}",
+            "timestamp": datetime.utcnow(),
+            "is_summary": True,
+        })
+        print(f" [x] Summarized {len(to_summarize)} messages for user {user_id}")
     except Exception as e:
         print(f" [!] Summarization error: {e}")
 
@@ -585,15 +625,15 @@ def process_ai_job(ch, method, properties, body):
                                 if getattr(part, 'function_call', None):
                                     fc = part.function_call
                                     break
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            print(f"   > Warning: failed to extract function call from chunk: {e}")
 
                         if fc:
                             found_fc = True
                             try:
                                 response.resolve()
-                            except Exception:
-                                pass
+                            except Exception as e:
+                                print(f"   > Warning: response.resolve() failed: {e}")
 
                             tool_data = None
                             tool_name = fc.name

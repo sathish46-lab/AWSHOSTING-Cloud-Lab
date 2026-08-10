@@ -24,8 +24,8 @@ def _file_log(msg):
         os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
         with open(LOG_FILE, 'a') as f:
             f.write(msg + '\n')
-    except Exception:
-        pass
+    except Exception as e:
+        print(f" [!] _file_log write failed: {e}")
 
 def _publish_to_dlq(job_data, reason="unknown"):
     """Publish failed job to Dead Letter Queue for later inspection."""
@@ -109,8 +109,8 @@ def reap_expired_challenges():
                         db.challenge_instances.update_one(
                             {"instance_hash": hash_id}, {"$set": {"mission_started": False}}
                         )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f" [!] Failed to reset challenge state for {hash_id}: {e}")
         except Exception as e:
             print(f" [Reaper Error] {e}")
         time.sleep(15)
@@ -279,8 +279,8 @@ def _run_job(job_data):
                 log_to_user(err_ch, "amq.topic", routing_key, f"[!] System Error: {str(e)}")
                 log_to_user(err_ch, "amq.topic", routing_key, "[*] reload")
                 err_conn.close()
-            except Exception:
-                pass
+            except Exception as err_notify_err:
+                print(f" [!] Failed to send error notification to user: {err_notify_err}")
         if instance_hash:
             _save_deploy_logs(instance_hash, [f"[!] System Error: {str(e)}"], str(e))
 

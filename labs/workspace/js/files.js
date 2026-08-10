@@ -593,8 +593,12 @@
   if (deleteBtn) deleteBtn.addEventListener("click", deleteFile);
   if (openEditorBtn) {
     openEditorBtn.addEventListener("click", () => {
-      showToast("Opening full VS Code editor (code-server) for this instance...", "info");
-      // TODO: wire to the instance's code-server URL once deployment exposes it.
+      const codeServerUrl = container.dataset.codeServerUrl;
+      if (codeServerUrl) {
+        window.open(codeServerUrl, "_blank", "noopener,noreferrer");
+      } else {
+        showToast("Code-server URL not available for this instance.", "warning");
+      }
     });
   }
 

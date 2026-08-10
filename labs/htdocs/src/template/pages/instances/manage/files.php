@@ -3,8 +3,9 @@
 // Real, DB-backed file manager (Copy-on-Write template inheritance).
 // Content is rendered client-side by labs/workspace/js/files.js via AJAX.
 $slug = $_GET['slug'] ?? '';
+$codeServerUrl = $hdrCodeUrl ?? '';
 ?>
-<div class="card blur border-0 rounded-4 p-4 shadow-lg mb-4" id="filesManager" data-slug="<?= htmlspecialchars($slug) ?>">
+<div class="card blur border-0 rounded-4 p-4 shadow-lg mb-4" id="filesManager" data-slug="<?= htmlspecialchars($slug) ?>" data-code-server-url="<?= htmlspecialchars($codeServerUrl) ?>">
     <!-- Row 1: title (left) + Open in editor (right) -->
     <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
         <h5 class="fw-bold theme-text m-0 d-flex align-items-center gap-2">
