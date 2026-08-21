@@ -1,0 +1,1105 @@
+// MCP Inspector Styles
+
+// ── Activity Page: fit to screen ──
+body:has(.mcp-page--activity) {
+  height: 100vh !important;
+  overflow: hidden !important;
+}
+body:has(.mcp-page--activity) .wrapper {
+  height: 100vh !important;
+  overflow: hidden !important;
+}
+body:has(.mcp-page--activity) .body {
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+body:has(.mcp-page--activity) .footer {
+  flex-shrink: 0 !important;
+}
+
+.mcp-page--activity {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+.mcp-page {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.mcp-shell {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  padding-bottom: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mcp-tabs {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+}
+
+.mcp-pane {
+  animation: fadeIn 0.2s ease;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.mcp-setup-row {
+  margin-bottom: 0 !important;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+}
+
+.mcp-panel {
+  --card-accent: var(--cui-primary);
+  border-radius: 1.2rem !important;
+}
+
+.mcp-page:not(.mcp-page--activity) .mcp-panel {
+  height: auto !important;
+}
+
+.mcp-page:not(.mcp-page--activity) .mcp-setup-row {
+  align-content: start !important;
+}
+
+.mcp-page:not(.mcp-page--activity) .mcp-shell {
+  padding-bottom: 1rem;
+}
+
+.mcp-panel__body {
+  padding: 1.5rem;
+}
+
+.mcp-eyebrow {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--glass-text-muted);
+  margin-bottom: 0.75rem;
+  display: block;
+}
+
+// ── Client Tabs ──
+.mcp-clients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  margin-bottom: 1rem;
+  background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.04);
+  border-radius: 1rem;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+
+  .nav-link {
+    background: transparent;
+    border: none;
+    color: var(--glass-text-muted);
+    opacity: 0.85;
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 0.5rem 0.9rem;
+    border-radius: 0.75rem;
+    transition: all 0.15s;
+    white-space: nowrap;
+
+    &:hover {
+      opacity: 1;
+      background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.08);
+      color: var(--glass-text);
+    }
+
+    &.active {
+      opacity: 1;
+      color: var(--glass-text);
+      background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.14);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    svg {
+      opacity: 0.8;
+    }
+  }
+}
+
+.mcp-client-panel {
+  display: none;
+
+  &.is-active {
+    display: block;
+  }
+}
+
+// ── Command Blocks ──
+.mcp-cmd {
+  position: relative;
+  border-radius: 1rem;
+  overflow: hidden;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.6;
+
+  &__prompt {
+    color: var(--cui-success);
+    user-select: none;
+    padding-right: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.2rem;
+    flex-shrink: 0;
+  }
+
+  &__text {
+    margin: 0;
+    padding: 0.85rem 1rem;
+    background: rgba(13, 17, 23, 0.9);
+    color: var(--glass-text);
+    overflow-x: auto;
+    display: inline;
+    line-height: 1.6;
+
+    code {
+      background: transparent;
+      padding: 0;
+      font-size: inherit;
+      line-height: inherit;
+    }
+  }
+
+  &--shell {
+    display: flex;
+    align-items: center;
+    background: rgba(13, 17, 23, 0.9);
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+
+    .mcp-cmd__prompt {
+      color: var(--cui-success);
+      padding-left: 1rem;
+    }
+    .mcp-cmd__text {
+      background: transparent;
+      flex: 1;
+      padding-left: 0;
+    }
+  }
+
+  &--url {
+    background: rgba(13, 17, 23, 0.9);
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+
+    .mcp-cmd__text {
+      background: transparent;
+      color: var(--glass-text);
+      display: block;
+    }
+  }
+
+  &--config {
+    background: rgba(13, 17, 23, 0.9);
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+
+    .mcp-cmd__text {
+      background: transparent;
+      color: var(--glass-text);
+      display: block;
+      white-space: pre-wrap;
+    }
+  }
+}
+
+.liquid-rim {
+  position: relative;
+  background: linear-gradient(rgba(13, 17, 23, 0.9), rgba(13, 17, 23, 0.9)) padding-box,
+              linear-gradient(135deg, var(--cui-primary), var(--cui-purple)) border-box;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+}
+
+.mcp-copy {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 10;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--glass-text);
+
+  .mcp-cmd:hover & {
+    opacity: 1;
+  }
+
+  &:hover {
+    background: var(--cui-primary);
+    border-color: var(--cui-primary);
+    color: #fff;
+    .mcp-copy__icon { color: #fff; }
+  }
+}
+
+.mcp-copy__icon {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.5;
+}
+
+.mcp-step {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--glass-text);
+  margin: 1.25rem 0 0.25rem;
+}
+
+.mcp-note {
+  font-size: 0.88rem;
+  color: var(--glass-text-muted);
+  margin-bottom: 0.75rem;
+
+  code {
+    background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.1);
+    padding: 0.1rem 0.4rem;
+    border-radius: 0.25rem;
+    font-size: 0.75em;
+  }
+
+  &--login {
+    background: rgba(var(--cui-success-rgb), 0.12);
+    border-left: 3px solid var(--cui-success);
+    padding: 0.75rem 1rem;
+    border-radius: 0 1rem 1rem 0;
+    margin-top: 1rem;
+  }
+}
+
+.mcp-signin {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.04);
+  border-radius: 1rem;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+  color: var(--glass-text);
+
+  &__fine {
+    font-size: 0.7rem;
+    color: var(--glass-text-muted);
+    opacity: 0.8;
+  }
+}
+
+// ── Status Dot ──
+.mcp-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cui-secondary);
+  transition: background 0.2s, box-shadow 0.2s;
+  flex-shrink: 0;
+
+  &.mcp-status-ok {
+    background: var(--cui-success);
+    box-shadow: 0 0 8px var(--cui-success);
+  }
+
+  &.mcp-status-off {
+    background: var(--cui-secondary);
+  }
+
+  &.mcp-status-expiring {
+    background: var(--cui-warning);
+    box-shadow: 0 0 8px var(--cui-warning);
+  }
+}
+
+.mcp-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 50px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+
+  &.mcp-status-disconnected {
+    background: rgba(var(--cui-danger-rgb), 0.12);
+    color: var(--cui-danger);
+    border: 1px solid rgba(var(--cui-danger-rgb), 0.2);
+  }
+
+  &.mcp-status-connected {
+    background: rgba(var(--cui-success-rgb), 0.12);
+    color: var(--cui-success);
+    border: 1px solid rgba(var(--cui-success-rgb), 0.2);
+  }
+
+  &.mcp-status-expiring {
+    background: rgba(var(--cui-warning-rgb), 0.12);
+    color: var(--cui-warning);
+    border: 1px solid rgba(var(--cui-warning-rgb), 0.2);
+  }
+}
+
+// ── Connection Card / Side ──
+.mcp-side {
+  --card-accent: var(--cui-primary);
+}
+
+.mcp-side__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.mcp-side__title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--glass-text);
+}
+
+.mcp-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.6rem;
+  background: rgba(var(--cui-success-rgb), 0.12);
+  border-radius: 50px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--cui-success);
+}
+
+.mcp-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cui-success);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.mcp-side__url {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(13, 17, 23, 0.9);
+  border-radius: 1rem;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+  margin-bottom: 1rem;
+
+  code {
+    flex: 1;
+    font-size: 0.7rem;
+    word-break: break-all;
+    color: var(--glass-text-muted);
+  }
+}
+
+.mcp-side__list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.mcp-side__item {
+  padding: 0.75rem;
+  border-radius: 0.75rem;
+  transition: background 0.15s;
+
+  &:hover {
+    background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.08);
+  }
+}
+
+.mcp-side__client {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.mcp-side__name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--glass-text);
+}
+
+.mcp-side__meta {
+  font-size: 0.65rem;
+  color: var(--glass-text-muted);
+}
+
+.mcp-side__empty {
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--glass-text-muted);
+}
+
+.mcp-side__manage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--cui-primary);
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--cui-primary-start);
+  }
+}
+
+// ── Activity ──
+.mcp-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  grid-template-rows: 1fr;
+  gap: 1.5rem;
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  padding-bottom: 0.5rem;
+
+  @media (max-width: 1200px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mcp-panel--clients,
+.mcp-panel--access {
+  min-height: 0 !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+
+  .mcp-panel__body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden !important;
+  }
+}
+
+.mcp-rail {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+}
+
+.mcp-rail__item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-radius: 0.75rem;
+  text-align: left;
+  color: var(--glass-text);
+  font-size: 0.75rem;
+  transition: all 0.15s;
+
+  &:hover {
+    background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.08);
+  }
+
+  &.active,
+  &.is-active {
+    // background: var(--cui-primary-bg-subtle);
+    color: var(--cui-primary);
+    box-shadow: 0 0 0 1px var(--cui-primary) inset;
+  }
+
+  .mcp-rail__dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.25);
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px transparent;
+
+    &--live {
+      background: #2eb85c;
+      box-shadow: 0 0 0 3px rgba(46, 184, 92, 0.2);
+    }
+  }
+
+  .mcp-rail__body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+
+  .mcp-rail__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .mcp-rail__name {
+    flex: 1;
+    font-weight: 500;
+    font-size: 0.75rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+   .mcp-rail__count {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--cui-body-color);
+    flex-shrink: 0;
+  }
+
+  .mcp-rail__meta {
+    font-size: 0.6rem;
+    color: var(--glass-text-muted);
+  }
+
+  .mcp-rail__live-label {
+    color: #2eb85c;
+    font-weight: 600;
+  }
+
+  .mcp-rail__failed {
+    color: #e55353;
+    font-weight: 600;
+  }
+}
+
+.mcp-view__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.mcp-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 50px;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.mcp-live {
+  background: rgba(var(--cui-success-rgb), 0.12);
+  color: var(--cui-success);
+  border: 1px solid rgba(var(--cui-success-rgb), 0.2);
+}
+
+.mcp-live__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cui-success);
+  animation: pulse 1.5s infinite;
+}
+
+.mcp-view {
+  display: none;
+
+  &.is-active {
+    display: block;
+  }
+}
+
+.mcp-panel--access .mcp-view {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  &.is-active {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.mcp-view__scroll {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  padding-right: 0.5rem;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  &::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+}
+
+.mcp-blank {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--glass-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.mcp-log {
+  padding: 0.5rem 0.45rem;
+  border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.06));
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+
+  &:last-of-type {
+    border-bottom: 0;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.05);
+    outline: none;
+  }
+
+  &.is-selected {
+    background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.08);
+  }
+
+  &__line {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  &__tool {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--cui-body-color);
+    padding: 0;
+    background: none;
+    flex-shrink: 0;
+  }
+
+  &__target {
+    font-size: 0.72rem;
+    color: var(--glass-text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__meta {
+    margin-top: 0.1rem;
+    font-size: 0.68rem;
+    color: var(--glass-text-muted);
+  }
+}
+
+.mcp-tag {
+  margin-left: auto;
+  font-size: 0.65rem;
+  padding: 0.1rem 0.4rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.mcp-more {
+  text-align: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+}
+
+.mcp-more__btn {
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.mcp-foot {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+  font-size: 0.7rem;
+  color: var(--glass-text-muted);
+  line-height: 1.7;
+  text-align: center;
+}
+
+.mcp-call-count {
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+// ── Activity call card ──
+.mcp-call {
+  border-radius: 0.75rem;
+  margin-bottom: 0.5rem;
+  background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.08);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+  transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--cui-primary);
+  }
+
+  &.is-selected {
+    border-color: var(--cui-primary);
+    box-shadow: 0 0 0 1px var(--cui-primary) inset;
+  }
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0.625rem 0.875rem;
+  }
+
+  &__tool {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--cui-body-color);
+    padding: 0;
+    background: none;
+    flex-shrink: 0;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    font-size: 0.68rem;
+    color: var(--glass-text-muted);
+  }
+
+  &__client {
+    color: var(--glass-text);
+    font-weight: 500;
+  }
+
+  &__dur {
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  &__status {
+    padding: 0.05rem 0.45rem;
+    border-radius: 50px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+
+    &--ok {
+      background: rgba(var(--cui-success-rgb), 0.12);
+      color: var(--cui-success);
+    }
+
+    &--err {
+      background: rgba(var(--cui-danger-rgb), 0.12);
+      color: var(--cui-danger);
+    }
+  }
+}
+
+// ── Detail modal for selected call ──
+.mcp-call-modal {
+  color: var(--glass-text) !important;
+  background: var(--glass-bg, rgba(11, 30, 54, 0.85)) !important;
+  backdrop-filter: saturate(200%) blur(20px) !important;
+  -webkit-backdrop-filter: saturate(200%) blur(20px) !important;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1)) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+
+  .modal-header {
+    border-bottom: 2px solid rgba(var(--cui-primary-rgb), 0.1);
+    background: linear-gradient(135deg, rgba(var(--cui-primary-rgb), 0.03) 0%, rgba(var(--cui-info-rgb), 0.03) 100%);
+  }
+
+  .modal-body {
+    line-height: 1.7;
+  }
+
+  .mcp-call__head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.25rem;
+  }
+
+  .mcp-call__tool {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--cui-body-color);
+    padding: 0;
+    background: none;
+  }
+
+  .mcp-call__target {
+    font-size: 0.78rem;
+    color: var(--glass-text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .mcp-call__meta {
+    font-size: 0.76rem;
+    color: var(--glass-text-muted);
+    opacity: 0.7;
+  }
+
+  .mcp-call__panel {
+    margin-top: 1rem;
+  }
+
+  .mcp-call__panel-head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+
+    .btn {
+      margin-left: auto;
+    }
+  }
+
+  .mcp-call__body {
+    max-height: 40vh;
+    overflow: auto;
+    margin: 0;
+    padding: 0.75rem 0.85rem;
+    border-radius: 0.5rem;
+    background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.04);
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    line-height: 1.55;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--glass-text);
+
+    code {
+      color: inherit;
+      background: none;
+      padding: 0;
+    }
+  }
+
+  .mcp-call__copy {
+    font-size: 0.72rem;
+  }
+
+  .mcp-call__foot {
+    display: flex;
+    gap: 0.9rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+    font-size: 0.72rem;
+    color: var(--glass-text-muted);
+
+    code {
+      font-size: 0.72rem;
+    }
+  }
+
+  .mcp-tag {
+    font-size: 0.68rem;
+    padding: 0.125rem 0.5rem;
+  }
+}
+
+.mcp-detail {
+  margin-top: 1rem;
+  border: 1px solid var(--cui-primary);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.06);
+
+  &__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    padding: 0.625rem 0.875rem;
+    background: rgba(var(--cui-primary-rgb), 0.08);
+    border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+  }
+
+  &__tool {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--cui-primary);
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    font-size: 0.68rem;
+    color: var(--glass-text-muted);
+  }
+
+  &__client {
+    color: var(--glass-text);
+    font-weight: 500;
+  }
+
+  &__dur {
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+
+    @media (max-width: 900px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  &__section {
+    padding: 0.625rem 0.875rem;
+    min-width: 0;
+
+    & + & {
+      border-left: 1px dashed var(--glass-border, rgba(255, 255, 255, 0.08));
+
+      @media (max-width: 900px) {
+        border-left: none;
+        border-top: 1px dashed var(--glass-border, rgba(255, 255, 255, 0.08));
+      }
+    }
+  }
+
+  &__label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--glass-text-muted);
+    margin-bottom: 0.35rem;
+  }
+
+  &__json {
+    margin: 0;
+    max-height: 340px;
+    overflow: auto;
+    background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.04);
+    border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.75rem;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.7rem;
+    line-height: 1.5;
+    color: var(--glass-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+
+    .tok-key { color: #9cdcfe; }
+    .tok-str { color: #ce9178; }
+    .tok-num { color: #b5cea8; }
+    .tok-bool { color: #569cd6; }
+    .tok-null { color: #f44747; }
+    .tok-punct { color: rgba(255, 255, 255, 0.45); }
+  }
+}
+
+// ── Live tag ──
+.mcp-live-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 50px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  background: rgba(var(--cui-success-rgb), 0.12);
+  color: var(--cui-success);
+  border: 1px solid rgba(var(--cui-success-rgb), 0.2);
+}
+
+// ── Responsive ──
+@media (max-width: 1200px) {
+  .mcp-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mcp-rail {
+    display: flex;
+    overflow-x: auto;
+    max-height: none;
+    padding-bottom: 0.5rem;
+
+    .mcp-rail__item {
+      flex-shrink: 0;
+      min-width: 180px;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .mcp-banner .labs-banner-tabs .nav-link {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .mcp-clients .nav-link {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+  }
+
+  .mcp-cmd__text {
+    font-size: 0.7rem;
+    padding: 0.75rem;
+  }
+}
+
+// ── Animations ──
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}

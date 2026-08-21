@@ -1,0 +1,25 @@
+[Unit]
+Description=Tom Labs MCP Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -u /opt/labs-control-panel/src/mcp/server.py
+EnvironmentFile=/opt/labs-control-panel/systemd/labs-worker-env.sh
+Restart=always
+RestartSec=3
+WorkingDirectory=/opt/labs-control-panel
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/labs-control-panel /var/log/labs /tmp
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target

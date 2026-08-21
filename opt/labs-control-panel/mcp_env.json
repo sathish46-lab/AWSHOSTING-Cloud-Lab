@@ -1,0 +1,4 @@
+{
+  "mongo_uri": "mongodb://mcp_server:mcp_secure_2026@TomCloudLab_mongodb:27017/tom_labs_db?authSource=admin",
+  "main_db": "tom_labs_db"
+}

@@ -1,0 +1,12 @@
+# MCP Server Dependencies
+# Verified working combination (Aug 2026):
+#   mcp 1.27.1 + starlette 0.41.3 + sse-starlette 2.2.1 + uvicorn 0.46.0
+# Newer starlette 1.x or sse-starlette 3.x breaks the SSE stream
+# (ClosedResourceError "SSE response error" — see python-sdk issue #2958).
+mcp==1.27.1
+starlette==0.41.3
+sse-starlette==2.2.1
+uvicorn==0.46.0
+pymongo>=4.6.0
+bcrypt>=4.1.0
+pydantic>=2.5.0
