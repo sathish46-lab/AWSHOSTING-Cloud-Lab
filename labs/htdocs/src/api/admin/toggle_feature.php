@@ -12,12 +12,13 @@ if ($user->getRole() !== 'superuser') {
     echo json_encode(['status' => 'error', 'error' => 'Forbidden']); exit;
 }
 
-$scope = $_POST['scope'] ?? 'user'; // 'global' or 'user'
+$scope = $_POST['scope'] ?? 'user'; // 'global', 'master', 'matrix', 'mcp_settings', or 'user'
 $email = $_POST['email'] ?? '';
 $feature = $_POST['feature'] ?? '';
+$setting = $_POST['setting'] ?? '';
 $state = (isset($_POST['state']) && $_POST['state'] === 'true'); // boolean
 
-if (!$feature) {
+if ($scope !== 'mcp_settings' && !$feature) {
     echo json_encode(['status' => 'error', 'error' => 'Feature missing']); exit;
 }
 
@@ -74,6 +75,16 @@ try {
                 );
             }
         }
+    } elseif ($scope === 'mcp_settings') {
+        // MCP-specific settings (admin_only mode)
+        if (!$setting) {
+            echo json_encode(['status' => 'error', 'error' => 'Setting name missing']); exit;
+        }
+        $db->global_settings->updateOne(
+            ['_id' => 'mcp_settings'],
+            ['$set' => [$setting => $state]],
+            ['upsert' => true]
+        );
     } else {
         // Toggle feature for a specific user
         if (!$email) {
@@ -84,6 +95,9 @@ try {
             ['$set' => ["lab_features.{$feature}" => $state]]
         );
     }
+
+    // Rebuild file cache so changes take effect immediately
+    \TomLabs\Labs\LabFeatures::rebuildCache();
 
     echo json_encode(['status' => 'success']);
 } catch (Exception $e) {

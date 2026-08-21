@@ -21,8 +21,13 @@ $featuresList = [
     'always_on' => 'Always On',
     'http_proxies' => 'HTTP Proxies',
     'startup_script' => 'Startup Script',
-    'expose_web' => 'Expose Web'
+    'expose_web' => 'Expose Web',
+    'mcp' => 'MCP Inspector'
 ];
+
+// MCP-specific settings
+$mcpDoc = $db->global_settings->findOne(['_id' => 'mcp_settings']);
+$mcpSettings = ($mcpDoc && is_object($mcpDoc) && method_exists($mcpDoc, 'getArrayCopy')) ? $mcpDoc->getArrayCopy() : ((array)$mcpDoc ?: []);
 ?>
 <style>
 .admin-card { transition: all 0.2s; }
@@ -109,6 +114,29 @@ $featuresList = [
                             </div>
                         </div>
                         <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MCP Settings -->
+    <div class="row mb-4">
+        <div class="col-xl-6">
+            <div class="card border-0 rounded-4 blur shadow-sm admin-card h-100">
+                <div class="card-header border-bottom border-body-secondary border-opacity-10 bg-transparent py-3">
+                    <h5 class="mb-0 fw-bold text-warning"><i class='bx bx-bot me-2'></i>MCP Access Control</h5>
+                    <small class="text-body-secondary">Configure who can use MCP tools.</small>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center p-3 rounded-4" style="background: rgba(var(--cui-body-bg-rgb, 11,30,54), 0.4); border: 1px solid rgba(var(--cui-body-color-rgb, 255,255,255), 0.06);">
+                        <div>
+                            <h6 class="mb-1 fw-semibold">Admin-Only Mode</h6>
+                            <small class="text-body-secondary">When enabled, only superusers can connect to MCP tools. Regular users are blocked.</small>
+                        </div>
+                        <div class="form-check form-switch fs-4 mb-0 ms-3">
+                            <input class="form-check-input pointer mcp-admin-only-toggle" type="checkbox" role="switch" <?= !empty($mcpSettings['admin_only']) ? 'checked' : '' ?>>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -323,6 +351,17 @@ document.querySelectorAll('.matrix-feature-toggle').forEach(toggle => {
         formData.append('feature', feature);
         formData.append('state', state);
         toggleFeatureAPI(formData, this, `${feature} for ${lab} is now ${state ? 'ENABLED' : 'DISABLED'}`);
+    });
+});
+
+document.querySelectorAll('.mcp-admin-only-toggle').forEach(toggle => {
+    toggle.addEventListener('change', function() {
+        const state = this.checked;
+        const formData = new FormData();
+        formData.append('scope', 'mcp_settings');
+        formData.append('setting', 'admin_only');
+        formData.append('state', state);
+        toggleFeatureAPI(formData, this, `MCP Admin-Only Mode is now ${state ? 'ENABLED (superusers only)' : 'DISABLED (all users)'}`);
     });
 });
 </script>
