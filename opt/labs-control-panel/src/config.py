@@ -137,6 +137,11 @@ class Config:
 
     @property
     def mongo_uri(self):
+        # MCP server uses restricted credentials (readWrite on tom_labs_db only)
+        # Other services use the full-access admin credentials from env.json
+        mcp_uri = os.environ.get('MCP_MONGO_URI')
+        if mcp_uri:
+            return mcp_uri
         return self.env('database_file', '')
 
     @property
@@ -150,3 +155,11 @@ class Config:
     @property
     def storage_limit_gb(self):
         return int(self.env('storage_limit_gb', 25))
+
+    @property
+    def labctl_path(self):
+        return self.get('labctl_path', '/usr/local/bin/labsctl')
+
+    @property
+    def mcp_server_port(self):
+        return int(self.get('mcp_server_port', 8099))

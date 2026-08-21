@@ -18,7 +18,7 @@ from pymongo import MongoClient
 from bson.objectid import ObjectId
 
 # Configuration
-CONFIG_PATH = '/host_www/www/env.json' if os.path.exists('/host_www/www/env.json') else '../../env.json'
+CONFIG_PATH = '/var/www/env.json' if os.path.exists('/var/www/env.json') else '/host_www/www/env.json' if os.path.exists('/host_www/www/env.json') else '../../env.json'
 
 def load_config():
     print(f"Loading config from {CONFIG_PATH}...", flush=True)
@@ -56,9 +56,15 @@ except Exception as e:
     redis_client = None
 
 # Gemini Config
-GEMINI_MODEL_NAME = 'models/gemini-flash-latest'
-print("Configuring Gemini API...", flush=True)
-genai.configure(api_key=config.get('ai_api_key'))
+GEMINI_MODEL_NAME = 'models/gemini-2.5-flash-lite'
+print(f"Configuring Gemini API with model: {GEMINI_MODEL_NAME}...", flush=True)
+_gemini_key = config.get('ai_api_key', '')
+if _gemini_key:
+    os.environ['GOOGLE_API_KEY'] = _gemini_key
+    genai.configure(api_key=_gemini_key)
+else:
+    print("WARNING: No ai_api_key found in config!", flush=True)
+    genai.configure()
 
 # MongoDB Config
 print("Configuring MongoDB...", flush=True)
@@ -834,6 +840,371 @@ def process_content_job(ch, method, properties, body):
         ch.basic_ack(delivery_tag=method.delivery_tag)
         print(" [x] Content Generation Job Done")
 
+# ===========================================================================
+# ROADMAP GENERATION — Streaming section-by-section via RabbitMQ
+# ===========================================================================
+ROADMAP_STRUCTURE_PROMPT_TEMPLATE = """You are an expert curriculum designer. Generate a structured learning roadmap.
+
+User Request: "{prompt}"
+Difficulty Level: {level}
+
+Return ONLY valid JSON (no markdown, no code fences) with this exact structure:
+{{
+  "title": "Concise roadmap title (max 60 chars, specific to the topic)",
+  "description": "1-2 sentence roadmap description",
+  "level": "{level}",
+  "hours": 45,
+  "tags": ["tag1", "tag2", "tag3"],
+  "sections": [
+    {{
+      "title": "Section Title",
+      "topics": [
+        {{
+          "title": "Specific Topic Name",
+          "items": [
+            {{ "text": "Specific concept like 'Radio frequency (RF) basics'", "type": "concept" }},
+            {{ "text": "Skill assertion like 'You can explain the main factors affecting signal strength'", "type": "milestone" }},
+            {{ "text": "Hands-on task like 'Measure signal strength using a basic receiver'", "type": "checkpoint" }},
+            {{ "text": "Choice like 'Choose primary frequency band — weigh range vs interference'", "type": "decision" }}
+          ]
+        }}
+      ]
+    }}
+  ]
+}}
+
+CRITICAL RULES:
+1. Create 3-5 sections, each with 2-4 topics.
+2. Each topic has 3-6 items mixing types: concept, milestone, checkpoint, decision.
+3. Item text must be SPECIFIC and DESCRIPTIVE — never generic like "Learn basics of X".
+4. Titles must be unique and specific. Tags: 3-5 relevant keywords. Hours: 10-100.
+5. Return ONLY the raw JSON object, nothing else."""
+
+def publish_roadmap_event(channel, session_id, event_type, data):
+    """Publish a roadmap stream event to RabbitMQ topic"""
+    try:
+        payload = json.dumps({'type': event_type, **data})
+        routing_key = f"roadmap_stream.{session_id}"
+        channel.basic_publish(exchange='amq.topic', routing_key=routing_key, body=payload)
+    except Exception as e:
+        print(f"Failed to publish roadmap event: {e}")
+
+def slugify(text):
+    """Generate URL-safe slug from title"""
+    import re as _re
+    slug = text.lower().strip()
+    slug = _re.sub(r'[^a-z0-9\s-]', '', slug)
+    slug = _re.sub(r'[\s-]+', '-', slug)
+    return slug.strip('-')[:80]
+
+def assign_ids(sections):
+    """Assign deterministic IDs to sections, topics, items"""
+    import hashlib
+    for si, section in enumerate(sections):
+        section['id'] = 'sec_' + hashlib.sha1((section.get('title','') + str(si)).encode()).hexdigest()[:8]
+        section['order'] = si + 1
+        for ti, topic in enumerate(section.get('topics', [])):
+            topic['id'] = 'top_' + hashlib.sha1((topic.get('title','') + str(ti)).encode()).hexdigest()[:8]
+            topic['order'] = ti + 1
+            topic['content'] = None
+            topic['content_html'] = None
+            topic['resources'] = None
+            for ii, item in enumerate(topic.get('items', [])):
+                item['id'] = 'item_' + hashlib.sha1((item.get('text','') + str(ii)).encode()).hexdigest()[:8]
+                item['order'] = ii + 1
+                item['type'] = item.get('type', 'concept')
+    return sections
+
+def structure_to_markdown(structure):
+    """Convert roadmap structure to markdown"""
+    md = "# " + (structure.get('title', 'Untitled')) + "\n"
+    md += "> " + (structure.get('description', '')) + "\n"
+    md += "`tags: " + ', '.join(structure.get('tags', [])) + "`\n"
+    md += "`hours: " + str(structure.get('hours', 0)) + "`\n\n"
+    for section in structure.get('sections', []):
+        md += "## " + (section.get('title', '')) + "\n\n"
+        for topic in section.get('topics', []):
+            md += "### " + (topic.get('title', '')) + "\n"
+            for item in topic.get('items', []):
+                item_type = item.get('type', 'concept')
+                text = item.get('text', '')
+                if item_type == 'milestone':
+                    md += "- **" + text + "**\n"
+                elif item_type == 'checkpoint':
+                    md += "- [ ] " + text + "\n"
+                elif item_type == 'decision':
+                    md += "- (decision) " + text + "\n"
+                else:
+                    md += "- " + text + "\n"
+            md += "\n"
+    return md
+
+def _parse_sections_from_partial(full_text):
+    """Extract complete section objects from partially-received JSON using brace counting.
+    Returns list of parsed section dicts that are fully parseable."""
+    cleaned = re.sub(r'^```(?:json)?\s*|\s*```$', '', full_text.strip())
+    sections = []
+    sections_match = re.search(r'"sections"\s*:\s*\[', cleaned)
+    if not sections_match:
+        return sections
+    start = sections_match.end()
+    depth = 0
+    obj_start = None
+    in_string = False
+    escape_next = False
+    i = start
+    while i < len(cleaned):
+        c = cleaned[i]
+        if escape_next:
+            escape_next = False
+            i += 1
+            continue
+        if c == '\\' and in_string:
+            escape_next = True
+            i += 1
+            continue
+        if c == '"' and not escape_next:
+            in_string = not in_string
+            i += 1
+            continue
+        if in_string:
+            i += 1
+            continue
+        if c == '{':
+            if depth == 0:
+                obj_start = i
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0 and obj_start is not None:
+                try:
+                    obj = json.loads(cleaned[obj_start:i+1])
+                    if isinstance(obj, dict) and obj.get('title'):
+                        sections.append(obj)
+                except json.JSONDecodeError:
+                    pass
+                obj_start = None
+        elif c == ']' and depth == 0:
+            break
+        i += 1
+    return sections
+
+
+def process_roadmap_gen_job(ch, method, properties, body):
+    """Process a roadmap generation job with live incremental card rendering.
+    
+    Events emitted:
+      section_start  — new section detected (title + index)
+      topic_start    — new topic/card detected (title + section/topic indices)
+      topic_item     — new item discovered in a topic
+      completed      — roadmap done, redirect to view page
+    """
+    job_id = None
+    session_id = None
+    try:
+        job = json.loads(body)
+        if job.get('type') != 'roadmap_generation':
+            return
+
+        print(f" [x] Processing Roadmap Generation Job: {job.get('job_id', '?')}", flush=True)
+
+        job_id = job.get('job_id')
+        user_id = job.get('user_id')
+        username = job.get('username', '')
+        email = job.get('email', '')
+        prompt = job.get('prompt', '')
+        level = job.get('level', 'Beginner')
+        visibility = job.get('visibility', 'private')
+        session_id = job.get('session_id', job_id)
+
+        if not job_id or not prompt:
+            print("Missing job_id or prompt, skipping...")
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            return
+
+        publish_roadmap_event(ch, session_id, 'progress', {
+            'percentage': 5, 'message': 'Analyzing your topic...', 'title': 'Generating...'
+        })
+
+        ai_prompt = ROADMAP_STRUCTURE_PROMPT_TEMPLATE.format(prompt=prompt, level=level)
+
+        publish_roadmap_event(ch, session_id, 'progress', {
+            'percentage': 10, 'message': 'AI is designing roadmap...',
+        })
+
+        full_text = ""
+        emitted_section_titles = []   # track sections emitted during streaming (unused now, kept for compat)
+
+        # Fallback model chain — switch model on each rate-limit retry
+        # All verified to support JSON output mode
+        fallback_models = [
+            'models/gemini-2.5-flash-lite',   # 30 RPM, 1500 RPD
+            'models/gemini-3.1-flash-lite',   # new gen, separate quota
+            'models/gemini-2.5-flash',        # 10 RPM, 500 RPD
+        ]
+        current_model_idx = 0
+        gen_model = genai.GenerativeModel(fallback_models[current_model_idx])
+
+        # Retry with model fallback for rate limits (429)
+        max_retries = len(fallback_models)
+        for attempt in range(max_retries):
+            try:
+                response = gen_model.generate_content(
+                    ai_prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.7, max_output_tokens=4096,
+                        response_mime_type='application/json',
+                    ),
+                    stream=True
+                )
+
+                chunk_count = 0
+                for chunk in response:
+                    if chunk.text:
+                        full_text += chunk.text
+                        chunk_count += 1
+
+                        pct = min(10 + (chunk_count * 2), 55)
+                        if chunk_count % 5 == 0:
+                            publish_roadmap_event(ch, session_id, 'progress', {
+                                'percentage': pct,
+                                'message': f'Designing structure... ({chunk_count * 20} tokens)',
+                            })
+                break  # success, exit retry loop
+
+            except Exception as gemini_err:
+                err_str = str(gemini_err)
+                if ('429' in err_str or 'quota' in err_str.lower() or 'rate' in err_str.lower()) and attempt < max_retries - 1:
+                    current_model_idx += 1
+                    next_model = fallback_models[current_model_idx]
+                    gen_model = genai.GenerativeModel(next_model)
+                    model_short = next_model.split('/')[-1]
+                    print(f" [!] Rate limited on {fallback_models[attempt].split('/')[-1]}, switching to {model_short} (attempt {attempt+1}/{max_retries})", flush=True)
+                    publish_roadmap_event(ch, session_id, 'progress', {
+                        'percentage': 10,
+                        'message': f'Rate limited — switching to {model_short}...',
+                    })
+                    time.sleep(2)  # brief pause before retry
+                    continue
+                if '429' in err_str or 'quota' in err_str.lower():
+                    raise Exception("AI rate limit exceeded on all models. Please try again in a few minutes.")
+                raise
+
+        if not full_text.strip():
+            raise Exception("Empty response from Gemini")
+
+        full_text = re.sub(r'^```(?:json)?\s*|\s*```$', '', full_text.strip())
+        structure = json.loads(full_text)
+
+        if not structure.get('title') or not structure.get('sections'):
+            raise Exception("Invalid structure from Gemini")
+
+        structure['sections'] = assign_ids(structure['sections'])
+        import hashlib as _hl
+        structure['slug'] = slugify(structure['title']) + '-' + _hl.md5(str(time.time()).encode()).hexdigest()[:6]
+        structure['level'] = level
+        structure['hours'] = int(structure.get('hours', 20))
+        structure['tags'] = structure.get('tags', [])
+        structure['description'] = structure.get('description', '')
+
+        # After streaming: emit topic_start + topic_item events grouped by section.
+        # Section labels are created by the frontend when the first topic of each section arrives.
+        # This ensures section N+1 label only appears AFTER section N's cards are done typing.
+        total_sections = len(structure['sections'])
+        for idx, section in enumerate(structure['sections']):
+            section_title = section.get('title', '')
+            sec_pct = 55 + int((idx / max(total_sections, 1)) * 30)
+
+            for ti, topic in enumerate(section.get('topics', [])):
+                topic_title = topic.get('title', '')
+                publish_roadmap_event(ch, session_id, 'topic_start', {
+                    'section_index': idx, 'topic_index': ti,
+                    'section_title': section_title,
+                    'total_sections': total_sections,
+                    'topic': {'title': topic_title, 'id': topic.get('id', ''), 'order': ti + 1},
+                    'percentage': sec_pct,
+                    'message': f'Section {idx + 1}: {section_title}',
+                })
+                time.sleep(0.15)
+
+                for item in topic.get('items', []):
+                    publish_roadmap_event(ch, session_id, 'topic_item', {
+                        'section_index': idx, 'topic_index': ti,
+                        'item_index': 0, 'item': item,
+                    })
+                    time.sleep(0.15)
+
+        publish_roadmap_event(ch, session_id, 'progress', {
+            'percentage': 88, 'message': 'Finalizing roadmap...',
+            'title': structure['title'],
+        })
+
+        md = structure_to_markdown(structure)
+        total_items = sum(len(t.get('items', [])) for s in structure['sections'] for t in s.get('topics', []))
+
+        from bson.objectid import ObjectId as _ObjectId
+        roadmap_id = _ObjectId()
+        roadmap_doc = {
+            '_id': roadmap_id, 'slug': structure['slug'],
+            'title': structure['title'],
+            'description': structure.get('description', ''),
+            'prompt': prompt, 'level': level,
+            'hours': structure.get('hours', 20),
+            'tags': structure.get('tags', []),
+            'type': 'roadmap', 'visibility': visibility,
+            'user_id': user_id, 'author': username, 'author_email': email,
+            'sections': structure['sections'], 'markdown': md,
+            'ai_model': GEMINI_MODEL_NAME, 'progress': 0,
+            'checkpoints_total': total_items, 'checkpoints_completed': 0,
+            'created_at': datetime.datetime.utcnow(),
+            'updated_at': datetime.datetime.utcnow(),
+        }
+        db.ai_roadmaps.insert_one(roadmap_doc)
+        roadmap_id_str = str(roadmap_id)
+
+        db.ai_roadmap_jobs.update_one(
+            {'request_id': job_id},
+            {'$set': {'status': 'completed', 'roadmap_id': roadmap_id_str,
+                      'slug': structure['slug'], 'percentage': 100,
+                      'updated_at': datetime.datetime.utcnow()}}
+        )
+
+        publish_roadmap_event(ch, session_id, 'completed', {
+            'slug': structure['slug'], 'roadmap_id': roadmap_id_str,
+            'title': structure['title'], 'percentage': 100,
+            'total_sections': total_sections,
+            'message': 'Roadmap generated successfully!',
+        })
+        print(f" [+] Roadmap generated: {structure['title']} ({roadmap_id_str})")
+
+    except json.JSONDecodeError as e:
+        print(f" [!] JSON parse error: {e}")
+        publish_roadmap_event(ch, session_id, 'error', {
+            'message': 'Failed to parse AI response. Please try again.'
+        })
+        db.ai_roadmap_jobs.update_one(
+            {'request_id': job_id},
+            {'$set': {'status': 'failed', 'error_message': 'JSON parse error'}}
+        )
+    except Exception as e:
+        print(f" [!] Error processing roadmap job: {e}")
+        try:
+            publish_roadmap_event(ch, session_id, 'error', {
+                'message': f'Generation failed: {str(e)[:200]}'
+            })
+        except Exception:
+            pass
+        try:
+            db.ai_roadmap_jobs.update_one(
+                {'request_id': job_id},
+                {'$set': {'status': 'failed', 'error_message': str(e)[:500]}}
+            )
+        except Exception:
+            pass
+    finally:
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        print(" [x] Roadmap Generation Job Done")
+
 def main():
     while True:
         try:
@@ -879,7 +1250,18 @@ def main():
             
             print(f" [*] AI Worker waiting for jobs in '{QUEUE_NAME}' & '{CONTENT_QUEUE_NAME}'.", flush=True)
             
-            channel.basic_consume(queue=QUEUE_NAME, on_message_callback=process_ai_job)
+            def dispatch_ai_job(ch, method, properties, body):
+                """Route ai_jobs messages to the correct handler"""
+                try:
+                    job = json.loads(body)
+                    if job.get('type') == 'roadmap_generation':
+                        process_roadmap_gen_job(ch, method, properties, body)
+                    else:
+                        process_ai_job(ch, method, properties, body)
+                except Exception:
+                    process_ai_job(ch, method, properties, body)
+            
+            channel.basic_consume(queue=QUEUE_NAME, on_message_callback=dispatch_ai_job)
             channel.basic_consume(queue=CONTENT_QUEUE_NAME, on_message_callback=process_content_job)
             channel.start_consuming()
             

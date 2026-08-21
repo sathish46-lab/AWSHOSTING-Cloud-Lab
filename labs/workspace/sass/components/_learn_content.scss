@@ -155,7 +155,7 @@
     }
 }
 
-/* Exact SNA Split Panel Layout & auto-compact styling */
+/* Split Panel Layout & auto-compact styling */
 .split-panel {
     display: flex;
     flex-direction: column;
@@ -190,7 +190,7 @@ body:has(.split-panel-view) {
     }
 }
 
-/* SNA Individual Rounded Panel Cards Layout */
+/* Individual Rounded Panel Cards Layout */
 .learn-app-wrapper,
 .split-panel-view {
     flex: 1 1 auto !important;
@@ -214,7 +214,7 @@ body:has(.split-panel-view) {
         gap: 0 !important;
     }
 
-    // Match SNA: each .split-panel uses flex-basis percentage or flex:1 for center, flex-grow:0, flex-shrink:0
+    // Each .split-panel uses flex-basis percentage or flex:1 for center, flex-grow:0, flex-shrink:0
     .split-panel {
         display: flex !important;
         flex-direction: column !important;
@@ -255,7 +255,7 @@ body:has(.split-panel-view) {
         }
     }
 
-    // SNA minSize: [70, 300, 300]
+    // minSize: [70, 300, 300]
     #learn-panel-1 {
         flex-grow: 0 !important;
         flex-shrink: 0 !important;
@@ -733,7 +733,7 @@ body.resizing-active * {
     }
 }
 
-/* AI Chat Panel & Message Bubble Styling (Exact SNA & Premium Aesthetics) */
+/* AI Chat Panel & Message Bubble Styling */
 #aiChatHistory {
     padding: 1.25rem !important;
     display: flex !important;
@@ -1697,19 +1697,6 @@ svg.study-drawing-layer {
             stroke: #ef4444 !important;
             cursor: no-drop;
         }
-    }
-}
-
-/* Global Utility & Modal Scrollbar Hiding (Exact Clean Look Without Visible Scrollbars) */
-.hide-scrollbar,
-#tokenHistoryModalContent .table-responsive,
-#tokenHistoryModal .table-responsive {
-    scrollbar-width: none !important;
-    -ms-overflow-style: none !important;
-    &::-webkit-scrollbar {
-        display: none !important;
-        width: 0 !important;
-        height: 0 !important;
     }
 }
 

@@ -225,8 +225,17 @@ $currentUserRole = $currentUser?->getRole() ?? 'user';
                         <div id="acctRecentLogins"></div>
                         <div class="form-text mt-2 small">"Log out" ends that session on its next request. Sessions are tracked from your logins; older history is pruned automatically.</div>
 
-                        <div class="fw-semibold small text-body-secondary text-uppercase mt-3 mb-2">MCP clients <span class="fw-normal text-body-secondary ms-1">(0)</span></div>
-                        <div class="text-body-secondary small">No MCP client is signed in right now. <a href="/mcp">Connect one</a>.</div>
+                        <div class="fw-semibold small text-body-secondary text-uppercase mt-3 mb-2">MCP clients <span class="fw-normal text-body-secondary ms-1" id="acctMcpClientCount">(0)</span></div>
+                        <div id="acctMcpClients">
+                            <div class="text-center py-3 text-secondary small"><i class="bx bx-loader-alt bx-spin"></i> Loading MCP clients...</div>
+                        </div>
+                        <div class="form-text mt-2 small">
+                            Configure your MCP client (Claude Desktop, OpenCode, Claude Code) with:
+                            <code class="d-block mt-1 text-primary" id="mcpServerUrl">https://dev.tomweb.in/mcp</code>
+                            <button type="button" class="btn btn-sm btn-outline-primary rounded-pill mt-2" onclick="showMcpConnectInstructions()">
+                                <i class="bx bx-link-external me-1"></i> Show Connection Instructions
+                            </button>
+                        </div>
                     </div>
 
                     <!-- ── Appearance Tab ── -->

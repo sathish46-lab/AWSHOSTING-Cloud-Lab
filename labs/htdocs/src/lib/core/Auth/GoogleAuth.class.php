@@ -250,7 +250,8 @@ public function getAuthUrl($metadata) {
             ['email' => $userinfo->email],
             [
                 '$push' => ['session_tokens' => [
-                    'token' => $sessionToken,
+                    'token_hash' => password_hash($sessionToken, PASSWORD_DEFAULT),
+                    'token_id'   => hash('sha256', $sessionToken),
                     'ip' => $clientIp,
                     'browser' => $deviceInfo['browser'],
                     'os' => $deviceInfo['os'],

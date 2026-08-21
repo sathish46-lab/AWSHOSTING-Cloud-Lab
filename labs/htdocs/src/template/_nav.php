@@ -45,11 +45,22 @@ $current = Session::getCurrentFile();
                 Dashboard
             </a>
         </li>
-        <li class="nav-item">
-            <a class="nav-link <?= (str_contains($current, 'learn')) ? 'active' : '' ?>" href="/learn">
-                <i class="nav-icon bx bxs-graduation"></i>
-                Learn AI 
+        <li class="nav-group <?= (str_contains($current, 'learn') || str_contains($current, 'roadmap')) ? 'show' : '' ?>">
+            <a class="nav-link nav-group-toggle" href="javascript:void(0);">
+                <i class="nav-icon bx bxs-graduation"></i> Learn
             </a>
+            <ul class="nav-group-items">
+                <li class="nav-item">
+                    <a class="nav-link <?= (str_contains($current, 'learn')) ? 'active' : '' ?>" href="/learn">
+                        <i class="nav-icon bx bx-bot text-info"></i> Learn AI
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= (str_contains($current, 'roadmap')) ? 'active' : '' ?>" href="/roadmaps">
+                        <i class="nav-icon bx bx-map text-success"></i> Roadmaps
+                    </a>
+                </li>
+            </ul>
         </li>
         <li class="nav-group <?= $current == 'quiz' ? 'show' : '' ?>">
             <a class="nav-link nav-group-toggle" href="javascript:void(0);">
@@ -105,6 +116,13 @@ $current = Session::getCurrentFile();
                 <i class="nav-icon bx bxs-data"></i> Services
             </a>
         </li>
+        <?php if (\TomLabs\Labs\LabFeatures::canAccessMcp()): ?>
+        <li class="nav-item">
+            <a class="nav-link <?= $current == 'mcp' ? 'active' : '' ?>" href="/mcp">
+                <i class="nav-icon bx bx-terminal"></i> MCP Inspector
+            </a>
+        </li>
+        <?php endif; ?>
         <li class="nav-item">
             <a class="nav-link <?= $current == 'challenges' ? 'active' : '' ?>" href="<?= Session::url('challenges') ?>">
                 <i class="nav-icon bx bxs-flag-alt"></i> Challenges

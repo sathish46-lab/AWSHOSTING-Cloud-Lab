@@ -8,6 +8,62 @@ from collections import deque
 # Store up to 20 samples (100 seconds of history) to match frontend charts
 HISTORY = {}
 LIMIT = 20 
+CACHE_FILE = '/dev/shm/docker_stats.json'
+
+def get_cpu_throttle_percent(container_id):
+    """Read cgroup v2 CPU throttling stats for a container."""
+    try:
+        # Get container's long ID (full hash)
+        result = subprocess.run(
+            ["docker", "inspect", "--format", "{{.Id}}", container_id],
+            capture_output=True, text=True, timeout=5
+        )
+        full_id = result.stdout.strip()
+        
+        # Try cgroup v2 first
+        cgroup_path = f"/sys/fs/cgroup/system.slice/docker-{full_id}.scope/cpu.stat"
+        if not os.path.exists(cgroup_path):
+            # Try cgroup v1
+            cgroup_path = f"/sys/fs/cgroup/cpu/docker/{full_id}/cpu.stat"
+        
+        if os.path.exists(cgroup_path):
+            with open(cgroup_path, 'r') as f:
+                stats = {}
+                for line in f:
+                    parts = line.strip().split()
+                    if len(parts) == 2:
+                        stats[parts[0]] = int(parts[1])
+                
+                nr_periods = stats.get('nr_periods', 0)
+                nr_throttled = stats.get('nr_throttled', 0)
+                
+                if nr_periods > 0:
+                    return round((nr_throttled / nr_periods) * 100, 1)
+        
+        # Fallback: try reading from host cgroup path via docker exec
+        result = subprocess.run(
+            ["docker", "exec", container_id, "cat", "/sys/fs/cgroup/cpu.stat"],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            stats = {}
+            for line in result.stdout.strip().split('\n'):
+                parts = line.strip().split()
+                if len(parts) == 2:
+                    try:
+                        stats[parts[0]] = int(parts[1])
+                    except ValueError:
+                        pass
+            
+            nr_periods = stats.get('nr_periods', 0)
+            nr_throttled = stats.get('nr_throttled', 0)
+            
+            if nr_periods > 0:
+                return round((nr_throttled / nr_periods) * 100, 1)
+    except Exception:
+        pass
+    
+    return 0.0
 
 def collect_all_stats():
     cmd = ["docker", "stats", "--no-stream", "--format", "{{json .}}"]
@@ -36,6 +92,10 @@ def collect_all_stats():
                 block = float(re.sub(r'[^\d\.]', '', block_raw) or 0)
                 if 'M' in block_raw: block *= 1000
                 elif 'G' in block_raw: block *= 1000000
+                
+                # Get CPU throttling percentage
+                container_id = data.get('ID', data.get('Container', ''))
+                cpu_throttle = get_cpu_throttle_percent(container_id)
 
                 # 2. Initialize History Deques
                 if name not in HISTORY:
@@ -69,14 +129,27 @@ def collect_all_stats():
                     "Load1": l1, "Load5": l5, "Load15": l15,
                     "PeakCPU": f"{max(HISTORY[name]['cpu']):.2f}%",
                     "HighMem": f"{max(HISTORY[name]['mem']):.1f} MB",
-                    "MaxPID": max(HISTORY[name]['pids'])
+                    "MaxPID": max(HISTORY[name]['pids']),
+                    "CPUThrottled": f"{cpu_throttle}%"
                 })
                 all_stats[name] = data
 
-            # Atomic write to prevent half-read JSON files
+            # Atomic write - use backup file to prevent read races
             if all_stats:
-                with open('/dev/shm/docker_stats.json.tmp', 'w') as f: json.dump(all_stats, f)
-                os.rename('/dev/shm/docker_stats.json.tmp', '/dev/shm/docker_stats.json')
+                import tempfile
+                tmp_fd, tmp_path = tempfile.mkstemp(dir='/dev/shm', suffix='.json')
+                try:
+                    with os.fdopen(tmp_fd, 'w') as f:
+                        json.dump(all_stats, f)
+                        f.flush()
+                        os.fsync(f.fileno())
+                    # Copy backup to main file (safer than rename for concurrent reads)
+                    import shutil
+                    shutil.copy2(tmp_path, CACHE_FILE)
+                    os.chmod(CACHE_FILE, 0o644)  # Ensure www-data can read
+                finally:
+                    try: os.unlink(tmp_path)
+                    except: pass
         except Exception as e: print(f"Error: {e}")
         time.sleep(5)
 

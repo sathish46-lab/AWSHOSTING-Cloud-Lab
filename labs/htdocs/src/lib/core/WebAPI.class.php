@@ -61,49 +61,51 @@ class WebAPI {
     } elseif ($sessionToken) {
         // Attempt Token Auto-Login
         $db = DatabaseConnection::getDefaultDatabase();
-        
-        // SE1: Find user with matching hashed token + SE2: enforce 30-day expiry
+
+        // SE1+SE2: Look up the user by the deterministic token_id (sha256 of the
+        // bearer token) and enforce the 30-day expiry. This is a single indexed
+        // lookup instead of scanning every user's tokens (perf + DoS hardening).
         $maxTokenAge = 30 * 24 * 3600; // 30 days
         $cutoffTime = time() - $maxTokenAge;
-        
-        $usersWithTokens = $db->users->find([
-            'session_tokens' => ['$exists' => true, '$ne' => []]
+        $tokenId = hash('sha256', $sessionToken);
+
+        $matchedUser = $db->users->findOne([
+            'session_tokens' => ['$elemMatch' => [
+                'token_id'   => $tokenId,
+                'created_at' => ['$gte' => $cutoffTime],
+            ]],
         ]);
-        
-        $matchedUser = null;
-        $matchedTokenData = null;
-        
-        foreach ($usersWithTokens as $user) {
-            $tokens = $user['session_tokens'] ?? [];
-            foreach ($tokens as $tokenData) {
-                $storedHash = $tokenData['token_hash'] ?? $tokenData['token'] ?? '';
-                $createdAt = $tokenData['created_at'] ?? 0;
-                
-                // Skip expired tokens
-                if ($createdAt < $cutoffTime) {
-                    continue;
-                }
-                
-                if (password_verify($sessionToken, $storedHash)) {
-                    $matchedUser = $user;
+
+        if ($matchedUser && isset($matchedUser['username'])) {
+            // Locate the matching token entry and verify its bcrypt hash
+            $matchedTokenData = null;
+            foreach ($matchedUser['session_tokens'] as $tokenData) {
+                if (($tokenData['token_id'] ?? '') === $tokenId) {
                     $matchedTokenData = $tokenData;
-                    break 2;
+                    break;
                 }
             }
-        }
-        
-        if ($matchedUser && isset($matchedUser['username'])) {
+
+            $storedHash = $matchedTokenData['token_hash'] ?? '';
+            // Authenticate only on a positive bcrypt match. A missing/empty hash
+            // provides no credential proof — a bare token_id match (sha256 is not a
+            // secret) must not grant a session. Reject in both cases.
+            if (!$storedHash || !password_verify($sessionToken, $storedHash)) {
+                // Hash missing or token was tampered with
+                UserSession::logout();
+                return;
+            }
+
             // Token is valid and not expired, rebuild session
             $_SESSION['username'] = $matchedUser['username'];
             $_SESSION['auth_status'] = \Constants::STATUS_LOGGEDIN;
-            
+
             // Update last_activity for this token
-            $storedHash = $matchedTokenData['token_hash'] ?? $matchedTokenData['token'] ?? '';
             $db->users->updateOne(
-                ['_id' => $matchedUser['_id'], 'session_tokens.token_hash' => $storedHash],
+                ['_id' => $matchedUser['_id'], 'session_tokens.token_id' => $tokenId],
                 ['$set' => ['session_tokens.$.last_activity' => time()]]
             );
-            
+
             Session::$userSession = new UserSession($matchedUser['username']);
             Session::$authStatus = \Constants::STATUS_LOGGEDIN;
         } else {

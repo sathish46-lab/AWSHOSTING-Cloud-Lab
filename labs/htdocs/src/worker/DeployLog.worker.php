@@ -17,9 +17,13 @@ $username = base64_decode($argv[1] ?? 'admin');
 $taskData  = json_decode(base64_decode($argv[2] ?? '{}'), true);
 
 $instanceHash = $taskData['hash'] ?? 'unknown';
-$action = $taskData['action'] ?? 'deploy'; 
+$action = $taskData['action'] ?? 'deploy';
 
-$rabbit = new RabbitClient("logs_" . $instanceHash);
+// Publish to the default amq.topic exchange with routing key logs.<hash> so the
+// browser's STOMP /topic/logs.<hash> subscription receives the live log stream
+// (previously this published to a separate fanout exchange and the UI never saw it).
+$rabbit = new RabbitClient();
+$logRoutingKey = "logs." . $instanceHash;
 
 // 3. Wait for Browser WebSocket
 sleep(2); 
@@ -60,7 +64,10 @@ $logDir = '/var/log/labsctl';
 if (!is_dir($logDir)) mkdir($logDir, 0777, true);
 $logFile = $logDir . '/labsctl.log';
 $logHandle = fopen($logFile, 'a');
-fwrite($logHandle, "\n=== " . date('Y-m-d H:i:s') . " | Action: $action | Hash: $instanceHash ===\n");
+$tz = new DateTimeZone('Asia/Kolkata');
+$now = new DateTime('now', $tz);
+$istTime = $now->format('d M Y h:i:s A');
+fwrite($logHandle, "\n=== " . $istTime . " IST | Action: $action | Hash: $instanceHash ===\n");
 
 $handle = popen($cmd, 'r');
 $success = false;
@@ -83,7 +90,7 @@ if (is_resource($handle)) {
                 // Add legacy prefixes for the UI if it expects them
                 $prefixes = ["info" => "[*]", "success" => "[✓]", "error" => "[!]", "warn" => "[!]"];
                 $prefix = $prefixes[$level] ?? "[*]";
-                $rabbit->sendMessage(['log' => "$prefix $msgText"]);
+                $rabbit->sendMessage(['log' => "$prefix $msgText"], $logRoutingKey);
                 
                 if (strpos($msgText, 'Deployment Complete') !== false || 
                     strpos($msgText, 'Code-server started successfully') !== false ||
@@ -92,7 +99,7 @@ if (is_resource($handle)) {
                 }
             } else {
                 // Fallback for raw output (e.g., docker build output, raw errors)
-                $rabbit->sendMessage(['log' => $trimmed]);
+                $rabbit->sendMessage(['log' => $trimmed], $logRoutingKey);
                 
                 if (strpos($trimmed, '[✓] Deployment Complete') !== false || 
                     strpos($trimmed, 'Deployment Complete') !== false ||
@@ -116,6 +123,6 @@ if (!$success && $action === 'deploy') {
             'updated_at' => new MongoDB\BSON\UTCDateTime()
         ]]
     );
-    $rabbit->sendMessage(['log' => '[!] Deployment failed. Reverting system state...']);
+    $rabbit->sendMessage(['log' => '[!] Deployment failed. Reverting system state...'], $logRoutingKey);
 }
 ?>

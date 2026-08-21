@@ -144,9 +144,18 @@ try {
 
     // Action buttons
     echo '<div class="d-flex gap-2 justify-content-end">';
-    echo '<a href="' . htmlspecialchars($config['actionLink']) . '" target="_blank" class="btn btn-success fw-bold px-4 rounded-pill">';
-    echo '<i class="bx ' . htmlspecialchars($config['actionIcon']) . ' me-1"></i> ' . htmlspecialchars($config['actionLabel']);
-    echo '</a>';
+    // Code-server labs: launch through the ensure/on-demand flow (triggers labsctl,
+    // streams the startup logs, waits until code-server is ready) instead of opening
+    // the URL directly. Other lab types keep the plain link.
+    if (in_array($labType, ['essentials', 'docker_lab'], true)) {
+        echo '<button type="button" data-code-url="' . htmlspecialchars($config['actionLink']) . '" onclick="launchCodeIDE(event)" class="btn btn-success fw-bold px-4 rounded-pill">';
+        echo '<i class="bx ' . htmlspecialchars($config['actionIcon']) . ' me-1"></i> ' . htmlspecialchars($config['actionLabel']);
+        echo '</button>';
+    } else {
+        echo '<a href="' . htmlspecialchars($config['actionLink']) . '" target="_blank" class="btn btn-success fw-bold px-4 rounded-pill">';
+        echo '<i class="bx ' . htmlspecialchars($config['actionIcon']) . ' me-1"></i> ' . htmlspecialchars($config['actionLabel']);
+        echo '</a>';
+    }
     echo '<button type="button" class="btn btn-secondary fw-bold px-4 rounded-pill" data-coreui-dismiss="modal">Dismiss</button>';
     echo '</div>';
 

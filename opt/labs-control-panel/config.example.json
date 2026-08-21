@@ -19,5 +19,7 @@
   "acme_json_path": "/etc/traefik/acme.json",
   "wg_interface": "wg0",
   "log_format": "json",
-  "log_file": "/var/log/labs/labctl.log"
+  "log_file": "/var/log/labs/labctl.log",
+  "code_server_idle_seconds": 600,
+  "tls_enabled": true
 }

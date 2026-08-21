@@ -23,14 +23,22 @@ foreach ($labTemplates as $tmpl) {
     
     $data = $db->machine_labs->findOne(['instance_hash' => $hash]);
 
+    $status = 'offline';
+    if ($data) {
+        $rawStatus = $data['status'] ?? '';
+        if ($rawStatus === 'running') $status = 'running';
+        elseif ($rawStatus === 'paused') $status = 'paused';
+        elseif ($rawStatus === 'deploying') $status = 'deploying';
+    }
+
     $labsList[] = [
         'id'     => $tmpl['id'],
         'name'   => $tmpl['name'],
         'icon'   => $tmpl['icon'],
         'badges' => $tmpl['badges'],
         'hash'   => $hash,
-        'status' => ($data && ($data['status'] ?? '') === 'running') ? 'running' : 'offline',
-        'ip'     => ($data && ($data['status'] ?? '') === 'running' && isset($data['internal_ip'])) ? $data['internal_ip'] : 'Instance Down',
+        'status' => $status,
+        'ip'     => ($status === 'running' && isset($data['internal_ip'])) ? $data['internal_ip'] : 'Instance Down',
         'is_public' => ($data && isset($data['is_public'])) ? 'public' : 'private'
     ];
 }

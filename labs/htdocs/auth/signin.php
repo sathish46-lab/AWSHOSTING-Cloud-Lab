@@ -12,6 +12,16 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Pragma: no-cache');
 header('Expires: Thu, 01 Jan 1970 00:00:00 GMT');
 
+// Safe local redirect target (only allow relative paths starting with /)
+$redirectTarget = isset($_GET['redirect']) && is_string($_GET['redirect']) && preg_match('#^/[^\\]*$#', $_GET['redirect'])
+    ? $_GET['redirect']
+    : '/home';
+
+function signin_final_redirect($target) {
+    header('Location: ' . $target);
+    exit;
+}
+
 use Auth\GoogleAuth;
 
 $google = new GoogleAuth();
@@ -25,7 +35,7 @@ if (isset($_GET['code'])) {
         session_regenerate_id(true);
         $_SESSION['username'] = $user['username'];
         $_SESSION['auth_status'] = Constants::STATUS_LOGGEDIN;
-        header('Location: /home');
+        header('Location: ' . $redirectTarget);
         exit;
     } else {
         header('Location: /finish-signup');
@@ -40,12 +50,11 @@ if (isset($_POST['email']) && isset($_POST['password'])) {
     if (!Session::validateCsrf($_POST['_csrf_token'] ?? '')) {
         $loginError = "Invalid security token. Please try again.";
     } else {
-        $authResult = UserSession::authenticate($_POST['email'], $_POST['password']);
+        $authResult = UserSession::authenticate($_POST['email'], $_POST['password'], !empty($_POST['remember']));
         if ($authResult === "2fa_required") {
             $show2faForm = true;
         } elseif ($authResult === true) {
-            header("Location: /home");
-            exit;
+            signin_final_redirect($redirectTarget);
         } else {
             $loginError = Session::get('login_error') ?: "Invalid credentials";
         }
@@ -257,7 +266,7 @@ window.addEventListener('pageshow', function(e) {
                                 </div>
 
                                 <div class="form-check form-switch mb-4">
-                                    <input class="form-check-input" type="checkbox" id="remember">
+                                    <input class="form-check-input" type="checkbox" id="remember" name="remember" value="1" checked>
                                     <label class="form-check-label small text-warning" for="remember">Remember me</label>
                                 </div>
 

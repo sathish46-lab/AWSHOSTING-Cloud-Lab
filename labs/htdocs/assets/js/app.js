@@ -16632,6 +16632,9 @@ CodeMirror.defineMIME("text/x-markdown", "markdown");
         const active = sessions.active || [];
         const logins = sessions.recent_logins || [];
 
+        // Render MCP Clients
+        renderMcpClients(data);
+
         document.getElementById('acctSessionCount').textContent = `(${active.length})`;
 
         if (active.length === 0) {
@@ -16684,6 +16687,87 @@ CodeMirror.defineMIME("text/x-markdown", "markdown");
         if (days < 7) return `${days}d ago`;
         return new Date(timestamp * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     }
+
+    // ── Render MCP Clients ──
+    function renderMcpClients(data) {
+        const clients = data.mcp_clients || [];
+        const container = document.getElementById('acctMcpClients');
+        const countEl = document.getElementById('acctMcpClientCount');
+
+        countEl.textContent = `(${clients.length})`;
+
+        if (clients.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-3 text-secondary small">
+                    No MCP clients connected yet.
+                </div>`;
+            return;
+        }
+
+        let html = '';
+        clients.forEach(client => {
+            const lastUsed = client.last_used_at
+                ? timeAgoFormat(new Date(client.last_used_at).getTime() / 1000)
+                : 'Never';
+            const connectedAt = client.connected_at
+                ? new Date(client.connected_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                : 'Unknown';
+            const isRevoked = client.revoked === true;
+
+            html += `
+                <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-color:rgba(255,255,255,0.04) !important; opacity:${isRevoked ? '0.5' : '1'};">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bx bx-terminal text-primary" style="font-size:1.5rem;"></i>
+                        <div class="min-w-0">
+                            <div class="small fw-semibold">${escHtml(client.client_name)} ${isRevoked ? '<span class="badge rounded-pill ms-2" style="background:rgba(var(--cui-danger-rgb,220,53,69),0.15);color:var(--cui-danger,#dc3545);font-size:0.6rem;">Revoked</span>' : ''}</div>
+                            <div class="text-body-secondary" style="font-size:0.7rem;">
+                                <span class="font-monospace text-primary">${escHtml(client.client_id)}</span>
+                            </div>
+                            <div class="text-body-secondary" style="font-size:0.7rem;">
+                                Connected: ${connectedAt} · Last used: ${lastUsed}
+                            </div>
+                        </div>
+                    </div>
+                    ${!isRevoked ? `
+                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="revokeMcpClient('${escHtml(client.client_id)}')">
+                        <i class="bx bx-trash me-1"></i> Revoke
+                    </button>` : ''}
+                </div>`;
+        });
+
+        container.innerHTML = html;
+    }
+
+    // ── Revoke MCP Client ──
+    window.revokeMcpClient = async function(clientId) {
+        if (!confirm('Revoke this MCP client? This will disconnect any AI agents using it.')) return;
+        try {
+            const res = await fetch('/mcp/clients', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
+                body: JSON.stringify({ client_id: clientId })
+            });
+            const data = await res.json();
+            if (data.revoked) {
+                if (window.TomNotify) TomNotify.show('MCP client revoked.', 'Success', 'success');
+                settingsLoaded = false;
+                loadAccountSettings();
+            } else {
+                if (window.TomNotify) TomNotify.show('Failed to revoke client.', 'Error', 'danger');
+            }
+        } catch (err) {
+            if (window.TomNotify) TomNotify.show('Network error.', 'Error', 'danger');
+        }
+    };
+
+    // ── Show MCP Connect Instructions ──
+    window.showMcpConnectInstructions = function() {
+        const url = document.getElementById('mcpServerUrl')?.textContent || 'https://dev.tomweb.in/mcp';
+        alert(`Configure your MCP client (Claude Desktop, OpenCode, Claude Code) with:\n\n${url}\n\nThe OAuth flow will redirect you here to approve access.`);
+    };
 
     // ── Delete SSH Key ──
     window.deleteAccountKey = async function(keyId) {
@@ -20369,8 +20453,12 @@ document.addEventListener('show.coreui.modal', function(e) {
   if (deleteBtn) deleteBtn.addEventListener("click", deleteFile);
   if (openEditorBtn) {
     openEditorBtn.addEventListener("click", () => {
-      showToast("Opening full VS Code editor (code-server) for this instance...", "info");
-      // TODO: wire to the instance's code-server URL once deployment exposes it.
+      const codeServerUrl = container.dataset.codeServerUrl;
+      if (codeServerUrl) {
+        window.open(codeServerUrl, "_blank", "noopener,noreferrer");
+      } else {
+        showToast("Code-server URL not available for this instance.", "warning");
+      }
     });
   }
 
@@ -21109,12 +21197,19 @@ const Dashboard = {
       if (this.statsInterval) clearInterval(this.statsInterval);
 
       const poll = () => {
-        if (document.hidden) return; // double check
+        if (document.hidden) return;
 
         fetch(`/api/labs/stats?hash=${window.SESSION_HASH}`)
           .then((res) => res.json())
           .then((data) => {
-            if (data.status === "offline" || data.status === "initializing") {
+            if (data.status === "paused") {
+              // Lab is paused — show idle state, stop polling
+              this.updateUIIdle();
+              if (this.statsInterval) {
+                clearInterval(this.statsInterval);
+                this.statsInterval = null;
+              }
+            } else if (data.status === "offline" || data.status === "initializing") {
               this.updateUIIdle();
             } else {
               this.updateUI(data);
@@ -21171,6 +21266,7 @@ const Dashboard = {
     safeSetText("stat-cpu-usage", data.CPUPerc);
     safeSetWidth("stat-cpu-bar", data.CPUPerc);
     safeSetText("stat-pid-count", data.PIDs);
+    safeSetText("stat-cpu-throttled", data.CPUThrottled || "0%");
     safeSetText("stat-mem-perc", data.MemPerc);
     safeSetWidth("stat-mem-bar", data.MemPerc);
     safeSetText("stat-mem-info", data.MemUsage);
@@ -21239,6 +21335,7 @@ const Dashboard = {
   updateUIIdle: function () {
     const resets = {
       "stat-cpu-usage": "0.00%",
+      "stat-cpu-throttled": "0%",
       "stat-mem-perc": "0.00%",
       "stat-load-1": "0.0000",
       "stat-load-5": "0.0000",
@@ -21300,7 +21397,7 @@ const Dashboard = {
     const user = window.LAB_USER || "tom";
     const host = "Tomlabs";
     const div = document.createElement("div");
-    div.className = "log-entry";
+    div.className = "log-entry term-cmd-entry";
     div.innerHTML = `<span class="term-user">${Dashboard.escapeHtml(user)}</span>@<span class="term-host" style="color:#FFA500;">${Dashboard.escapeHtml(host)}</span> <span class="term-symbol">$</span> <span class="text-white">${Dashboard.escapeHtml(cmd)}</span>`;
     container.appendChild(div);
   },
@@ -21316,10 +21413,19 @@ const Dashboard = {
     // Extract message
     let msg = data.log || data.message || data;
 
+    // Parse for deploy progress
+    if (typeof DeployProgress !== 'undefined') {
+      DeployProgress.parseLog(msg);
+    }
+
     // Clean up message formatting
     msg = msg.replace(/^\[\d{2}:\d{2}:\d{2}\]\s*/, "");
     msg = msg.replace(/^(\[\*\]\s*)+/, "[*] ");
     msg = msg.replace(/^(\[!\]\s*)+/, "[!] ");
+
+    // Duplicate detection - skip if last log is identical
+    const lastEntry = container.lastElementChild;
+    if (lastEntry && lastEntry.innerText === msg) return;
 
     // Create log entry
     const div = document.createElement("div");
@@ -21617,14 +21723,145 @@ async function executeRedeploy(labType) {
     }
 
     Dashboard.appendLog("[*] Handshake accepted. Starting stream...");
+    
+    // Start progress tracking (parses logs from WebSocket)
+    DeployProgress.start();
   } catch (e) {
     console.error("Redeploy Error:", e);
     Dashboard.appendLog("[!] Redeploy failed: " + e.message);
     Dashboard.isProcessing = false;
+    DeployProgress.hide();
     if (headerRedeployBtn) Dashboard.toggleLoading(headerRedeployBtn, false);
     if (deployBtn) { deployBtn.classList.remove("disabled"); deployBtn.innerHTML = '<i class="bx bx-refresh fs-6 text-dark"></i> <span class="small text-dark">Redeploy</span>'; }
   }
 }
+
+/**
+ * Deployment Progress Tracker
+ * Parses live WebSocket logs to calculate progress percentage
+ */
+const DeployProgress = {
+  active: false,
+  progress: 0,
+  
+  // Deploy step patterns mapped to percentage
+  steps: [
+    [/Deployment initiated/i, 5, 'Initializing'],
+    [/Fetching lab metadata/i, 8, 'Loading metadata'],
+    [/Starting deployment for user/i, 10, 'Starting'],
+    [/Instance ID:/i, 12, 'Preparing'],
+    [/Reusing existing lab IP|Assigned Docker IP/i, 15, 'Assigning IP'],
+    [/Checking for conflicting containers/i, 18, 'Checking containers'],
+    [/No existing container|Removing existing container/i, 20, 'Cleaning up'],
+    [/Storage preserved/i, 25, 'Preserving storage'],
+    [/Clearing stale VPN/i, 28, 'Clearing VPN'],
+    [/Removing stale WireGuard/i, 30, 'Removing old peer'],
+    [/Peer removed/i, 32, 'Peer removed'],
+    [/Reusing existing keys|Generating new/i, 35, 'Configuring keys'],
+    [/Peer re-registered/i, 38, 'Peer registered'],
+    [/Provisioning/i, 40, 'Provisioning'],
+    [/Waiting for container/i, 45, 'Starting container'],
+    [/Configuring network routing/i, 50, 'Configuring network'],
+    [/Routing and firewall configured/i, 55, 'Firewall ready'],
+    [/Optimizing Apache/i, 58, 'Configuring Apache'],
+    [/Configuring user environment/i, 60, 'Setting up user'],
+    [/Syncing ssh/i, 62, 'Syncing SSH'],
+    [/Starting user configuration/i, 65, 'Creating user'],
+    [/User .* created/i, 68, 'User created'],
+    [/System password set/i, 70, 'Password set'],
+    [/SSH configured/i, 72, 'SSH ready'],
+    [/Bash environment/i, 74, 'Shell ready'],
+    [/Configuring WireGuard tunnel/i, 76, 'Setting up VPN'],
+    [/WireGuard configured/i, 80, 'VPN ready'],
+    [/Configuring persistent storage/i, 82, 'Linking storage'],
+    [/Storage links configured/i, 85, 'Storage ready'],
+    [/Setting up Code-Server/i, 88, 'Starting Code-Server'],
+    [/Code-server started/i, 90, 'Code-Server ready'],
+    [/Applying firewall rules/i, 92, 'Applying firewall'],
+    [/Firewall rules applied/i, 94, 'Firewall ready'],
+    [/Finalizing Traefik/i, 96, 'Configuring proxy'],
+    [/Traefik config written/i, 98, 'Proxy configured'],
+    [/Deployment Complete|Deploy complete|Access URL:/i, 100, 'Complete'],
+  ],
+  
+  show() {
+    const el = document.getElementById('deploy-progress-container');
+    if (el) el.classList.remove('d-none');
+  },
+  
+  hide() {
+    const el = document.getElementById('deploy-progress-container');
+    if (el) el.classList.add('d-none');
+  },
+  
+  update(progress, label, status) {
+    this.progress = progress;
+    const bar = document.getElementById('deploy-progress-bar');
+    const pct = document.getElementById('deploy-progress-percent');
+    const lbl = document.getElementById('deploy-progress-label');
+    const icon = document.getElementById('deploy-progress-icon');
+    
+    if (bar) {
+      bar.style.width = progress + '%';
+      bar.setAttribute('aria-valuenow', progress);
+      bar.classList.remove('progress-bar-striped', 'progress-bar-animated', 'bg-success', 'bg-danger');
+      if (status === 'running') {
+        bar.classList.add('progress-bar-striped', 'progress-bar-animated');
+        bar.style.background = 'linear-gradient(90deg, #00d4ff, #00ff88)';
+      } else if (status === 'completed') {
+        bar.classList.add('bg-success');
+        bar.style.background = '';
+      } else if (status === 'failed') {
+        bar.classList.add('bg-danger');
+        bar.style.background = '';
+      }
+    }
+    if (pct) pct.textContent = progress + '%';
+    if (lbl) lbl.textContent = label || 'Deploying...';
+    if (icon) {
+      if (status === 'completed') icon.textContent = '✅';
+      else if (status === 'failed') icon.textContent = '❌';
+      else icon.textContent = '🚀';
+    }
+  },
+  
+  // Called by Dashboard.appendLog for each new log line
+  parseLog(line) {
+    if (!this.active) return;
+    
+    for (const [pattern, pct, label] of this.steps) {
+      if (pattern.test(line) && pct > this.progress) {
+        this.update(pct, label, 'running');
+        break;
+      }
+    }
+    
+    // Check completion
+    if (/Deployment Complete|Deploy complete|Access URL:/i.test(line)) {
+      this.update(100, 'Complete', 'completed');
+      this.active = false;
+      setTimeout(() => window.location.reload(), 2000);
+    }
+    
+    // Check failure
+    if (/\[!\].*failed|Error:/i.test(line)) {
+      this.update(this.progress, 'Failed', 'failed');
+      this.active = false;
+    }
+  },
+  
+  start() {
+    this.active = true;
+    this.progress = 0;
+    this.show();
+    this.update(0, 'Starting deployment...', 'running');
+  },
+  
+  stop() {
+    this.active = false;
+    setTimeout(() => this.hide(), 3000);
+  }
+};
 
 /**
  * Handle Stop button click - Show Modal
@@ -21696,6 +21933,146 @@ async function executeStop() {
 }
 
 /**
+ * Pause Lab - Freeze processes, keep memory, zero CPU
+ */
+function handlePause() {
+  if (Dashboard.isProcessing) return;
+  const modalEl = document.getElementById("pauseModal");
+  if (!modalEl) {
+    // No modal found, execute directly
+    executePause();
+    return;
+  }
+  let modal = coreui.Modal.getInstance(modalEl);
+  if (!modal) modal = new coreui.Modal(modalEl, { backdrop: true, keyboard: true });
+  document.getElementById("pause-confirm-btn").onclick = () => executePause();
+  modal.show();
+}
+
+/**
+ * Execute the actual pause request
+ */
+async function executePause() {
+  const modalEl = document.getElementById("pauseModal");
+  const modal = modalEl ? coreui.Modal.getInstance(modalEl) : null;
+  const btn = document.getElementById("pause-confirm-btn");
+  const headerBtn = document.getElementById("btn-pause-action");
+  const type = window.LAB_TYPE || "essentials";
+
+  if (modal) modal.hide();
+  Dashboard.isProcessing = true;
+  if (typeof ActivityTracker !== "undefined") {
+    ActivityTracker.setProcessing(true);
+  }
+
+  if (headerBtn) Dashboard.toggleLoading(headerBtn, true);
+  if (btn) {
+    btn.classList.add("disabled");
+    btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true"></span> Pausing...';
+  }
+
+  Dashboard.resetTerminal();
+  Dashboard.appendCommand(`docker pause ${window.SESSION_HASH}`);
+  await new Promise((r) => setTimeout(r, 300));
+  Dashboard.appendLog("[*] Freezing container processes...");
+
+  try {
+    const response = await fetch("/api/labs/pause", {
+      method: "POST",
+      body: new URLSearchParams({
+        lab: type,
+      }),
+    });
+
+    const data = await response.json();
+    if (data.status === 'success') {
+      Dashboard.appendLog("[✓] Lab paused. CPU: 0%, Memory: preserved");
+      // Reload page after short delay to show paused state
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      Dashboard.appendLog(`[!] Error: ${data.error || 'Pause request failed'}`);
+      Dashboard.isProcessing = false;
+      if (headerBtn) Dashboard.toggleLoading(headerBtn, false);
+    }
+  } catch (e) {
+    console.error("Pause Error:", e);
+    Dashboard.appendLog(`[!] Error: ${e.message}`);
+    if (headerBtn) Dashboard.toggleLoading(headerBtn, false);
+    Dashboard.isProcessing = false;
+  }
+}
+
+/**
+ * Resume Lab - Unfreeze processes, restore CPU
+ */
+function handleResume() {
+  if (Dashboard.isProcessing) return;
+  const modalEl = document.getElementById("resumeModal");
+  if (!modalEl) {
+    // No modal found, execute directly
+    executeResume();
+    return;
+  }
+  let modal = coreui.Modal.getInstance(modalEl);
+  if (!modal) modal = new coreui.Modal(modalEl, { backdrop: true, keyboard: true });
+  document.getElementById("resume-confirm-btn").onclick = () => executeResume();
+  modal.show();
+}
+
+/**
+ * Execute the actual resume request
+ */
+async function executeResume() {
+  const modalEl = document.getElementById("resumeModal");
+  const modal = modalEl ? coreui.Modal.getInstance(modalEl) : null;
+  const btn = document.getElementById("resume-confirm-btn");
+  const headerBtn = document.getElementById("btn-resume-action");
+  const type = window.LAB_TYPE || "essentials";
+
+  if (modal) modal.hide();
+  Dashboard.isProcessing = true;
+  if (typeof ActivityTracker !== "undefined") {
+    ActivityTracker.setProcessing(true);
+  }
+
+  if (headerBtn) Dashboard.toggleLoading(headerBtn, true);
+  if (btn) {
+    btn.classList.add("disabled");
+    btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true"></span> Resuming...';
+  }
+
+  Dashboard.resetTerminal();
+  Dashboard.appendCommand(`docker unpause ${window.SESSION_HASH}`);
+  await new Promise((r) => setTimeout(r, 300));
+  Dashboard.appendLog("[*] Unfreezing container processes...");
+
+  try {
+    const response = await fetch("/api/labs/resume", {
+      method: "POST",
+      body: new URLSearchParams({
+        lab: type,
+      }),
+    });
+
+    const data = await response.json();
+    if (data.status === 'success') {
+      Dashboard.appendLog("[✓] Lab resumed. All systems restored");
+      // Reload page after short delay to show running state
+      setTimeout(() => location.reload(), 1500);
+    } else {
+      Dashboard.appendLog(`[!] Error: ${data.error || 'Resume request failed'}`);
+      Dashboard.isProcessing = false;
+      if (headerBtn) Dashboard.toggleLoading(headerBtn, false);
+    }
+  } catch (e) {
+    console.error("Resume Error:", e);
+    Dashboard.appendLog(`[!] Error: ${e.message}`);
+    if (headerBtn) Dashboard.toggleLoading(headerBtn, false);
+    Dashboard.isProcessing = false;
+  }
+}
+
+/**
  * Launch Code-Server IDE
  * @param {Event} event
  */
@@ -21706,7 +22083,8 @@ async function launchCodeIDE(event, targetUrl = null) {
   // This function is for the main "Code" or "Launch" button on dashboard.
 
   const type = window.LAB_TYPE || 'essentials';
-  let url = targetUrl || window.CODE_SERVER_URL;
+  const codeBtn = event.target.closest ? event.target.closest('[data-code-url]') : null;
+  let url = targetUrl || (codeBtn && codeBtn.dataset.codeUrl) || window.CODE_SERVER_URL;
   let actionName = "Code-Server";
   let ensureAction = "ensure-codeserver";
 
@@ -21731,37 +22109,86 @@ async function launchCodeIDE(event, targetUrl = null) {
   const originalText = btn.innerHTML;
 
   // 3. Auto-Start Logic (Only for Code-Server currently)
-  // We move this BEFORE the URL check because we might get the URL from the response
+  // We move this BEFORE the URL check because we might get the URL from the response.
+  // Fast path: ask the backend if code-server is already running. If it is, open the
+  // link instantly and skip the (heavier) ensure worker. If not, fall through to the
+  // wake-up flow so the user still gets "wait for readiness" feedback.
   if (ensureAction) {
-    // Add spinner to button
-    btn.classList.add("disabled");
-    btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true"></span> Waking up...';
-    Dashboard.resetTerminal();
-    Dashboard.appendLog(`[*] Ensuring ${actionName} is running...`);
+    const formData = new URLSearchParams();
+    formData.append("lab", type);
+    formData.append("hash", window.SESSION_HASH);
 
+    let alreadyRunning = false;
     try {
-      const formData = new URLSearchParams();
-      formData.append("lab", type);
-      formData.append("hash", window.SESSION_HASH);
-
-      let response = await fetch("/api/labs/ensure_codeserver", {
+      const stResp = await fetch("/api/labs/code_status", {
         method: "POST",
         body: formData
       });
-
-      let data = await response.json();
-      if (data.url) {
-        url = data.url; // Use fresh URL from backend if provided
-        window.CODE_SERVER_URL = url;
-        Dashboard.appendLog(`[*] Backend returned URL: ${url}`);
+      const stData = await stResp.json();
+      if (stData && (stData.running || stData.codeserver_running)) {
+        alreadyRunning = true;
+        if (stData.url) {
+          url = stData.url;
+          window.CODE_SERVER_URL = url;
+        }
       }
-
-      // Wait for worker logs to show success
-      await new Promise((r) => setTimeout(r, 2000));
-
     } catch (e) {
-      console.error("Auto-start failed", e);
-      Dashboard.appendLog(`[!] Warning: Auto-start trigger failed. Trying saved URL...`);
+      // Status check failed — treat as not running and fall through to ensure.
+      console.error("Code-server status check failed", e);
+    }
+
+    if (!alreadyRunning) {
+      // Add spinner to button
+      btn.classList.add("disabled");
+      btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true"></span> Waking up...';
+      Dashboard.resetTerminal();
+      Dashboard.appendCommand(`labsctl ensure code-server --hash=${window.SESSION_HASH}`);
+      Dashboard.appendLog(`[*] Ensuring ${actionName} is running...`);
+
+      try {
+        // Stream the worker's real logs and only open the editor once code-server is
+        // actually ready (worker success marker) — not a blind fixed delay. If the
+        // marker is missed we fall back to a safety timeout so the launch never hangs.
+        const readyPromise = new Promise((resolveReady) => {
+          const origAppend = Dashboard.appendLog;
+          let done = false;
+          const finish = () => { if (!done) { done = true; Dashboard.appendLog = origAppend; resolveReady(); } };
+          const timer = setTimeout(finish, 45000);
+
+          Dashboard.appendLog = function (d) {
+            origAppend.call(Dashboard, d);
+            const msg = (d && d.log) || (d && d.message) || d || "";
+            if (msg && /Code-server started successfully|Code-server is already running/i.test(msg)) {
+              clearTimeout(timer);
+              finish();
+            }
+          };
+        });
+
+        // Ensure we're listening on the live log channel for this lab
+        if (window.LogSocket && !window.LogSocket.isConnected) {
+          window.LogSocket.connect(`logs.${window.SESSION_HASH}`, (d) => Dashboard.appendLog(d));
+        }
+
+        let response = await fetch("/api/labs/ensure_codeserver", {
+          method: "POST",
+          body: formData
+        });
+
+        let data = await response.json();
+        if (data.url) {
+          url = data.url; // Use fresh URL from backend if provided
+          window.CODE_SERVER_URL = url;
+          Dashboard.appendLog(`[*] Backend returned URL: ${url}`);
+        }
+
+        // Wait for the worker's success marker (or the 45s safety timeout)
+        await readyPromise;
+
+      } catch (e) {
+        console.error("Auto-start failed", e);
+        Dashboard.appendLog(`[!] Warning: Auto-start trigger failed. Trying saved URL...`);
+      }
     }
   }
 
@@ -22512,6 +22939,10 @@ window.onPageLoad( function() {
     window.addDeployProxyRow = addDeployProxyRow;
     window.updateSelectedDomains = updateSelectedDomains;
     window.handleStop = handleStop;
+    window.handlePause = handlePause;
+    window.handleResume = handleResume;
+    window.executePause = executePause;
+    window.executeResume = executeResume;
     window.removeDomainChip = removeDomainChip;
     window.handleDeploy = handleDeploy;
 
@@ -26230,7 +26661,7 @@ const TomSocketClient = function () {
    * @param {function} onSubscribed - Optional callback once subscribed
    */
   this.safeSubscribe = function (exchange, callback, ui, onSubscribed = null) {
-    const isTopic = exchange.startsWith('/') || exchange.startsWith('logs.') || exchange.startsWith('ai_stream.') || exchange.startsWith('content_stream.');
+    const isTopic = exchange.startsWith('/') || exchange.startsWith('logs.') || exchange.includes('_stream.');
     const delayMs = isTopic ? 10 : 1000;
 
     setTimeout(() => {
@@ -26240,7 +26671,7 @@ const TomSocketClient = function () {
         let destination;
         if (exchange.startsWith('/')) {
           destination = exchange;
-        } else if (exchange.startsWith('logs.') || exchange.startsWith('ai_stream.') || exchange.startsWith('content_stream.')) {
+        } else if (exchange.includes('_stream.') || exchange.startsWith('logs.')) {
           destination = `/topic/${exchange}`;
         } else {
           destination = `/exchange/${exchange}/#`;

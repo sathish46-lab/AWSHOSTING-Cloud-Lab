@@ -87,6 +87,12 @@ http:
       entryPoints:
         - websecure
 
+    mqs-ws-router:
+      rule: "Host(\`$MQS_DOMAIN\`) && (PathPrefix(\`/ws\`) || PathPrefix(\`/stats-ws\`))"
+      service: mqs-service
+      entryPoints:
+        - web
+
     code-server-router:
       rule: "HostRegexp(\`{subdomain:.+}.$CODE_DOMAIN\`)"
       service: code-server-service

@@ -25,6 +25,60 @@
     </div>
 </div>
 
+<!-- Pause Confirmation Modal -->
+<div class="modal fade" id="pauseModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg blur rounded-4 overflow-hidden modal-connection-info">
+            <div class="modal-header border-0 p-4 pb-0">
+                <h5 class="modal-title fw-bold text-white mb-0">Pause Lab?</h5>
+                <button type="button" class="btn-close btn-close-white" data-coreui-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-secondary mb-3">This will freeze your lab. All processes pause instantly, but memory and network connections are preserved.</p>
+                <div class="d-flex align-items-start gap-2 mb-2 px-1">
+                    <i class='bx bxs-info-square text-secondary opacity-50 info-icon-micro'></i>
+                    <div class="text-secondary opacity-75 info-text-micro">
+                        Resume takes less than a second. Zero CPU usage while paused.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pb-4 px-4">
+                <button type="button" class="btn btn-warning fw-bold px-4 rounded-pill" id="pause-confirm-btn">
+                    Confirm Pause
+                </button>
+                <button type="button" class="btn btn-secondary px-4 rounded-pill" data-coreui-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resume Confirmation Modal -->
+<div class="modal fade" id="resumeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg blur rounded-4 overflow-hidden modal-connection-info">
+            <div class="modal-header border-0 p-4 pb-0">
+                <h5 class="modal-title fw-bold text-white mb-0">Resume Lab?</h5>
+                <button type="button" class="btn-close btn-close-white" data-coreui-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-secondary mb-3">This will unfreeze your lab. All processes resume instantly where they left off.</p>
+                <div class="d-flex align-items-start gap-2 mb-2 px-1">
+                    <i class='bx bxs-info-square text-secondary opacity-50 info-icon-micro'></i>
+                    <div class="text-secondary opacity-75 info-text-micro">
+                        Resume is instant. All connections and memory are restored.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pb-4 px-4">
+                <button type="button" class="btn btn-success fw-bold px-4 text-white rounded-pill" id="resume-confirm-btn">
+                    Confirm Resume
+                </button>
+                <button type="button" class="btn btn-secondary px-4 rounded-pill" data-coreui-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Code Info Modal (Simplified IDE Launch) -->
 <div class="modal fade" id="codeInfoModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">

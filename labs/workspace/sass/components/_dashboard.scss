@@ -950,7 +950,7 @@ html[data-coreui-theme="light"] {
   }
 }
 
-/* SNA match: disable backdrop-filter on stat-pills inside blur containers */
+/* Disable backdrop-filter on stat-pills inside blur containers */
 html[data-coreui-theme="dark"] .blur [class*="stat-pill-"] {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;

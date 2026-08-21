@@ -299,29 +299,9 @@ if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN) {
     var wrapper = document.getElementById('search-wrapper');
     if (!searchInput || !resultsEl || !wrapper) return;
 
-    var pages = [
-        { title: 'Dashboard',       section: 'Main',     url: '/dashboard',      icon: 'bx-home' },
-        { title: 'Labs',            section: 'Main',     url: '/labs',           icon: 'bxLab' },
-        { title: 'Challenges',      section: 'Main',     url: '/challenges',     icon: 'bx-trophy' },
-        { title: 'Devices',         section: 'Network',  url: '/devices',        icon: 'bx-desktop' },
-        { title: 'Network',         section: 'Network',  url: '/network',        icon: 'bx-network-chart' },
-        { title: 'Domains',         section: 'Network',  url: '/domains',        icon: 'bx-globe' },
-        { title: 'SSL',             section: 'Network',  url: '/ssl',            icon: 'bx-lock-alt' },
-        { title: 'Instances',       section: 'Labs',     url: '/instances',      icon: 'bx-server' },
-        { title: 'Services',        section: 'Labs',     url: '/services',       icon: 'bx-cog' },
-        { title: 'Quiz',            section: 'Learn',    url: '/quiz',           icon: ' bx-cert' },
-        { title: 'Learn AI',        section: 'Learn',    url: '/learn',          icon: 'bx-brain' },
-        { title: 'Account',         section: 'Settings', url: '/account',        icon: 'bx-user' },
-        { title: 'Admin Panel',     section: 'Settings', url: '/admin/users',    icon: 'bx-crown' },
-        { title: 'Server Monitor',  section: 'Settings', url: '/admin/server_monitor', icon: 'bx-bar-chart-alt-2' },
-        { title: 'Users',           section: 'Settings', url: '/admin/users',    icon: 'bx-group' },
-        { title: 'Benchmarks',      section: 'Settings', url: '/admin/benchmark', icon: 'bx-test-tube' },
-    ];
-
-    var labsItems = <?= json_encode($labsSearchItems) ?>;
-
     var activeIndex = -1;
     var currentQuery = '';
+    var debounceTimer = null;
 
     function getPageTitle() {
         var t = document.title.replace(/\s*[-|]\s*Tom Labs.*$/, '').trim();
@@ -340,14 +320,9 @@ if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN) {
     }
     updatePageBadge();
 
-    document.addEventListener('htmx:afterSettle', function() {
-        setTimeout(updatePageBadge, 50);
-    });
-    document.addEventListener('htmx:afterRequest', function() {
-        setTimeout(updatePageBadge, 100);
-    });
+    document.addEventListener('htmx:afterSettle', function() { setTimeout(updatePageBadge, 50); });
+    document.addEventListener('htmx:afterRequest', function() { setTimeout(updatePageBadge, 100); });
 
-    // Also watch for title changes
     if (typeof MutationObserver !== 'undefined') {
         var titleEl = document.querySelector('title');
         if (titleEl) {
@@ -356,7 +331,6 @@ if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN) {
         }
     }
 
-    // Custom tooltip on hover — reads from data-tip, never title
     var badgeEl = document.getElementById('searchPageBadge');
     var tipEl = document.getElementById('pageTitleTooltip');
     if (badgeEl && tipEl) {
@@ -366,36 +340,26 @@ if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN) {
                 tipEl.classList.add('visible');
             }
         };
-        badgeEl.onmouseleave = function() {
-            tipEl.classList.remove('visible');
-        };
+        badgeEl.onmouseleave = function() { tipEl.classList.remove('visible'); };
     }
 
     function rotatePlaceholder() {
         var page = getPageTitle();
         var items = [
-            'Search for labs, devices, challenges...',
+            'Search for labs, challenges, lessons...',
             'Current page: ' + page,
-            'Type to search...',
-            'Looking for something cool?',
-            'Find your next lab...',
-            'Hack the planet!',
-            'What are we building today?',
+            'Type to search anything...',
+            'Find labs, quizzes, roadmaps...',
+            'Ctrl+K to search...',
             'Explore challenges & earn Zeal...',
             'Deploy. Learn. Conquer.',
-            'Your lab awaits, captain!',
-            'Try searching "Devices"...',
-            'Ctrl+K vibes incoming...',
-            'Search is your superpower!',
-            'Discover something new...',
-            'Ready to level up?'
         ];
         var idx = 0;
         setInterval(function() {
             if (document.activeElement === searchInput) return;
             idx = (idx + 1) % items.length;
             searchInput.setAttribute('placeholder', items[idx]);
-        }, 2000);
+        }, 2500);
     }
     rotatePlaceholder();
 
@@ -405,71 +369,77 @@ if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN) {
         return text.replace(re, '<strong style="color: var(--cui-body-color); background: rgba(59,130,246,0.15); border-radius: 3px; padding: 0 2px;">$1</strong>');
     }
 
-    function renderResults(query) {
-        if (!query || query.length < 1) {
-            resultsEl.classList.add('d-none');
-            resultsEl.innerHTML = '';
-            activeIndex = -1;
-            return;
+    var groupMeta = {
+        running:    { label: 'Your Labs',        icon: 'bx-hard-hat',  colour: '#22c55e' },
+        catalog:    { label: 'Lab Catalog',       icon: 'bx-diamond',   colour: '#E95420' },
+        apps:       { label: 'Pages & Apps',      icon: 'bx-grid-alt',  colour: '#6366f1' },
+        challenges: { label: 'Challenges',        icon: 'bx-trophy',    colour: '#ef4444' },
+        quiz:       { label: 'Quiz Topics',       icon: 'bx-cert',      colour: '#8b5cf6' },
+        learn:      { label: 'Learn AI Lessons',  icon: 'bx-brain',     colour: '#06b6d4' },
+        roadmaps:   { label: 'Roadmaps',          icon: 'bx-map',       colour: '#10b981' },
+        syllabus:   { label: 'Syllabus',          icon: 'bx-notes',     colour: '#f472b6' },
+    };
+
+    function renderIcon(item) {
+        if (item.icon && item.icon.kind === 'image' && item.icon.url) {
+            return '<img src="' + item.icon.url + '" style="width:22px;height:22px;border-radius:50%;object-fit:cover;" alt="">';
         }
+        if (item.icon && item.icon.kind === 'glyph') {
+            return '<i class="bx ' + item.icon.glyph + '" style="font-size:1.15rem;width:22px;text-align:center;color:' + (item.icon.colour || '#999') + ';"></i>';
+        }
+        if (item.glyph) {
+            return '<i class="bx ' + item.glyph + '" style="font-size:1.15rem;width:22px;text-align:center;color:' + (item.colour || '#999') + ';"></i>';
+        }
+        return '<i class="bx bx-hash text-secondary" style="font-size:1.15rem;width:22px;text-align:center;"></i>';
+    }
 
-        var q = query.toLowerCase();
-        var pageMatches = pages.filter(function(p) {
-            return p.title.toLowerCase().indexOf(q) !== -1 || p.section.toLowerCase().indexOf(q) !== -1;
-        });
-        var labMatches = labsItems.filter(function(p) {
-            return p.title.toLowerCase().indexOf(q) !== -1 || p.cat.toLowerCase().indexOf(q) !== -1;
-        });
+    function renderGroup(key, items, query) {
+        var meta = groupMeta[key] || { label: key, icon: 'bx-folder', colour: '#999' };
+        var html = '<div class="px-3 py-1 text-uppercase fw-bold d-flex align-items-center gap-1" style="font-size:0.65rem;letter-spacing:0.08em;color:' + meta.colour + ';opacity:0.85;">'
+            + '<i class="bx ' + meta.icon + '" style="font-size:0.75rem;"></i>' + meta.label + '</div>';
 
-        if (pageMatches.length === 0 && labMatches.length === 0) {
+        items.forEach(function(item) {
+            var activeClass = globalIdx === activeIndex ? ' active' : '';
+            var href = item.href || item.url || '#';
+            var isExternal = item.codeserver || false;
+            var dataAttr = isExternal ? '' : ' data-full-nav';
+            html += '<a href="' + href + '" hx-get="' + href + '" hx-target="#main-content" hx-push-url="true"'
+                + ' class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none search-result-item' + activeClass + '"'
+                + ' data-index="' + globalIdx + '"' + dataAttr
+                + ' style="transition:background 0.1s;color:var(--cui-body-color);font-size:0.88rem;">'
+                + renderIcon(item)
+                + '<span>' + highlightMatch(item.label || item.title || '', query) + '</span>'
+                + '<span class="ms-auto text-secondary" style="font-size:0.7rem;opacity:0.5;">' + (item.sub || '') + '</span>'
+                + '<i class="bx bx-right-arrow-alt text-secondary" style="opacity:0;transition:opacity 0.15s;font-size:1rem;"></i>'
+                + '</a>';
+            globalIdx++;
+        });
+        return html;
+    }
+
+    var globalIdx = 0;
+
+    function renderResults(data) {
+        var groups = data.groups || {};
+        var query = data.q || '';
+        var order = ['running', 'catalog', 'apps', 'challenges', 'quiz', 'learn', 'roadmaps', 'syllabus'];
+
+        var hasResults = order.some(function(k) { return groups[k] && groups[k].length > 0; });
+
+        if (!hasResults) {
             resultsEl.innerHTML = '<div class="px-3 py-3 text-center text-secondary small">No results found for "' + query + '"</div>';
             resultsEl.classList.remove('d-none');
             return;
         }
 
         var html = '';
-        var globalIdx = 0;
+        globalIdx = 0;
 
-        if (pageMatches.length > 0) {
-            var pageGrouped = {};
-            pageMatches.forEach(function(p) {
-                if (!pageGrouped[p.section]) pageGrouped[p.section] = [];
-                pageGrouped[p.section].push(p);
-            });
-            Object.keys(pageGrouped).forEach(function(section) {
-                html += '<div class="px-3 py-1 text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.08em; color: var(--cui-secondary-color, #8695a4); opacity: 0.7;">' + section + '</div>';
-                pageGrouped[section].forEach(function(p) {
-                    var activeClass = globalIdx === activeIndex ? ' active' : '';
-                    html += '<a href="' + p.url + '" hx-get="' + p.url + '" hx-target="#main-content" hx-push-url="true" class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none search-result-item' + activeClass + '" data-index="' + globalIdx + '" style="transition: background 0.1s; color: var(--cui-body-color); font-size: 0.88rem;">'
-                        + '<i class="bx ' + p.icon + ' text-secondary" style="font-size: 1.1rem; width: 20px; text-align: center;"></i>'
-                        + '<span>' + highlightMatch(p.title, query) + '</span>'
-                        + '<i class="bx bx-right-arrow-alt ms-auto text-secondary" style="opacity: 0; transition: opacity 0.15s; font-size: 1rem;"></i>'
-                        + '</a>';
-                    globalIdx++;
-                });
-            });
-        }
-
-        if (labMatches.length > 0) {
-            var labGrouped = {};
-            labMatches.forEach(function(p) {
-                if (!labGrouped[p.cat]) labGrouped[p.cat] = [];
-                labGrouped[p.cat].push(p);
-            });
-            html += '<div class="px-3 py-1 text-uppercase fw-bold" style="font-size: 0.65rem; letter-spacing: 0.08em; color: #E95420; opacity: 0.85;"><i class="bx bxl-tux me-1" style="font-size: 0.7rem;"></i>Essentials Labs</div>';
-            Object.keys(labGrouped).forEach(function(cat) {
-                html += '<div class="px-3 py-1 fw-semibold" style="font-size: 0.7rem; color: var(--cui-secondary-color, #8695a4); opacity: 0.6; padding-left: 1.5rem;">' + cat + '</div>';
-                labGrouped[cat].forEach(function(p) {
-                    var activeClass = globalIdx === activeIndex ? ' active' : '';
-                    html += '<a href="' + p.url + '" data-full-nav class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none search-result-item' + activeClass + '" data-index="' + globalIdx + '" style="transition: background 0.1s; color: var(--cui-body-color); font-size: 0.88rem; padding-left: 1.5rem;">'
-                        + '<i class="bx ' + p.icon + ' text-secondary" style="font-size: 1.1rem; width: 20px; text-align: center;"></i>'
-                        + '<span>' + highlightMatch(p.title, query) + '</span>'
-                        + '<i class="bx bx-right-arrow-alt ms-auto text-secondary" style="opacity: 0; transition: opacity 0.15s; font-size: 1rem;"></i>'
-                        + '</a>';
-                    globalIdx++;
-                });
-            });
-        }
+        order.forEach(function(key) {
+            if (groups[key] && groups[key].length > 0) {
+                html += renderGroup(key, groups[key], query);
+            }
+        });
 
         resultsEl.innerHTML = html;
         resultsEl.classList.remove('d-none');
@@ -477,16 +447,23 @@ if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN) {
 
         resultsEl.querySelectorAll('.search-result-item').forEach(function(item) {
             item.addEventListener('mouseenter', function() {
-                resultsEl.querySelectorAll('.search-result-item').forEach(function(el) { el.classList.remove('active'); el.style.background = ''; el.querySelector('i:last-child').style.opacity = '0'; });
+                resultsEl.querySelectorAll('.search-result-item').forEach(function(el) {
+                    el.classList.remove('active');
+                    el.style.background = '';
+                    var arrow = el.querySelector('i:last-child');
+                    if (arrow) arrow.style.opacity = '0';
+                });
                 item.classList.add('active');
                 item.style.background = 'rgba(255,255,255,0.06)';
-                item.querySelector('i:last-child').style.opacity = '1';
+                var arrow = item.querySelector('i:last-child');
+                if (arrow) arrow.style.opacity = '1';
                 activeIndex = parseInt(item.dataset.index);
             });
             item.addEventListener('mouseleave', function() {
                 item.classList.remove('active');
                 item.style.background = '';
-                item.querySelector('i:last-child').style.opacity = '0';
+                var arrow = item.querySelector('i:last-child');
+                if (arrow) arrow.style.opacity = '0';
             });
             item.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -506,14 +483,33 @@ if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN) {
         });
     }
 
+    function fetchSearch(query) {
+        fetch('/api/search?q=' + encodeURIComponent(query))
+            .then(function(r) { return r.json(); })
+            .then(function(data) { renderResults(data); })
+            .catch(function() {
+                resultsEl.innerHTML = '<div class="px-3 py-3 text-center text-secondary small">Search error</div>';
+                resultsEl.classList.remove('d-none');
+            });
+    }
+
     searchInput.addEventListener('input', function() {
         currentQuery = searchInput.value.trim();
         activeIndex = -1;
-        renderResults(currentQuery);
+        clearTimeout(debounceTimer);
+        if (!currentQuery || currentQuery.length < 1) {
+            resultsEl.classList.add('d-none');
+            resultsEl.innerHTML = '';
+            return;
+        }
+        debounceTimer = setTimeout(function() { fetchSearch(currentQuery); }, 200);
     });
 
     searchInput.addEventListener('focus', function() {
-        if (currentQuery) renderResults(currentQuery);
+        if (currentQuery) {
+            clearTimeout(debounceTimer);
+            fetchSearch(currentQuery);
+        }
     });
 
     searchInput.addEventListener('keydown', function(e) {
@@ -526,7 +522,8 @@ if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN) {
             items.forEach(function(el, i) {
                 el.classList.toggle('active', i === activeIndex);
                 el.style.background = i === activeIndex ? 'rgba(255,255,255,0.06)' : '';
-                el.querySelector('i:last-child').style.opacity = i === activeIndex ? '1' : '0';
+                var arrow = el.querySelector('i:last-child');
+                if (arrow) arrow.style.opacity = i === activeIndex ? '1' : '0';
             });
             items[activeIndex].scrollIntoView({ block: 'nearest' });
         } else if (e.key === 'ArrowUp') {
@@ -535,7 +532,8 @@ if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN) {
             items.forEach(function(el, i) {
                 el.classList.toggle('active', i === activeIndex);
                 el.style.background = i === activeIndex ? 'rgba(255,255,255,0.06)' : '';
-                el.querySelector('i:last-child').style.opacity = i === activeIndex ? '1' : '0';
+                var arrow = el.querySelector('i:last-child');
+                if (arrow) arrow.style.opacity = i === activeIndex ? '1' : '0';
             });
             items[activeIndex].scrollIntoView({ block: 'nearest' });
         } else if (e.key === 'Enter' && activeIndex >= 0) {

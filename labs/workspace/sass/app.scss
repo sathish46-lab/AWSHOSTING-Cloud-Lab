@@ -46,6 +46,8 @@
 @use "components/learn_cards";
 @use "components/instances";
 @use "components/search_bar";
+@use "components/mcp";
+@use "components/roadmaps";
 // CodeMirror base + dark editor theme (file content pane is forced dark)
 @use "../grunt/node_modules/codemirror/lib/codemirror";
 @use "../grunt/node_modules/codemirror/theme/material-darker";

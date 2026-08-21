@@ -4,6 +4,10 @@
 RewriteEngine On
 RewriteBase /
 
+# Skip all rewrites for MCP server routes (proxied to Python backend)
+RewriteRule ^mcp/?(.*)$ - [L]
+RewriteRule ^\.well-known/oauth-(authorization-server|protected-resource)$ - [L]
+
 # Custom 404 Error Handler - Secure against server information disclosure
 ErrorDocument 404 /app/error.php
 
@@ -23,33 +27,6 @@ RewriteRule ^src/api/debug_ - [F,L]
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
-
-# MCP OAuth + Inspector — served by PHP (NOT proxied to Python MCP server)
-RewriteRule ^mcp/inspector/?$ app/mcp.php [L,QSA]
-RewriteRule ^mcp/authorize/?$ src/api/mcp/authorize.php [L,QSA]
-RewriteRule ^mcp/consent/?$ src/api/mcp/consent.php [L,QSA]
-RewriteRule ^mcp/token/?$ src/api/mcp/token.php [L,QSA]
-RewriteRule ^mcp/revoke/?$ src/api/mcp/revoke.php [L,QSA]
-RewriteRule ^mcp/register/?$ src/api/mcp/register.php [L,QSA]
-RewriteRule ^mcp/metadata/?$ src/api/mcp/metadata.php [L,QSA]
-RewriteRule ^mcp/clients/?$ src/api/mcp/clients.php [L,QSA]
-RewriteRule ^mcp/activity/data/?$ src/api/mcp/activity.php [L,QSA]
-
-# OAuth well-known discovery endpoints
-RewriteRule ^\.well-known/oauth-authorization-server/?$ src/api/mcp/metadata.php [L,QSA]
-RewriteCond %{REQUEST_METHOD} =GET [OR]
-RewriteCond %{REQUEST_METHOD} =OPTIONS
-RewriteRule ^\.well-known/oauth-protected-resource/mcp/?$ http://127.0.0.1:8099/.well-known/oauth-protected-resource/mcp [P,L,QSA]
-
-# /mcp exact path: browser GET = PHP inspector UI, POST/SSE = MCP protocol (proxied to Python)
-RewriteCond %{REQUEST_METHOD} =POST
-RewriteRule ^mcp/?$ http://127.0.0.1:8099/mcp [P,L,QSA]
-RewriteCond %{HTTP:Accept} text/event-stream [NC]
-RewriteRule ^mcp/?$ http://127.0.0.1:8099/mcp [P,L,QSA]
-RewriteRule ^mcp/?$ app/mcp.php [L,QSA]
-
-# /mcp/activity page route
-RewriteRule ^mcp/activity/?$ app/mcp-activity.php [L,QSA]
 
 # 3. Authentication Routing
 RewriteRule ^signin$ auth/signin.php [L,QSA]
@@ -126,13 +103,6 @@ RewriteRule ^instances/trash$ app/instances/dashboard.php [L,QSA]
 RewriteRule ^instances/([^/]+)/([^/]+)$ app/instances/manage.php?slug=$1&tab=$2 [L,QSA]
 RewriteRule ^instances/([^/]+)$ app/instances/manage.php?slug=$1 [L,QSA]
 
-# ------------------------------------------------------------------
-# Roadmaps Routing (before catch-all user profile)
-# ------------------------------------------------------------------
-RewriteRule ^roadmaps$ app/roadmaps/dashboard.php [L,QSA]
-RewriteRule ^roadmaps/new/?$ app/roadmaps/new.php [L,QSA]
-RewriteRule ^roadmaps/([a-z0-9-]+)/?$ app/roadmaps/roadmap_view.php?slug=$1 [L,QSA]
-
 # 5. USER PROFILE ROUTING
 RewriteCond %{DOCUMENT_ROOT}/app/account.php -f
 RewriteRule ^([a-zA-Z0-9_.-]+)$ app/account.php?username=$1 [L,QSA]
@@ -143,12 +113,14 @@ RewriteRule ^api/(.+\.php)$ src/api/$1 [L,QSA]
 # Handle extensionless requests
 RewriteRule ^api/(.+)$ src/api/$1.php [L,QSA]
 
+# 7. MCP Routes — All /mcp requests proxied to Python MCP server (port 8099)
+# MCP OAuth, protocol, and discovery UI handled by Python server
+# PHP Inspector available at /mcp/inspector
+RewriteRule ^mcp/inspector/?$ app/mcp.php [L,QSA]
+
 
 # 1. Existing Lab Tabs (Dashboard, Domains, Prefs)
 RewriteRule ^labs/(dashboard|domains|preferences|activity)/([a-f0-9]{32})$ app/labs/$1.php [L,QSA]
-
-# Lab Deploy Progress API
-RewriteRule ^api/lab/deploy_progress/?$ src/api/lab/deploy_progress.php [L,QSA]
 
 # ------------------------------------------------------------------
 # Challenge Routing — Pattern: /challenges/{tab}/{hash-or-slug}
@@ -167,4 +139,3 @@ RewriteRule ^challenges/(dashboard|challenges|leaderboard|achievements)/([a-zA-Z
 # Global Leaderboard Fallback
 RewriteRule ^leaderboard/([a-f0-9]{32})$        app/challenges/leaderboard.php [L,QSA]
 RewriteRule ^leaderboard/([a-zA-Z0-9_-]+)$      app/challenges/leaderboard.php [L,QSA]
-

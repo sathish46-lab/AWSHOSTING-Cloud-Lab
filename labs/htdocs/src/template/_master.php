@@ -233,7 +233,7 @@ $classString = implode(' ', $htmlClasses);
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=Fira+Code:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Ubuntu:wght@300;400;500;700&display=swap" rel="stylesheet">
     
-    <link rel="stylesheet" href="<?= Session::cacheCDN('/assets/css/app.css') ?>">
+    <link rel="stylesheet" href="<?= Session::cacheCDN('/assets/css/app.css') ?>&t=<?= time() ?>">
     <link rel="stylesheet" href="<?= Session::cacheCDN('/assets/css/htmx-progress.css') ?>">
 
     <?php foreach (Session::$customCss as $css): ?>
@@ -582,7 +582,7 @@ $classString = implode(' ', $htmlClasses);
     <script src="https://cdn.jsdelivr.net/npm/masonry-layout@4/dist/masonry.pkgd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/imagesloaded@5/imagesloaded.pkgd.min.js"></script>
 
-    <!-- SNA Liquid Refraction Filter -->
+    <!-- Liquid Refraction Filter -->
     <svg style="display:none;" aria-hidden="true">
         <filter id="liquid-refraction">
             <feTurbulence type="fractalNoise" baseFrequency="0.012" numOctaves="3" result="noise" />

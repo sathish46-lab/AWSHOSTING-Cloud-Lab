@@ -30,7 +30,7 @@ RUN STABLE_VER="4.95.3" && \
 # --- PERMANENT BRANDING INJECTION ---
 RUN LOGIN_PAGE=$(find /usr/lib/code-server -name "login.html" | head -n 1) && \
     if [ -n "$LOGIN_PAGE" ]; then \
-        sed -i 's/{{WELCOME_TEXT}}/Welcome to Tom Lab/g' "$LOGIN_PAGE" && \
+        sed -i 's/{{WELCOME_TEXT}}/Welcome to TomCloud Lab/g' "$LOGIN_PAGE" && \
         CUSTOM_MSG="With great power, comes great responsibility. Check your lab dashboard for the password. Happy Learning ❤️🙌" && \
         sed -i "s|{{I18N_LOGIN_BELOW}} {{PASSWORD_MSG}}|$CUSTOM_MSG|g" "$LOGIN_PAGE"; \
     fi

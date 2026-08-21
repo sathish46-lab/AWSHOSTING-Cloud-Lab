@@ -142,7 +142,12 @@ class Lab(BaseOrchestrator):
         """Build Traefik config from template services definition."""
         services_spec = lab_spec.get('services', {})
         base_domain = self.cfg.code_domain
-        
+
+        # TLS on/off (config.json tls_enabled). Dev=false → plain-HTTP routers.
+        tls_enabled = bool(self.config.get('tls_enabled', True))
+        _entrypoints = "[web, websecure]" if tls_enabled else "[web]"
+        _tls = "      tls: {}\n" if tls_enabled else ""
+
         routers = ""
         services = ""
         
@@ -177,8 +182,7 @@ class Lab(BaseOrchestrator):
             routers += f"    {router_key}:\n"
             routers += f"      rule: \"Host(`{domain}`)\"\n"
             routers += f"      service: {service_key}\n"
-            routers += f"      entryPoints: [web, websecure]\n"
-            routers += f"      tls: {{}}\n"
+            routers += f"      entryPoints: {_entrypoints}\n{_tls}"
             routers += f"      priority: 100\n"
             mw_list = ['custom-errors']
             if svc_spec.get('middlewares'):
@@ -204,8 +208,7 @@ class Lab(BaseOrchestrator):
                 routers += f"    router-{instance_id}-custom-{idx}:\n"
                 routers += f"      rule: \"Host(`{domain}`)\"\n"
                 routers += f"      service: {web_service_key}\n"
-                routers += f"      entryPoints: [web, websecure]\n"
-                routers += f"      tls: {{}}\n"
+                routers += f"      entryPoints: {_entrypoints}\n{_tls}"
                 routers += f"      priority: 100\n"
                 routers += f"      middlewares: [custom-errors]\n"
         
@@ -221,8 +224,7 @@ class Lab(BaseOrchestrator):
                 routers += f"    {proxy_router}:\n"
                 routers += f"      rule: \"Host(`{p_domain}`)\"\n"
                 routers += f"      service: {proxy_service}\n"
-                routers += f"      entryPoints: [web, websecure]\n"
-                routers += f"      tls: {{}}\n"
+                routers += f"      entryPoints: {_entrypoints}\n{_tls}"
                 routers += f"      priority: 150\n" # Higher priority to override wildcard web
                 routers += f"      middlewares: [custom-errors]\n"
                 
@@ -299,6 +301,7 @@ class Lab(BaseOrchestrator):
         res = lab_spec.get('resources', {})
         mem = res.get('memory', '512m')
         cpu = res.get('cpus', '0.2')
+        pids = res.get('pids_limit', 100)
         mount_target = lab_spec.get('storage', {}).get('mount_target', '/var/labsstorage/home/{user}').replace('{user}', username)
 
         base_ip = lab_data['internal_ip'] 
@@ -394,6 +397,7 @@ class Lab(BaseOrchestrator):
             "lab_name": instance_id, 
             "memory": mem,
             "cpus": cpu,
+            "pids": pids,
             "storage": storage_path, 
             "mount_target": mount_target,
             "user": username, 
@@ -754,7 +758,15 @@ class Lab(BaseOrchestrator):
         """Ensure code-server is running inside the container"""
         lab_name = self.session_hash
         username = self.args.getFlagValue('user')
-        
+
+        # Configurable idle timeout; in-container home is the username-based mount
+        # Guard against a non-numeric env value so a bad CODE_SERVER_IDLE_SECS never
+        # aborts the whole ensure (matches the defensive parse in commands/lab.py).
+        try:
+            idle_limit = int(os.environ.get('CODE_SERVER_IDLE_SECS', '600'))
+        except (TypeError, ValueError):
+            idle_limit = 600
+
         self.log(f"Ensuring code-server is running for {lab_name}...", "info", "system")
         
         if not self.docker.container_exists(lab_name):
@@ -762,30 +774,30 @@ class Lab(BaseOrchestrator):
             return
 
         # 1. ALWAYS dynamically create and inject the idle monitor script
+        # NOTE: code-server refreshes its own heartbeat continuously, so heartbeat
+        # staleness never signals "idle". Stop the server when there has been NO
+        # browser connection to its port for IDLE_LIMIT seconds.
         monitor_script_content = f"""#!/bin/bash
 USER=$1
-IDLE_LIMIT=120
+IDLE_LIMIT={idle_limit}
+PORT=8080
+LAST_SEEN=$(date +%s)
 
 while true; do
     sleep 30
-    
+
     # Exit if code-server was killed manually
-    if ! pgrep -u $USER -f code-server > /dev/null; then
+    if ! pgrep -u "$USER" -f code-server > /dev/null 2>&1; then
         exit 0
     fi
-    
-    HEARTBEAT="/var/labsstorage/home/$USER/.local/share/code-server/heartbeat"
-    
-    # Check if the heartbeat file is older than our limit
-    if [ -f "$HEARTBEAT" ]; then
-        LAST_MOD=$(stat -c %Y "$HEARTBEAT")
-        NOW=$(date +%s)
-        DIFF=$((NOW - LAST_MOD))
-        
-        if [ $DIFF -ge $IDLE_LIMIT ]; then
-            pkill -u $USER -f code-server
-            exit 0
-        fi
+
+    CONNS=$(ss -tn state established 2>/dev/null | awk '{{print $4}}' | grep -c ":${{PORT}}$" || true)
+    NOW=$(date +%s)
+    if [ "${{CONNS:-0}}" -gt 0 ]; then
+        LAST_SEEN=$NOW
+    elif [ $((NOW - LAST_SEEN)) -ge "$IDLE_LIMIT" ]; then
+        pkill -u "$USER" -f code-server
+        exit 0
     fi
 done
 """
@@ -812,7 +824,7 @@ done
 
         self.log("Starting code-server...", "info", "system")
         
-        user_home = f"/var/labsstorage/home/{user_hash}"
+        user_home = f"/var/labsstorage/home/{username}"
         config_file = f"{user_home}/.config/code-server/config.yaml"
         log_file = f"{user_home}/.code-server.log"
         
@@ -918,18 +930,18 @@ done
         # 3. Write script to container using base64 (docker cp won't work from orchestrator container)
         b64_content = base64.b64encode(script_content.encode()).decode()
         
-        self.log(f"Injecting script to /var/labsstorage/home/{user_hash}/init.sh...", "info", "system")
-        rc, _ = self.run(f"docker exec {lab_name} bash -c 'echo {b64_content} | base64 -d > /var/labsstorage/home/{user_hash}/init.sh'", capture=True)
+        self.log(f"Injecting script to /var/labsstorage/home/{username}/init.sh...", "info", "system")
+        rc, _ = self.run(f"docker exec {lab_name} bash -c 'echo {b64_content} | base64 -d > /var/labsstorage/home/{username}/init.sh'", capture=True)
         if rc != 0:
             self.log("Failed to inject script into container.", "error", "system")
             return
             
-        self.run(f"docker exec {lab_name} chmod +x /var/labsstorage/home/{user_hash}/init.sh")
-        self.run(f"docker exec {lab_name} chown {username}:{username} /var/labsstorage/home/{user_hash}/init.sh")
+        self.run(f"docker exec {lab_name} chmod +x /var/labsstorage/home/{username}/init.sh")
+        self.run(f"docker exec {lab_name} chown {username}:{username} /var/labsstorage/home/{username}/init.sh")
         
         self.log("Running script (output below)...", "info", "system")
         # Run inside bash
-        rc, out = self.run(f"docker exec -u {username} {lab_name} bash /var/labsstorage/home/{user_hash}/init.sh", capture=False)
+        rc, out = self.run(f"docker exec -u {username} {lab_name} bash /var/labsstorage/home/{username}/init.sh", capture=False)
         
         if rc == 0:
             self.log("Script executed successfully.", "success", "system")

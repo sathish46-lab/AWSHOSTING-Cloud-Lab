@@ -14,7 +14,7 @@
                                 <i class="bx <?= $cfg['icon'] ?>" ></i>
                             <?php endif; ?>
                         </div>
-                        <span class="avatar-status <?= $isRunning ? 'bg-success' : 'bg-secondary' ?> border-dark ring-2 position-absolute bottom-0 end-0 mb-1 me-1 p-1"></span>
+                        <span class="avatar-status <?= $status === 'paused' ? 'bg-warning' : ($isRunning ? 'bg-success' : 'bg-secondary') ?> border-dark ring-2 position-absolute bottom-0 end-0 mb-1 me-1 p-1"></span>
                     </div>
                 </div>
 
@@ -70,40 +70,95 @@
                     <div class="d-flex flex-wrap align-items-center gap-2">
                         <span class="badge bg-primary rounded-pill px-3 py-1">beta</span>
                         <span class="badge bg-warning rounded-pill px-3 py-1">public</span>
-                        <span class="badge <?= $isRunning ? 'bg-success' : 'bg-danger' ?> rounded-pill px-3 py-1"><?= strtoupper($status) ?></span>
+                        <?php
+                            $badgeClass = 'bg-danger';
+                            if ($status === 'running') $badgeClass = 'bg-success';
+                            elseif ($status === 'paused') $badgeClass = 'bg-warning';
+                            elseif ($status === 'deploying') $badgeClass = 'bg-info';
+                        ?>
+                        <span class="badge <?= $badgeClass ?> rounded-pill px-3 py-1"><?= strtoupper($status) ?></span>
                     </div>
                 </div>
             </div>
             
-            <!-- Action Buttons -->
-            <div class="btn-group shadow-sm rounded-pill overflow-hidden me-5" role="group">
-                <?php if($isRunning): ?>
-                    <button class="btn btn-lab-launch"
-                            onclick="<?= $labType === 'gui_essentials' ? 'launchGui(this)' : "launchService(this, '$labType')" ?>"
-                            data-tooltip="<?= $labType === 'gui_essentials' ? 'Launch VNC Desktop' : 'Launch Cloud IDE / Code Server' ?>"
-                            data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
-                        <i class='bx <?= $labType === 'gui_essentials' ? 'bx-desktop' : 'bx-code-alt' ?> fs-6'></i>
-                        <span class="small"><?= $cfg['action'] ?></span>
-                    </button>
-                <?php endif; ?>
-                
-                <button class="btn btn-lab-deploy"
-                        onclick="handleDeploy(this, '<?= $labType ?>')"
-                        data-tooltip="<?= $isRunning ? 'Redeploy for a fresh instance' : 'Deploy this lab' ?>"
-                        data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
-                    <i class='bx <?= $isRunning ? 'bx-refresh' : 'bx-cloud-upload' ?> fs-6 text-dark'></i>
-                    <span class="small text-dark"><?= $isRunning ? 'Redeploy' : 'Deploy' ?></span>
-                </button>
+            <!-- Action Buttons + Progress -->
+            <div class="d-flex flex-column align-items-end gap-2 me-5">
+                <!-- Button Group -->
+                <div class="btn-group shadow-sm rounded-pill overflow-hidden lab-btn-group" role="group">
+                    <?php if($isRunning): ?>
+                        <!-- RUNNING: Code + Redeploy + Pause(icon) + Stop(icon) -->
+                        <button class="btn btn-lab-launch"
+                                onclick="<?= $labType === 'gui_essentials' ? 'launchGui(this)' : "launchService(this, '$labType')" ?>"
+                                data-tooltip="<?= $labType === 'gui_essentials' ? 'Launch VNC Desktop' : 'Launch Cloud IDE / Code Server' ?>"
+                                data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
+                            <i class='bx <?= $labType === 'gui_essentials' ? 'bx-desktop' : 'bx-code-alt' ?> fs-6'></i>
+                            <span class="small"><?= $cfg['action'] ?></span>
+                        </button>
+                        <button id="btn-deploy-action" class="btn btn-lab-deploy"
+                                onclick="handleDeploy(this, '<?= $labType ?>')"
+                                data-tooltip="Redeploy for a fresh instance"
+                                data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
+                            <i class='bx bx-refresh fs-6 text-dark'></i>
+                            <span class="small text-dark">Redeploy</span>
+                        </button>
+                        <button id="btn-pause-action" class="btn btn-lab-pause"
+                                onclick="handlePause()"
+                                data-tooltip="Pause lab"
+                                data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
+                            <i class='bx bx-pause fs-5'></i>
+                        </button>
+                        <button id="btn-stop-action" class="btn btn-lab-stop"
+                                onclick="handleStop()"
+                                data-tooltip="Stop lab"
+                                data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
+                            <i class='bx bx-stop-circle fs-5'></i>
+                        </button>
 
-                <?php if($isRunning): ?>
-                    <button id="btn-stop-action" class="btn btn-lab-stop"
-                            onclick="handleStop()"
-                            data-tooltip="Stop Instance Immediately"
-                            data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
-                        <i class='bx bx-stop-circle fs-6' ></i>
-                        <span class="small">Stop</span>
-                    </button>
-                <?php endif; ?>
+                    <?php elseif($status === 'paused'): ?>
+                        <!-- PAUSED: Resume + Redeploy -->
+                        <button id="btn-resume-action" class="btn btn-lab-resume"
+                                onclick="handleResume()"
+                                data-tooltip="Resume paused lab"
+                                data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
+                            <i class='bx bx-play fs-6'></i>
+                            <span class="small">Resume</span>
+                        </button>
+                        <button id="btn-deploy-action" class="btn btn-lab-deploy"
+                                onclick="handleDeploy(this, '<?= $labType ?>')"
+                                data-tooltip="Redeploy for a fresh instance"
+                                data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
+                            <i class='bx bx-refresh fs-6 text-dark'></i>
+                            <span class="small text-dark">Redeploy</span>
+                        </button>
+
+                    <?php else: ?>
+                        <!-- STOPPED/ERROR: Deploy -->
+                        <button id="btn-deploy-action" class="btn btn-lab-deploy"
+                                onclick="handleDeploy(this, '<?= $labType ?>')"
+                                data-tooltip="Deploy this lab"
+                                data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
+                            <i class='bx bx-cloud-upload fs-6 text-dark'></i>
+                            <span class="small text-dark">Deploy</span>
+                        </button>
+                    <?php endif; ?>
+                </div>
+
+                <!-- Deployment Progress Bar (hidden by default) -->
+                <div id="deploy-progress-container" class="d-none" style="min-width: 280px;">
+                    <div class="d-flex align-items-center justify-content-between mb-1">
+                        <div class="d-flex align-items-center gap-2">
+                            <span id="deploy-progress-icon">🚀</span>
+                            <span id="deploy-progress-label" class="small fw-bold">Deploying...</span>
+                        </div>
+                        <span id="deploy-progress-percent" class="small fw-bold">0%</span>
+                    </div>
+                    <div class="progress" style="height: 8px; border-radius: 4px; background: rgba(255,255,255,0.1);">
+                        <div id="deploy-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%; background: linear-gradient(90deg, #00d4ff, #00ff88); border-radius: 4px;"
+                             aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         

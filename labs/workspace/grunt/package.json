@@ -2,6 +2,9 @@
     "name": "tom-web-grunt-boiler",
     "version": "1.0.0",
     "private": true,
+    "scripts": {
+        "postinstall": "node -e \"var f='node_modules/grunt-contrib-watch/tasks/watch.js',c=require('fs').readFileSync(f,'utf8');c=c.replace(/\\(new Date\\(\\)\\)\\.toString\\(\\)/g,\\\"new Date().toLocaleString('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true,day:'2-digit',month:'short',year:'numeric'})+' IST'\\\");require('fs').writeFileSync(f,c);\""
+    },
     "devDependencies": {
         "grunt": "^1.6.1",
         "grunt-contrib-concat": "^2.1.0",

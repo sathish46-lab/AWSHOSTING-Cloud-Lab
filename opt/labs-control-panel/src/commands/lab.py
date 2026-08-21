@@ -5,8 +5,10 @@ import time
 import secrets
 import string
 import base64
+import shlex
 import subprocess
 from src.router import Command
+from src.config import validate_username, validate_name
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
@@ -32,6 +34,10 @@ class LabCmd(Command):
             "sync-user":    (self._sync_user,    "Sync SSH keys for user",    "labsctl lab sync-user --user=USER"),
             "redeploy":     (self._redeploy,     "Redeploy lab",              "labsctl lab redeploy --hash=HASH --user=USER"),
             "update":       (self._update,       "Update lab image",          "labsctl lab update --hash=HASH --user=USER"),
+            "ensure-codeserver": (self._ensure_codeserver_cmd, "Start code-server on demand + idle monitor", "labsctl lab ensure-codeserver --hash=HASH --user=USER"),
+            "code-status":      (self._code_status_cmd, "Check if code-server is running", "labsctl lab code-status --hash=HASH --user=USER"),
+            "run-script":   (self._run_script_cmd, "Run the lab's init.sh",   "labsctl lab run-script --hash=HASH --user=USER"),
+            "apply-preferences": (self._apply_preferences_cmd, "Hot-reload Traefik + run init.sh", "labsctl lab apply-preferences --hash=HASH --user=USER"),
         }
 
     def _get_deploy_data(self, instance_id):
@@ -359,6 +365,7 @@ class LabCmd(Command):
         res = lab_spec.get("resources", {})
         mem = res.get("memory", "512m")
         cpu = res.get("cpus", "0.2")
+        pids = res.get("pids_limit", 100)
         mount_target = lab_spec.get("storage", {}).get("mount_target", "/var/labsstorage/home/{user}").replace("{user}", username)
         storage_path = lab_data.get("storage_path", "")
 
@@ -496,6 +503,7 @@ class LabCmd(Command):
             "lab_name": instance_id,
             "memory": mem,
             "cpus": cpu,
+            "pids": pids,
             "storage": user_storage,
             "storage_path": user_storage,
             "storage_host_path": f"{STORAGE_HOST_BASE}/{user_hash}",
@@ -722,8 +730,10 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
             }}
         )
 
-        # Phase: CODE-SERVER MONITOR
-        self._ensure_codeserver(instance_id, username)
+        # Phase: CODE-SERVER is intentionally NOT started here.
+        # Code-server is on-demand: it is launched only when the user triggers
+        # `labsctl lab ensure-codeserver` (via the "Launch Code IDE" button) and is
+        # stopped by the idle monitor. Starting it at deploy would defeat on-demand.
 
         # Phase: DONE
         self.log("Deployment Complete. Ready for connections.", "success")
@@ -733,6 +743,12 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
 
     def _gen_traefik(self, instance_id, docker_ip, lab_spec, lab_data, args=None):
         """Generate Traefik YAML config."""
+        # TLS on/off. Dev (tls_enabled=false) → plain-HTTP routers (no tls, reachable
+        # via http://host:9080 without certs); prod (tls_enabled=true, default) → HTTPS.
+        tls_enabled = bool(self.cfg.get("tls_enabled", True))
+        _entrypoints = "[web, websecure]" if tls_enabled else "[web]"
+        _tls = "      tls: {}\n" if tls_enabled else ""
+
         services_spec = lab_spec.get("services", {})
         base_domain = self.cfg.code_domain
         db_domain = lab_data.get("code_domain")
@@ -770,8 +786,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
             routers += f"    {router_key}:\n"
             routers += f'      rule: "Host(`{domain}`)"\n'
             routers += f"      service: {service_key}\n"
-            routers += f"      entryPoints: [web, websecure]\n"
-            routers += f"      tls: {{}}\n"
+            routers += f"      entryPoints: {_entrypoints}\n{_tls}"
             routers += f"      priority: 100\n"
 
             services += f"    {service_key}:\n"
@@ -796,8 +811,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
                 routers += f"    router-{instance_id}-custom-{idx}:\n"
                 routers += f'      rule: "Host(`{domain}`)"\n'
                 routers += f"      service: {web_svc}\n"
-                routers += f"      entryPoints: [web, websecure]\n"
-                routers += f"      tls: {{}}\n"
+                routers += f"      entryPoints: {_entrypoints}\n{_tls}"
                 routers += f"      priority: 100\n"
 
         for idx, proxy in enumerate(lab_data.get("http_proxies", [])):
@@ -807,8 +821,7 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
                 routers += f"    router-{instance_id}-proxy-{idx}:\n"
                 routers += f'      rule: "Host(`{p_domain}`)"\n'
                 routers += f"      service: service-{instance_id}-proxy-{idx}\n"
-                routers += f"      entryPoints: [web, websecure]\n"
-                routers += f"      tls: {{}}\n"
+                routers += f"      entryPoints: {_entrypoints}\n{_tls}"
                 routers += f"      priority: 150\n"
                 services += f"    service-{instance_id}-proxy-{idx}:\n"
                 services += f"      loadBalancer:\n"
@@ -818,26 +831,78 @@ grep -q "{vpn_domain}" /etc/hosts || echo "{tunnel_gw_internal} {vpn_domain}" >>
 
     # ── Code-Server Idle Monitor ────────────────────────────────
 
+    # ── Code-Server On-Demand ─────────────────────────────────
+
+    def _idle_limit(self, instance_id):
+        """Configurable idle timeout (seconds) for the code-server monitor."""
+        limit = 0
+        try:
+            limit = int(os.environ.get("CODE_SERVER_IDLE_SECS", "") or 0)
+        except ValueError:
+            limit = 0
+        if not limit:
+            try:
+                limit = int(self.cfg.get("code_server_idle_seconds") or 0)
+            except (TypeError, ValueError):
+                limit = 0
+        if not limit:
+            try:
+                lab_data = self._get_deploy_data(instance_id)
+                limit = int((lab_data or {}).get("code_server_idle_seconds", 0) or 0)
+            except (TypeError, ValueError):
+                limit = 0
+        return limit or 600
+
     def _ensure_codeserver(self, instance_id, username):
-        """Inject and start code-server idle monitor."""
+        """Start code-server on demand and install an idle monitor that stops it."""
+        if not self.docker_running(instance_id):
+            self.log(f"Container {instance_id} not found/not running", "error")
+            return
+
+        # Lock file to prevent concurrent starts (race condition fix)
+        lock_file = "/tmp/.codeserver_starting.lock"
+        
+        # Check if another start is already in progress (atomic check-and-set)
+        lock_check = self.run(f"docker exec {instance_id} bash -c 'if [ -f {lock_file} ]; then age=$(($(date +%s) - $(stat -c %Y {lock_file} 2>/dev/null || echo 0))); if [ $age -lt 30 ]; then exit 1; fi; fi; touch {lock_file} && exit 0'", capture=True)
+        if lock_check[0] != 0:
+            self.log("Code-server start already in progress (lock held), skipping.", "warn")
+            return
+        
+        # Check if code-server is already running
+        check = f"docker exec {instance_id} pgrep -u {username} -f code-server"
+        code, _ = self.run(check, capture=True)
+        if code == 0:
+            self.log("Code-server is already running.", "success")
+            self.run(f"docker exec {instance_id} rm -f {lock_file}")
+            return
+        
+        # Kill any zombie code-server processes before starting fresh
+        self.run(f"docker exec {instance_id} pkill -9 -u {username} -f code-server 2>/dev/null || true")
+        time.sleep(1)
+
+        idle = self._idle_limit(instance_id)
+        # NOTE: code-server refreshes its own heartbeat file continuously, so
+        # heartbeat staleness can never signal "idle". Instead we stop the server
+        # when there has been NO browser connection to its port for IDLE_LIMIT
+        # seconds — i.e. nobody has the editor open.
         monitor_script = f"""#!/bin/bash
 USER=$1
-IDLE_LIMIT=120
+IDLE_LIMIT={idle}
+PORT=8080
+LAST_SEEN=$(date +%s)
 
 while true; do
     sleep 30
-    if ! pgrep -u $USER -f code-server > /dev/null; then
+    if ! pgrep -u "$USER" -f code-server > /dev/null 2>&1; then
         exit 0
     fi
-    HEARTBEAT="/var/labsstorage/home/$USER/.local/share/code-server/heartbeat"
-    if [ -f "$HEARTBEAT" ]; then
-        LAST_MOD=$(stat -c %Y "$HEARTBEAT")
-        NOW=$(date +%s)
-        DIFF=$((NOW - LAST_MOD))
-        if [ $DIFF -ge $IDLE_LIMIT ]; then
-            pkill -u $USER -f code-server
-            exit 0
-        fi
+    CONNS=$(ss -tn state established 2>/dev/null | awk '{{print $4}}' | grep -c ":${{PORT}}$" || true)
+    NOW=$(date +%s)
+    if [ "${{CONNS:-0}}" -gt 0 ]; then
+        LAST_SEEN=$NOW
+    elif [ $((NOW - LAST_SEEN)) -ge "$IDLE_LIMIT" ]; then
+        pkill -u "$USER" -f code-server
+        exit 0
     fi
 done
 """
@@ -846,10 +911,156 @@ done
         self.run(f"docker exec {instance_id} bash -c 'echo {b64_script} | base64 -d > /var/labsdata/scripts/monitor_codeserver.sh'")
         self.run(f"docker exec {instance_id} chmod +x /var/labsdata/scripts/monitor_codeserver.sh")
 
+        # Install idle monitor (single instance)
         mcode, _ = self.run(f"docker exec {instance_id} pgrep -f monitor_codeserver", capture=True)
         if mcode != 0:
             self.run(f"docker exec -d {instance_id} bash /var/labsdata/scripts/monitor_codeserver.sh {username}")
-            self.log("Idle monitor started (2min timeout).", "success")
+            self.log("Idle monitor started.", "success")
+
+        # Start code-server if it is not already running
+        check = f"docker exec {instance_id} pgrep -u {username} -f code-server"
+        code, _ = self.run(check, capture=True)
+        if code == 0:
+            count_out = self.run(f"docker exec {instance_id} pgrep -u {username} -f code-server | wc -l", capture=True)
+            count = count_out[1].strip() if count_out[1] else "?"
+            self.log(f"Code-server is already running ({count} procs).", "success")
+            self.run(f"docker exec {instance_id} rm -f {lock_file}")
+            return
+
+        # Kill ALL zombie code-server processes before starting fresh
+        self.log("Cleaning up zombie code-server processes...", "info")
+        self.run(f"docker exec {instance_id} pkill -9 -u {username} -f code-server 2>/dev/null || true")
+        self.run(f"docker exec {instance_id} fuser -k 8080/tcp 2>/dev/null || true")
+        time.sleep(2)
+
+        # In-container home is the username-based mount (/var/labsstorage/home/<user>),
+        # NOT the md5 host storage path.
+        user_home = f"/var/labsstorage/home/{username}"
+        config_file = f"{user_home}/.config/code-server/config.yaml"
+        log_file = f"{user_home}/.code-server.log"
+        start_cmd = f"nohup code-server --disable-telemetry --disable-update-check --config {config_file} > {log_file} 2>&1 &"
+        docker_cmd = f"docker exec -d -u {username} {instance_id} bash -c '{start_cmd}'"
+        code, _ = self.run(docker_cmd)
+        if code == 0:
+            time.sleep(2)
+            code, _ = self.run(check, capture=True)
+            if code == 0:
+                self.log("Code-server started successfully.", "success")
+            else:
+                self.log("Code-server failed to stay running.", "error")
+        else:
+            self.log("Failed to start code-server.", "error")
+        
+        # Remove lock file
+        self.run(f"docker exec {instance_id} rm -f {lock_file}")
+
+    def _ensure_codeserver_cmd(self, args):
+        instance_id, username = self._resolve_user_hash_args(args)
+        if not instance_id or not username:
+            return
+        self.log("Ensuring code-server is running...", "info")
+        self._ensure_codeserver(instance_id, username)
+
+    def _code_status(self, instance_id, username):
+        """Report whether code-server is currently running for the user (JSON on stdout)."""
+        if not self.docker_running(instance_id):
+            print(json.dumps({"running": False, "codeserver_running": False}))
+            return
+        code, _ = self.run(f"docker exec {instance_id} pgrep -u {username} -f code-server", capture=True)
+        is_running = code == 0
+        
+        # Get URL if running
+        url = ""
+        if is_running:
+            lab_data = self._get_deploy_data(instance_id)
+            if lab_data:
+                url = lab_data.get("credentials", {}).get("code_server_url", "")
+        
+        print(json.dumps({"running": is_running, "codeserver_running": is_running, "url": url}))
+
+    def _code_status_cmd(self, args):
+        instance_id, username = self._resolve_user_hash_args(args)
+        if not instance_id or not username:
+            print(json.dumps({"codeserver_running": False}))
+            return
+        self._code_status(instance_id, username)
+
+    def _run_script_cmd(self, args):
+        instance_id, username = self._resolve_user_hash_args(args)
+        if not instance_id or not username:
+            return
+        if not self.docker_running(instance_id):
+            self.log("Lab is not running. Start it first.", "error")
+            return
+        lab_data = self._get_deploy_data(instance_id)
+        if not lab_data:
+            self.log("Lab not found in database.", "error")
+            return
+        script_content = lab_data.get("init_script", "#!/bin/bash\n")
+        b64 = base64.b64encode(script_content.encode()).decode()
+        user_home = f"/var/labsstorage/home/{username}"
+        rc, _ = self.run(
+            f"docker exec {instance_id} bash -c 'echo {b64} | base64 -d > {user_home}/init.sh'",
+            capture=True,
+        )
+        if rc != 0:
+            self.log("Failed to inject script into container.", "error")
+            return
+        self.run(f"docker exec {instance_id} chmod +x {user_home}/init.sh")
+        self.run(f"docker exec {instance_id} chown {username}:{username} {user_home}/init.sh")
+        rc, _ = self.run(f"docker exec -u {username} {instance_id} bash {user_home}/init.sh", capture=False)
+        if rc == 0:
+            self.log("Script executed successfully.", "success")
+        else:
+            self.log(f"Script failed with exit code {rc}.", "error")
+
+    def _apply_preferences_cmd(self, args):
+        instance_id, username = self._resolve_user_hash_args(args)
+        if not instance_id or not username:
+            return
+        lab_data = self._get_deploy_data(instance_id)
+        if not lab_data:
+            self.log("Lab not found in database.", "error")
+            return
+        rc, out = self.run(f"docker inspect -f '{{{{.State.Running}}}}' {instance_id}", capture=True)
+        if rc != 0 or out.strip() != "true":
+            self.log("Lab is not running. Start it first.", "error")
+            return
+        rc, docker_ip = self.run(
+            f"docker inspect -f '{{{{range.NetworkSettings.Networks}}}}{{{{.IPAddress}}}}{{{{end}}}}' {instance_id}",
+            capture=True,
+        )
+        docker_ip = docker_ip.strip()
+        if not docker_ip:
+            self.log("Could not resolve docker IP.", "error")
+            return
+        template_name = lab_data.get("template_name") or lab_data.get("lab_type")
+        if not template_name:
+            self.log("Template config missing.", "error")
+            return
+        tpl_path = os.path.join(self.cfg.templates_dir, template_name, "config.json")
+        if not os.path.exists(tpl_path):
+            self.log(f"Template config missing: {tpl_path}", "error")
+            return
+        with open(tpl_path) as f:
+            lab_spec = json.load(f)
+        yaml_content = self._gen_traefik(instance_id, docker_ip, lab_spec, lab_data)
+        self.write_traefik(instance_id, yaml_content)
+        self.log("Traefik configuration reloaded.", "success")
+        self._run_script_cmd(args)
+
+    def _resolve_user_hash_args(self, args):
+        """Validate and return (instance_id, username) from --hash/--user, or (None, None)."""
+        try:
+            instance_id = validate_name(args.hash, "hash") if args.hash else None
+            username = validate_username(args.user) if args.user else None
+        except ValueError as e:
+            self.log(f"Invalid arguments: {e}", "error")
+            return None, None
+        if not instance_id or not username:
+            self.log("Missing --hash or --user", "error")
+            return None, None
+        return instance_id, username
 
     # ── Stop ────────────────────────────────────────────────────
 

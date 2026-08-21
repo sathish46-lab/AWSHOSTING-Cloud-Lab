@@ -137,6 +137,22 @@ foreach ($sshKeys as $key) {
     ];
 }
 
+// ── MCP Clients ──
+require_once __DIR__ . '/../../lib/core/MCPOAuth.class.php';
+$mcpClients = MCPOAuth::getUserClients($userId);
+$mcpClientsData = [];
+foreach ($mcpClients as $client) {
+    $mcpClientsData[] = [
+        'client_id' => $client['client_id'],
+        'client_name' => $client['client_name'],
+        'redirect_uris' => $client['redirect_uris'] ?? [],
+        'scopes' => $client['scopes'] ?? ['labs:*'],
+        'connected_at' => $client['created_at'] ? $client['created_at']->getTimestamp() : 0,
+        'last_used_at' => $client['last_used_at'] ? $client['last_used_at']->getTimestamp() : 0,
+        'revoked' => $client['revoked'] ?? false
+    ];
+}
+
 // ── Sessions ──
 $userDoc = $db->users->findOne(['email' => $email]);
 $sessionTokens = $userDoc['session_tokens'] ?? [];
@@ -147,11 +163,16 @@ $activeSessions = [];
 $recentLogins = [];
 
 // Build active sessions from stored tokens
+// Tokens are stored hashed (token_hash = bcrypt, token_id = sha256 of the
+// bearer token). We never have (or show) the raw token; detect the current
+// session by hashing the current cookie and comparing against token_id.
+$currentTokenId = !empty($currentToken) ? hash('sha256', $currentToken) : null;
+
 foreach ($sessionTokens as $sess) {
-    $token = $sess['token'] ?? $sess; // handle old string format
-    $isCurrent = ($token === $currentToken);
+    $tokenId = $sess['token_id'] ?? '';
+    $isCurrent = (!empty($tokenId) && $currentTokenId !== null && hash_equals($currentTokenId, $tokenId));
     $activeSessions[] = [
-        'token_prefix' => $isCurrent ? substr($token, 0, 8) : substr($token, 0, 8),
+        'token_prefix' => substr($tokenId ?: ($sess['ip'] ?? '—'), 0, 8),
         'is_current' => $isCurrent,
         'ip' => $sess['ip'] ?? '',
         'browser' => $sess['browser'] ?? 'Unknown',
@@ -220,6 +241,7 @@ echo json_encode([
     ],
     'services' => $services,
     'ssh_keys' => $platformKeys,
+    'mcp_clients' => $mcpClientsData,
     'sessions' => [
         'active' => $activeSessions,
         'recent_logins' => $recentLogins

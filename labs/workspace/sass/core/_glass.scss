@@ -146,3 +146,14 @@ body.hwa-enabled .server-logs-panel {
   overflow-y: auto !important;
   transition: height 0.3s ease !important;
 }
+
+// --- Hide scrollbar utility ---
+.hide-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  &::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+}

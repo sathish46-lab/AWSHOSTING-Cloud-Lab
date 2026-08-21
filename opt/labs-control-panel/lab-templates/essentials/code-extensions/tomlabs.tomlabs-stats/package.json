@@ -1,0 +1,12 @@
+{
+  "name": "tomlabs-stats",
+  "displayName": "TomCloud Lab System Stats",
+  "description": "Shows live CPU, memory and network I/O in the status bar (bottom of the editor).",
+  "version": "1.0.0",
+  "publisher": "tomlabs",
+  "engines": { "vscode": "^1.75.0" },
+  "categories": ["Other"],
+  "main": "./extension.js",
+  "activationEvents": ["*"],
+  "contributes": {}
+}

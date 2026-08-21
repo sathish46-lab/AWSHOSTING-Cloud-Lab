@@ -148,8 +148,11 @@
                             <div class="list-group list-group-flush bg-transparent">
                                 <?php foreach(array_slice($labLogs, 0, 10) as $log):
                                     $actionLower = strtolower($log['action']);
-                                    $iconClass = 'bx-refresh text-success';
-                                    if (strpos($actionLower, 'stop') !== false) $iconClass = 'bx-power-off text-danger';
+                                    $iconClass = 'bx-refresh text-info';
+                                    if (strpos($actionLower, 'pause') !== false) $iconClass = 'bx-pause-circle text-warning';
+                                    elseif (strpos($actionLower, 'resume') !== false) $iconClass = 'bx-play-circle text-success';
+                                    elseif (strpos($actionLower, 'stop') !== false) $iconClass = 'bx-power-off text-danger';
+                                    elseif (strpos($actionLower, 'deploy') !== false) $iconClass = 'bx-cloud-upload text-info';
                                 ?>
                                     <div class="list-group-item bg-transparent border-bottom border-success border-opacity-10 py-2 px-0 d-flex gap-3 align-items-center">
                                         <i class='bx <?= $iconClass ?> fs-5'></i>

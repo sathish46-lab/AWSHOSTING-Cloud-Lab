@@ -38,6 +38,8 @@ module.exports = function (grunt) {
           "!../js/ui-init.js",
           "!../js/htmx-bridge.js",
           "!../js/clipboard.js",
+          "!../js/mcp-inspector.js",
+          "!../js/roadmaps.js",
         ],
         dest: "../../htdocs/assets/js/app.js",
       },

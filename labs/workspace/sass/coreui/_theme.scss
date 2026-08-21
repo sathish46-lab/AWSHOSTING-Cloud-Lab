@@ -1133,40 +1133,38 @@ html[data-coreui-theme="dark"] {
   top: 50%;
 }
 
-/* Premium Lab Banner Tabs with Perfect Curves */
+/* Lab Banner Tabs — matches lab-nav-tabs style */
 .labs-banner-tabs {
   border-bottom: none !important;
-  gap: 5px;
-  padding: 0 40px;
+  gap: 0;
+  padding: 0;
   position: relative;
   z-index: 10;
-  margin-bottom: -1px;
 }
 
 .labs-banner-tab {
   border: none !important;
-  color: var(--glass-text-muted) !important;
-  font-weight: 600;
+  color: var(--glass-text-muted);
+  font-weight: 500;
   font-size: 0.85rem;
-  letter-spacing: 0.3px;
-  padding: 12px 30px !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 12px 12px 0 0 !important;
+  padding: 0.75rem 1.5rem !important;
+  transition: all 0.2s ease-in-out;
+  border-radius: 0 !important;
   position: relative;
   background: transparent !important;
 }
 
 .labs-banner-tab:hover {
-  color: var(--glass-text) !important;
-  transform: translateY(-2px);
+  color: var(--glass-text);
+  background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.08);
 }
 
 .labs-banner-tab.active {
-  color: #fff !important;
-  background: var(--glass-bg) !important;
-  backdrop-filter: saturate(200%) blur(18px);
-  -webkit-backdrop-filter: saturate(200%) blur(18px);
-  box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.15);
+  color: var(--glass-text) !important;
+  background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.14) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
 }
 
 [data-coreui-theme="light"] .labs-banner-tab.active {
@@ -1174,11 +1172,10 @@ html[data-coreui-theme="dark"] {
 }
 
 [data-coreui-theme="dark"] .labs-banner-tab.active {
-  background: rgba(30, 45, 75, 0.95) !important;
-  box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  background: rgba(var(--glass-overlay-rgb, 255, 255, 255), 0.14) !important;
 }
 
-// Ensure SNA's native .blur class on .card elements gets dark glass background matching SNA
+// Ensure .blur class on .card elements gets dark glass background
 html[data-coreui-theme="dark"] body.hwa-enabled .card.blur {
   background: rgba(0, 0, 0, 0.65) !important;
 }
@@ -1189,29 +1186,7 @@ html[data-coreui-theme="light"] body.hwa-enabled .card.blur {
 
 .labs-banner-tab.active::before,
 .labs-banner-tab.active::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  width: 15px;
-  height: 15px;
-  background: transparent;
-  pointer-events: none;
-}
-
-.labs-banner-tab.active::before {
-  left: -15px;
-  border-bottom-right-radius: 15px;
-  box-shadow: 5px 5px 0 5px var(--glass-bg);
-}
-
-.labs-banner-tab.active::after {
-  right: -15px;
-  border-bottom-left-radius: 15px;
-  box-shadow: -5px 5px 0 5px var(--glass-bg);
-}
-
-[data-coreui-theme="light"] .labs-banner-tab.active::before {
-  box-shadow: 5px 5px 0 5px rgba(255, 255, 255, 0.866);
+  display: none !important;
 }
 
 /*════════════════════════════════════════════

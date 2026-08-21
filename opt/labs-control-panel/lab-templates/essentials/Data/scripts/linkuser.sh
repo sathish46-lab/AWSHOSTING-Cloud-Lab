@@ -235,6 +235,18 @@ else
     echo "[!] Code-server failed to start"
 fi
 
+# Install the TomCloud Lab status-bar stats extension (CPU / memory / net I/O)
+EXT_SRC="/var/labsdata/code-extensions/tomlabs.tomlabs-stats"
+EXT_DST="$USER_HOME/.local/share/code-server/extensions/tomlabs.tomlabs-stats"
+if [ -d "$EXT_SRC" ]; then
+    mkdir -p "$EXT_DST"
+    cp -r "$EXT_SRC/." "$EXT_DST/"
+    chown -R "$USER_NAME":"$USER_NAME" "$USER_HOME/.local/share/code-server"
+    echo "[✓] TomCloud Lab stats extension installed"
+else
+    echo "[!] Stats extension source not found in image (skip)"
+fi
+
 echo "[✓] User configuration complete"
 
 # ── 7. Firewall: Block access to server infrastructure ──────────

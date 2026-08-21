@@ -197,6 +197,9 @@
         const active = sessions.active || [];
         const logins = sessions.recent_logins || [];
 
+        // Render MCP Clients
+        renderMcpClients(data);
+
         document.getElementById('acctSessionCount').textContent = `(${active.length})`;
 
         if (active.length === 0) {
@@ -249,6 +252,87 @@
         if (days < 7) return `${days}d ago`;
         return new Date(timestamp * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     }
+
+    // ── Render MCP Clients ──
+    function renderMcpClients(data) {
+        const clients = data.mcp_clients || [];
+        const container = document.getElementById('acctMcpClients');
+        const countEl = document.getElementById('acctMcpClientCount');
+
+        countEl.textContent = `(${clients.length})`;
+
+        if (clients.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-3 text-secondary small">
+                    No MCP clients connected yet.
+                </div>`;
+            return;
+        }
+
+        let html = '';
+        clients.forEach(client => {
+            const lastUsed = client.last_used_at
+                ? timeAgoFormat(new Date(client.last_used_at).getTime() / 1000)
+                : 'Never';
+            const connectedAt = client.connected_at
+                ? new Date(client.connected_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+                : 'Unknown';
+            const isRevoked = client.revoked === true;
+
+            html += `
+                <div class="d-flex align-items-center justify-content-between py-2 border-bottom" style="border-color:rgba(255,255,255,0.04) !important; opacity:${isRevoked ? '0.5' : '1'};">
+                    <div class="d-flex align-items-center gap-3">
+                        <i class="bx bx-terminal text-primary" style="font-size:1.5rem;"></i>
+                        <div class="min-w-0">
+                            <div class="small fw-semibold">${escHtml(client.client_name)} ${isRevoked ? '<span class="badge rounded-pill ms-2" style="background:rgba(var(--cui-danger-rgb,220,53,69),0.15);color:var(--cui-danger,#dc3545);font-size:0.6rem;">Revoked</span>' : ''}</div>
+                            <div class="text-body-secondary" style="font-size:0.7rem;">
+                                <span class="font-monospace text-primary">${escHtml(client.client_id)}</span>
+                            </div>
+                            <div class="text-body-secondary" style="font-size:0.7rem;">
+                                Connected: ${connectedAt} · Last used: ${lastUsed}
+                            </div>
+                        </div>
+                    </div>
+                    ${!isRevoked ? `
+                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3" onclick="revokeMcpClient('${escHtml(client.client_id)}')">
+                        <i class="bx bx-trash me-1"></i> Revoke
+                    </button>` : ''}
+                </div>`;
+        });
+
+        container.innerHTML = html;
+    }
+
+    // ── Revoke MCP Client ──
+    window.revokeMcpClient = async function(clientId) {
+        if (!confirm('Revoke this MCP client? This will disconnect any AI agents using it.')) return;
+        try {
+            const res = await fetch('/mcp/clients', {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
+                body: JSON.stringify({ client_id: clientId })
+            });
+            const data = await res.json();
+            if (data.revoked) {
+                if (window.TomNotify) TomNotify.show('MCP client revoked.', 'Success', 'success');
+                settingsLoaded = false;
+                loadAccountSettings();
+            } else {
+                if (window.TomNotify) TomNotify.show('Failed to revoke client.', 'Error', 'danger');
+            }
+        } catch (err) {
+            if (window.TomNotify) TomNotify.show('Network error.', 'Error', 'danger');
+        }
+    };
+
+    // ── Show MCP Connect Instructions ──
+    window.showMcpConnectInstructions = function() {
+        const url = document.getElementById('mcpServerUrl')?.textContent || 'https://dev.tomweb.in/mcp';
+        alert(`Configure your MCP client (Claude Desktop, OpenCode, Claude Code) with:\n\n${url}\n\nThe OAuth flow will redirect you here to approve access.`);
+    };
 
     // ── Delete SSH Key ──
     window.deleteAccountKey = async function(keyId) {

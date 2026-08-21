@@ -145,6 +145,7 @@
     window.LAB_USER = "<?= htmlspecialchars($currentUsername) ?>";
     window.CODE_SERVER_URL = "<?= $creds['code_server_url'] ?? '' ?>";
     window.LAB_TYPE = "<?= $labType ?>";
+    window.LAB_STATUS = "<?= $status ?>";
 </script>
 <!-- DOMAIN_USAGE_MAP embedded in data attribute — not exposed as JS variable -->
 <div id="lab-data-root"
@@ -248,7 +249,9 @@
                     <div class="card-header bg-transparent border-0 pt-4 px-4">
                         <h6 class="fw-bold mb-0">
                         Container Load
-                        <?php if ($isRunning): ?>
+                        <?php if ($status === 'paused'): ?>
+                            <span class="badge bg-warning rounded-pill ms-2">Paused</span>
+                        <?php elseif ($isRunning): ?>
                             <span class="badge bg-success rounded-pill ms-2 pulse">Live</span>
                         <?php else: ?>
                             <span class="badge bg-danger rounded-pill ms-2">Offline</span>
@@ -262,13 +265,13 @@
                                 <div class="p-3 rounded-4 bg-dark bg-opacity-25 border border-white border-opacity-10 text-start stat-card-inner">
                                     <div class="mb-1">
                                         <span class="small fw-bold text-white text-start">
-                                            <span id="stat-cpu-usage">0.00%</span> <small class="text-muted ms-1">CPU LOAD</small>
+                                            <span id="stat-cpu-usage"></span> <small class="text-muted ms-1">CPU LOAD</small>
                                         </span>
                                     </div>
                                     <div class="progress stat-progress-bar">
                                         <div class="progress-bar bg-info" id="stat-cpu-bar" style="width: 0%"></div>
                                     </div>
-                                    <div class="small text-muted mt-2 text-start" id="stat-pid-container" style="display: <?= $isRunning ? 'block' : 'none' ?>;">PID Count: <span id="stat-pid-count">0</span></div>
+                                    <div class="small text-muted mt-2 text-start" id="stat-pid-container" style="display: <?= $isRunning ? 'block' : 'none' ?>;">PID Count: <span id="stat-pid-count">0</span> &nbsp; CPU throttled: <span id="stat-cpu-throttled">0%</span></div>
                                 </div>
                             </div>
                             <div class="col-6">
@@ -281,6 +284,7 @@
                                     <div class="progress stat-progress-bar">
                                         <div class="progress-bar bg-warning" id="stat-mem-bar" style="width: 0%"></div>
                                     </div>
+                                    <div class="small text-muted mt-2 text-start"><span id="stat-mem-info">0MiB / 0GiB</span></div>
                                 </div>
                             </div>
                         </div>

@@ -13,4 +13,7 @@ if [ -f /var/www/env.json ]; then
     export MONGO_PASS=$(python3 -c "import json; print(json.load(open('/var/www/env.json'))['mongo_pass'])")
 fi
 
+# MCP server: use restricted credentials (readWrite on tom_labs_db only)
+export MCP_MONGO_URI="mongodb://mcp_server:mcp_secure_2026@TomCloudLab_mongodb:27017/tom_labs_db?authSource=admin"
+
 exec /usr/bin/python3 -u /var/www/labs/worker/labs_worker.py

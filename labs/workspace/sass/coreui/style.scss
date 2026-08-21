@@ -1,5 +1,6 @@
 // It gives this file access to the transition mixin
 @use "../../grunt/node_modules/@coreui/coreui/scss/coreui" as *;
+@use "../components/mcp" as *;
 
 body {
   background-color: var(--cui-tertiary-bg);

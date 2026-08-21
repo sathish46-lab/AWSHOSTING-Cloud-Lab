@@ -43,6 +43,10 @@ RUN apt-get update && apt-get install -y \
 # Install Python packages not available via apt
 RUN pip3 install --break-system-packages google-generativeai requests pymongo markdown
 
+# Install MCP server dependencies (separate layer to avoid dep conflicts)
+RUN pip3 install --break-system-packages --ignore-installed PyJWT \
+    mcp==1.27.1 starlette==0.41.3 sse-starlette==2.2.1 uvicorn==0.46.0 bcrypt
+
 # Create symlink for labsctl
 RUN ln -sf /opt/labs-control-panel/labsctl.py /usr/local/bin/labsctl && \
     chmod +x /opt/labs-control-panel/labsctl.py 2>/dev/null || true

@@ -51,6 +51,7 @@ try {
     // Update password and invalidate ALL other sessions (keep only current token)
     $sessionToken = $_COOKIE['session_token'] ?? null;
     $currentTokenHash = null;
+    $currentTokenId = null;
 
     if ($sessionToken) {
         $tokens = $userRecord['session_tokens'] ?? [];
@@ -58,6 +59,7 @@ try {
             $storedHash = $tokenData['token_hash'] ?? '';
             if (password_verify($sessionToken, $storedHash)) {
                 $currentTokenHash = $storedHash;
+                $currentTokenId   = $tokenData['token_id'] ?? hash('sha256', $sessionToken);
                 break;
             }
         }
@@ -75,6 +77,7 @@ try {
         $updateOps['$set']['session_tokens'] = [
             [
                 'token_hash' => $currentTokenHash,
+                'token_id'   => $currentTokenId,
                 'ip' => $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '',
                 'browser' => $_SERVER['HTTP_USER_AGENT'] ?? '',
                 'created_at' => time(),

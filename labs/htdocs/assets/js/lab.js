@@ -365,19 +365,12 @@ const Dashboard = {
       if (this.statsInterval) clearInterval(this.statsInterval);
 
       const poll = () => {
-        if (document.hidden) return;
+        if (document.hidden) return; // double check
 
         fetch(`/api/labs/stats?hash=${window.SESSION_HASH}`)
           .then((res) => res.json())
           .then((data) => {
-            if (data.status === "paused") {
-              // Lab is paused — show idle state, stop polling
-              this.updateUIIdle();
-              if (this.statsInterval) {
-                clearInterval(this.statsInterval);
-                this.statsInterval = null;
-              }
-            } else if (data.status === "offline" || data.status === "initializing") {
+            if (data.status === "offline" || data.status === "initializing") {
               this.updateUIIdle();
             } else {
               this.updateUI(data);
@@ -434,7 +427,6 @@ const Dashboard = {
     safeSetText("stat-cpu-usage", data.CPUPerc);
     safeSetWidth("stat-cpu-bar", data.CPUPerc);
     safeSetText("stat-pid-count", data.PIDs);
-    safeSetText("stat-cpu-throttled", data.CPUThrottled || "0%");
     safeSetText("stat-mem-perc", data.MemPerc);
     safeSetWidth("stat-mem-bar", data.MemPerc);
     safeSetText("stat-mem-info", data.MemUsage);
@@ -503,7 +495,6 @@ const Dashboard = {
   updateUIIdle: function () {
     const resets = {
       "stat-cpu-usage": "0.00%",
-      "stat-cpu-throttled": "0%",
       "stat-mem-perc": "0.00%",
       "stat-load-1": "0.0000",
       "stat-load-5": "0.0000",
@@ -581,19 +572,10 @@ const Dashboard = {
     // Extract message
     let msg = data.log || data.message || data;
 
-    // Parse for deploy progress
-    if (typeof DeployProgress !== 'undefined') {
-      DeployProgress.parseLog(msg);
-    }
-
     // Clean up message formatting
     msg = msg.replace(/^\[\d{2}:\d{2}:\d{2}\]\s*/, "");
     msg = msg.replace(/^(\[\*\]\s*)+/, "[*] ");
     msg = msg.replace(/^(\[!\]\s*)+/, "[!] ");
-
-    // Duplicate detection - skip if last log is identical
-    const lastEntry = container.lastElementChild;
-    if (lastEntry && lastEntry.innerText === msg) return;
 
     // Create log entry
     const div = document.createElement("div");
@@ -892,8 +874,8 @@ async function executeRedeploy(labType) {
 
     Dashboard.appendLog("[*] Handshake accepted. Starting stream...");
     
-    // Start progress tracking (parses logs from WebSocket)
-    DeployProgress.start();
+    // Start progress tracking
+    DeployProgress.start(window.SESSION_HASH);
   } catch (e) {
     console.error("Redeploy Error:", e);
     Dashboard.appendLog("[!] Redeploy failed: " + e.message);
@@ -906,67 +888,26 @@ async function executeRedeploy(labType) {
 
 /**
  * Deployment Progress Tracker
- * Parses live WebSocket logs to calculate progress percentage
+ * Polls the server for deployment progress and updates the UI
  */
 const DeployProgress = {
-  active: false,
-  progress: 0,
-  
-  // Deploy step patterns mapped to percentage
-  steps: [
-    [/Deployment initiated/i, 5, 'Initializing'],
-    [/Fetching lab metadata/i, 8, 'Loading metadata'],
-    [/Starting deployment for user/i, 10, 'Starting'],
-    [/Instance ID:/i, 12, 'Preparing'],
-    [/Reusing existing lab IP|Assigned Docker IP/i, 15, 'Assigning IP'],
-    [/Checking for conflicting containers/i, 18, 'Checking containers'],
-    [/No existing container|Removing existing container/i, 20, 'Cleaning up'],
-    [/Storage preserved/i, 25, 'Preserving storage'],
-    [/Clearing stale VPN/i, 28, 'Clearing VPN'],
-    [/Removing stale WireGuard/i, 30, 'Removing old peer'],
-    [/Peer removed/i, 32, 'Peer removed'],
-    [/Reusing existing keys|Generating new/i, 35, 'Configuring keys'],
-    [/Peer re-registered/i, 38, 'Peer registered'],
-    [/Provisioning/i, 40, 'Provisioning'],
-    [/Waiting for container/i, 45, 'Starting container'],
-    [/Configuring network routing/i, 50, 'Configuring network'],
-    [/Routing and firewall configured/i, 55, 'Firewall ready'],
-    [/Optimizing Apache/i, 58, 'Configuring Apache'],
-    [/Configuring user environment/i, 60, 'Setting up user'],
-    [/Syncing ssh/i, 62, 'Syncing SSH'],
-    [/Starting user configuration/i, 65, 'Creating user'],
-    [/User .* created/i, 68, 'User created'],
-    [/System password set/i, 70, 'Password set'],
-    [/SSH configured/i, 72, 'SSH ready'],
-    [/Bash environment/i, 74, 'Shell ready'],
-    [/Configuring WireGuard tunnel/i, 76, 'Setting up VPN'],
-    [/WireGuard configured/i, 80, 'VPN ready'],
-    [/Configuring persistent storage/i, 82, 'Linking storage'],
-    [/Storage links configured/i, 85, 'Storage ready'],
-    [/Setting up Code-Server/i, 88, 'Starting Code-Server'],
-    [/Code-server started/i, 90, 'Code-Server ready'],
-    [/Applying firewall rules/i, 92, 'Applying firewall'],
-    [/Firewall rules applied/i, 94, 'Firewall ready'],
-    [/Finalizing Traefik/i, 96, 'Configuring proxy'],
-    [/Traefik config written/i, 98, 'Proxy configured'],
-    [/Deployment Complete|Deploy complete|Access URL:/i, 100, 'Complete'],
-  ],
+  interval: null,
+  hash: null,
   
   show() {
-    const el = document.getElementById('deploy-progress-container');
-    if (el) el.classList.remove('d-none');
+    const container = document.getElementById('deploy-progress-container');
+    if (container) container.classList.remove('d-none');
   },
   
   hide() {
-    const el = document.getElementById('deploy-progress-container');
-    if (el) el.classList.add('d-none');
+    const container = document.getElementById('deploy-progress-container');
+    if (container) container.classList.add('d-none');
   },
   
   update(progress, label, status) {
-    this.progress = progress;
     const bar = document.getElementById('deploy-progress-bar');
-    const pct = document.getElementById('deploy-progress-percent');
-    const lbl = document.getElementById('deploy-progress-label');
+    const percent = document.getElementById('deploy-progress-percent');
+    const labelEl = document.getElementById('deploy-progress-label');
     const icon = document.getElementById('deploy-progress-icon');
     
     if (bar) {
@@ -984,8 +925,9 @@ const DeployProgress = {
         bar.style.background = '';
       }
     }
-    if (pct) pct.textContent = progress + '%';
-    if (lbl) lbl.textContent = label || 'Deploying...';
+    
+    if (percent) percent.textContent = progress + '%';
+    if (labelEl) labelEl.textContent = label || 'Deploying...';
     if (icon) {
       if (status === 'completed') icon.textContent = '✅';
       else if (status === 'failed') icon.textContent = '❌';
@@ -993,41 +935,39 @@ const DeployProgress = {
     }
   },
   
-  // Called by Dashboard.appendLog for each new log line
-  parseLog(line) {
-    if (!this.active) return;
-    
-    for (const [pattern, pct, label] of this.steps) {
-      if (pattern.test(line) && pct > this.progress) {
-        this.update(pct, label, 'running');
-        break;
-      }
-    }
-    
-    // Check completion
-    if (/Deployment Complete|Deploy complete|Access URL:/i.test(line)) {
-      this.update(100, 'Complete', 'completed');
-      this.active = false;
-      setTimeout(() => window.location.reload(), 2000);
-    }
-    
-    // Check failure
-    if (/\[!\].*failed|Error:/i.test(line)) {
-      this.update(this.progress, 'Failed', 'failed');
-      this.active = false;
-    }
-  },
-  
-  start() {
-    this.active = true;
-    this.progress = 0;
+  start(hash) {
+    this.hash = hash;
     this.show();
     this.update(0, 'Starting deployment...', 'running');
+    this.interval = setInterval(() => this.poll(), 1000);
   },
   
   stop() {
-    this.active = false;
+    if (this.interval) {
+      clearInterval(this.interval);
+      this.interval = null;
+    }
     setTimeout(() => this.hide(), 3000);
+  },
+  
+  async poll() {
+    if (!this.hash) return;
+    try {
+      const response = await fetch(`/api/lab/deploy_progress.php?hash=${this.hash}`, {
+        credentials: 'same-origin'
+      });
+      if (!response.ok) throw new Error('Poll failed');
+      const data = await response.json();
+      this.update(data.progress, data.label, data.status);
+      if (data.status === 'completed' || data.status === 'failed') {
+        this.stop();
+        if (data.status === 'completed') {
+          setTimeout(() => window.location.reload(), 1500);
+        }
+      }
+    } catch (e) {
+      console.error('Progress poll error:', e);
+    }
   }
 };
 
@@ -1095,146 +1035,6 @@ async function executeStop() {
     }
   } catch (e) {
     console.error("Stop Error:", e);
-    if (headerBtn) Dashboard.toggleLoading(headerBtn, false);
-    Dashboard.isProcessing = false;
-  }
-}
-
-/**
- * Pause Lab - Freeze processes, keep memory, zero CPU
- */
-function handlePause() {
-  if (Dashboard.isProcessing) return;
-  const modalEl = document.getElementById("pauseModal");
-  if (!modalEl) {
-    // No modal found, execute directly
-    executePause();
-    return;
-  }
-  let modal = coreui.Modal.getInstance(modalEl);
-  if (!modal) modal = new coreui.Modal(modalEl, { backdrop: true, keyboard: true });
-  document.getElementById("pause-confirm-btn").onclick = () => executePause();
-  modal.show();
-}
-
-/**
- * Execute the actual pause request
- */
-async function executePause() {
-  const modalEl = document.getElementById("pauseModal");
-  const modal = modalEl ? coreui.Modal.getInstance(modalEl) : null;
-  const btn = document.getElementById("pause-confirm-btn");
-  const headerBtn = document.getElementById("btn-pause-action");
-  const type = window.LAB_TYPE || "essentials";
-
-  if (modal) modal.hide();
-  Dashboard.isProcessing = true;
-  if (typeof ActivityTracker !== "undefined") {
-    ActivityTracker.setProcessing(true);
-  }
-
-  if (headerBtn) Dashboard.toggleLoading(headerBtn, true);
-  if (btn) {
-    btn.classList.add("disabled");
-    btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true"></span> Pausing...';
-  }
-
-  Dashboard.resetTerminal();
-  Dashboard.appendCommand(`docker pause ${window.SESSION_HASH}`);
-  await new Promise((r) => setTimeout(r, 300));
-  Dashboard.appendLog("[*] Freezing container processes...");
-
-  try {
-    const response = await fetch("/api/labs/pause", {
-      method: "POST",
-      body: new URLSearchParams({
-        lab: type,
-      }),
-    });
-
-    const data = await response.json();
-    if (data.status === 'success') {
-      Dashboard.appendLog("[✓] Lab paused. CPU: 0%, Memory: preserved");
-      // Reload page after short delay to show paused state
-      setTimeout(() => location.reload(), 1500);
-    } else {
-      Dashboard.appendLog(`[!] Error: ${data.error || 'Pause request failed'}`);
-      Dashboard.isProcessing = false;
-      if (headerBtn) Dashboard.toggleLoading(headerBtn, false);
-    }
-  } catch (e) {
-    console.error("Pause Error:", e);
-    Dashboard.appendLog(`[!] Error: ${e.message}`);
-    if (headerBtn) Dashboard.toggleLoading(headerBtn, false);
-    Dashboard.isProcessing = false;
-  }
-}
-
-/**
- * Resume Lab - Unfreeze processes, restore CPU
- */
-function handleResume() {
-  if (Dashboard.isProcessing) return;
-  const modalEl = document.getElementById("resumeModal");
-  if (!modalEl) {
-    // No modal found, execute directly
-    executeResume();
-    return;
-  }
-  let modal = coreui.Modal.getInstance(modalEl);
-  if (!modal) modal = new coreui.Modal(modalEl, { backdrop: true, keyboard: true });
-  document.getElementById("resume-confirm-btn").onclick = () => executeResume();
-  modal.show();
-}
-
-/**
- * Execute the actual resume request
- */
-async function executeResume() {
-  const modalEl = document.getElementById("resumeModal");
-  const modal = modalEl ? coreui.Modal.getInstance(modalEl) : null;
-  const btn = document.getElementById("resume-confirm-btn");
-  const headerBtn = document.getElementById("btn-resume-action");
-  const type = window.LAB_TYPE || "essentials";
-
-  if (modal) modal.hide();
-  Dashboard.isProcessing = true;
-  if (typeof ActivityTracker !== "undefined") {
-    ActivityTracker.setProcessing(true);
-  }
-
-  if (headerBtn) Dashboard.toggleLoading(headerBtn, true);
-  if (btn) {
-    btn.classList.add("disabled");
-    btn.innerHTML = '<span class="spinner-grow spinner-grow-sm me-2" role="status" aria-hidden="true"></span> Resuming...';
-  }
-
-  Dashboard.resetTerminal();
-  Dashboard.appendCommand(`docker unpause ${window.SESSION_HASH}`);
-  await new Promise((r) => setTimeout(r, 300));
-  Dashboard.appendLog("[*] Unfreezing container processes...");
-
-  try {
-    const response = await fetch("/api/labs/resume", {
-      method: "POST",
-      body: new URLSearchParams({
-        lab: type,
-      }),
-    });
-
-    const data = await response.json();
-    if (data.status === 'success') {
-      Dashboard.appendLog("[✓] Lab resumed. All systems restored");
-      // Reload page after short delay to show running state
-      setTimeout(() => location.reload(), 1500);
-    } else {
-      Dashboard.appendLog(`[!] Error: ${data.error || 'Resume request failed'}`);
-      Dashboard.isProcessing = false;
-      if (headerBtn) Dashboard.toggleLoading(headerBtn, false);
-    }
-  } catch (e) {
-    console.error("Resume Error:", e);
-    Dashboard.appendLog(`[!] Error: ${e.message}`);
     if (headerBtn) Dashboard.toggleLoading(headerBtn, false);
     Dashboard.isProcessing = false;
   }
@@ -2107,10 +1907,6 @@ window.onPageLoad( function() {
     window.addDeployProxyRow = addDeployProxyRow;
     window.updateSelectedDomains = updateSelectedDomains;
     window.handleStop = handleStop;
-    window.handlePause = handlePause;
-    window.handleResume = handleResume;
-    window.executePause = executePause;
-    window.executeResume = executeResume;
     window.removeDomainChip = removeDomainChip;
     window.handleDeploy = handleDeploy;
 

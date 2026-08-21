@@ -135,10 +135,10 @@ echo "[INFO] Generating Apache Configuration..."
 
 # Generate ports.conf to ensure all required ports are listening
 cat <<EOF > /etc/apache2/ports.conf
-Listen 80
 Listen 8080
 Listen 8081
 Listen 8082
+Listen 8083
 <IfModule ssl_module>
     Listen 4431
 </IfModule>
@@ -146,13 +146,27 @@ EOF
 
 echo "[INFO] Generating Apache VirtualHosts..."
 cat <<EOF > /etc/apache2/sites-available/labs.conf
-<VirtualHost *:80>
+<VirtualHost *:8083>
     ServerAdmin $SSL_EMAIL
     DocumentRoot "/var/www/labs/htdocs"
     ServerName $MAIN_DOMAIN
 
     ErrorLog \${APACHE_LOG_DIR}/error.log
     CustomLog \${APACHE_LOG_DIR}/access.log combined
+
+    # MCP: all /mcp paths are handled by Apache/PHP via .htaccess.
+    # The .htaccess routes OAuth/UI paths to PHP and proxies the MCP
+    # protocol traffic (POST / SSE GET) to the Python MCP server on 8099.
+    ProxyRequests Off
+    ProxyPreserveHost Off
+    ProxyPass /mcp !
+
+    # OAuth discovery metadata
+    ProxyPass /.well-known/oauth-authorization-server http://127.0.0.1:8099/.well-known/oauth-authorization-server
+    ProxyPassReverse /.well-known/oauth-authorization-server http://127.0.0.1:8099/.well-known/oauth-authorization-server
+
+    ProxyPass /.well-known/oauth-protected-resource http://127.0.0.1:8099/.well-known/oauth-protected-resource
+    ProxyPassReverse /.well-known/oauth-protected-resource http://127.0.0.1:8099/.well-known/oauth-protected-resource
 
     <Directory "/var/www/labs">
             Options -Indexes +FollowSymLinks -ExecCGI +Includes
@@ -163,7 +177,7 @@ cat <<EOF > /etc/apache2/sites-available/labs.conf
 EOF
 
 cat <<EOF > /etc/apache2/sites-available/mqs.conf
-<VirtualHost *:80>
+<VirtualHost *:8083>
     ServerName $MQS_DOMAIN
 
     ProxyRequests Off
@@ -186,7 +200,7 @@ cat <<EOF > /etc/apache2/sites-available/mqs.conf
 EOF
 
 cat <<EOF > /etc/apache2/sites-available/wg-api.conf
-<VirtualHost *:80>
+<VirtualHost *:8082>
     ServerAdmin $SSL_EMAIL
     DocumentRoot "/var/www/vpn-api"
     ServerName $VPN_DOMAIN
@@ -207,7 +221,7 @@ RewriteMap code_map "txt:/etc/apache2/code_server_map.txt"
 ProxyTimeout 600
 ProxyBadHeader Ignore
 
-<VirtualHost *:80>
+<VirtualHost *:8083>
     ServerName $CODE_DOMAIN
     ServerAlias *.$CODE_DOMAIN
     
@@ -236,7 +250,7 @@ ProxyBadHeader Ignore
 EOF
 
 cat <<EOF > /etc/apache2/sites-available/work.conf
-<VirtualHost *:80>
+<VirtualHost *:8083>
     ServerAdmin $SSL_EMAIL
     DocumentRoot "/var/www/work"
     ServerName $WORK_DOMAIN
@@ -258,6 +272,8 @@ echo "[INFO] Generating Traefik Configuration..."
 # Generate static Traefik config with certResolver
 cat <<EOF > /etc/traefik/traefik.yml
 entryPoints:
+  web:
+    address: ":80"
   websecure:
     address: ":443"
 
@@ -266,7 +282,8 @@ certificatesResolvers:
     acme:
       email: $SSL_EMAIL
       storage: /etc/traefik/acme.json
-      tlsChallenge: {}
+      httpChallenge:
+        entryPoint: web
 
 providers:
   file:
@@ -298,11 +315,11 @@ http:
     apache-service:
       loadBalancer:
         servers:
-          - url: "http://127.0.0.1:80"
+          - url: "http://127.0.0.1:8083"
     mqs-service:
       loadBalancer:
         servers:
-          - url: "http://127.0.0.1:15672"
+          - url: "http://127.0.0.1:8083"
     vpn-api-service:
       loadBalancer:
         servers:
@@ -310,13 +327,14 @@ http:
     code-server-service:
       loadBalancer:
         servers:
-          - url: "http://127.0.0.1:8080"
+          - url: "http://127.0.0.1:8083"
 
   routers:
     labs-router:
       rule: "Host(\`$MAIN_DOMAIN\`)"
       service: apache-service
       entryPoints:
+        - web
         - websecure
 
     vpns-router:
@@ -332,6 +350,12 @@ http:
       service: mqs-service
       entryPoints:
         - websecure
+
+    mqs-ws-router:
+      rule: "Host(\`$MQS_DOMAIN\`) && (PathPrefix(\`/ws\`) || PathPrefix(\`/stats-ws\`))"
+      service: mqs-service
+      entryPoints:
+        - web
 
     code-server-router:
       rule: "HostRegexp(\`{subdomain:.+}.$CODE_DOMAIN\`)"
@@ -442,6 +466,12 @@ if [ -d "/opt/labs-control-panel/systemd/" ]; then
             systemctl enable "$unit_name" || true
         fi
     done
+
+    # Enable MCP Server service specifically
+    if [ -f "/opt/labs-control-panel/systemd/labs-mcp.service" ]; then
+        echo "[INFO] Enabling MCP Server service..."
+        systemctl enable labs-mcp.service || true
+    fi
 fi
 # 8. Setup AI Worker Service
 echo "[INFO] Setting up AI Worker systemd service..."

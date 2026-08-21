@@ -34,19 +34,60 @@
   color: var(--glass-text-muted) !important;
 }
 
+/* Lab Button Group */
+.lab-btn-group {
+  .btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.35rem !important;
+    padding: 0.5rem 0.9rem !important;
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+    border: none !important;
+    white-space: nowrap !important;
+    min-height: 36px !important;
+  }
+  
+  /* Icon-only buttons (Pause, Stop) */
+  .btn-lab-pause,
+  .btn-lab-stop {
+    padding: 0.5rem 0.65rem !important;
+    min-width: 36px !important;
+  }
+}
+
 .btn-lab-launch {
-  background: #f36d1f !important;
+  background: #6366f1 !important;
   color: #fff !important;
 }
 
 .btn-lab-deploy {
-  background: #34d399 !important;
+  background: #eab308 !important;
   border: none !important;
   color: #000 !important;
 }
 
 .btn-lab-stop {
   background: #ef4444 !important;
+  color: #fff !important;
+  
+  i {
+    filter: brightness(0) invert(1) !important;
+  }
+}
+
+.btn-lab-pause {
+  background: #6b7280 !important;
+  color: #fff !important;
+  
+  i {
+    filter: brightness(0) invert(1) !important;
+  }
+}
+
+.btn-lab-resume {
+  background: #22c55e !important;
   color: #fff !important;
   
   i {

@@ -44,7 +44,7 @@ public function getUser() {
     /**
      * Authenticate local users and set recovery cookies.
      */
-    public static function authenticate($email, $password) {
+    public static function authenticate($email, $password, $remember = false) {
     $instance = new self();
     try {
         $user = $instance->usersCollection->findOne(['email' => $email]);
@@ -130,6 +130,7 @@ public function getUser() {
                 [
                     '$push' => ['session_tokens' => [
                         'token_hash' => $tokenHash,
+                        'token_id'   => hash('sha256', $sessionToken),
                         'ip' => $clientIp,
                         'browser' => $deviceInfo['browser'],
                         'os' => $deviceInfo['os'],
@@ -142,10 +143,12 @@ public function getUser() {
             );
 
             // SET THE NEW SECURE TOKEN COOKIE
+            // "Remember me" => persistent cookie; otherwise a session cookie
+            // (expires 0) wiped when the browser closes, requiring sign-in again.
             setcookie('session_token', $sessionToken, [
-                'expires'  => time() + $lifetime,
+                'expires'  => $remember ? time() + $lifetime : 0,
                 'path'     => '/',
-                'domain'   => $domain, 
+                'domain'   => $domain,
                 'secure'   => $isSecure,
                 'httponly' => true,
                 'samesite' => 'Lax'
@@ -192,24 +195,12 @@ public function getUser() {
         if ($sessionToken) {
             try {
                 $instance = new self();
-                // Find user with matching token (iterate to check hash)
-                $usersWithTokens = $instance->usersCollection->find([
-                    'session_tokens' => ['$exists' => true, '$ne' => []]
-                ]);
-                
-                foreach ($usersWithTokens as $user) {
-                    $tokens = $user['session_tokens'] ?? [];
-                    foreach ($tokens as $tokenData) {
-                        $storedHash = $tokenData['token_hash'] ?? $tokenData['token'] ?? '';
-                        if (password_verify($sessionToken, $storedHash)) {
-                            $instance->usersCollection->updateOne(
-                                ['_id' => $user['_id']],
-                                ['$pull' => ['session_tokens' => ['token_hash' => $storedHash]]]
-                            );
-                            break 2;
-                        }
-                    }
-                }
+                // Remove the matching token via its deterministic token_id (indexed lookup)
+                $tokenId = hash('sha256', $sessionToken);
+                $instance->usersCollection->updateMany(
+                    ['session_tokens.token_id' => $tokenId],
+                    ['$pull' => ['session_tokens' => ['token_id' => $tokenId]]]
+                );
             } catch (Exception $e) {
                 error_log("Logout Token Clear Error: " . $e->getMessage());
             }
