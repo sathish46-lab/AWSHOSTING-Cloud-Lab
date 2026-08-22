@@ -163,7 +163,7 @@ try {
 ?>
 
 <div class="flex-grow-1 px-3 blur rounded-0 border-0 shadow-none">
-    <div class="container learn-section p-4 p-lg-5 py-4 py-xl-5">
+    <div class="container learn-section p-3 py-4 py-xl-5">
         <div class="text-center mb-4 mt-2">
             <h2 class="mb-4 fw-bold text-center">Tell us what you'd like to Learn!</h2>
             
@@ -273,7 +273,7 @@ try {
                 <div class="empty-state-container" style="display: none;"></div>
                 <!-- Lessons grid container -->
                 <div class="lessons-grid-container">
-                    <div class="row gy-4 row-cols-1 row-cols-md-2 row-cols-xl-3 mb-5" id="masonry-area" data-masonry='{"percentPosition": true}'>
+                    <div class="row gy-4 row-cols-1 row-cols-md-2 row-cols-lg-3 mb-5" id="masonry-area" data-masonry='{"percentPosition": true}'>
                         <?php 
                         $lessons = array_slice($lessons, 0, 8);
                         include __DIR__ . '/../../partials/learnAI/lessons_grid.php'; 

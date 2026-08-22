@@ -83,7 +83,7 @@ else $greeting = "Night, champ, ⚡";
             <span class="launcher-label">Learn AI</span>
             <span class="launcher-sub">AI-powered lessons</span>
         </a>
-        <a href="#" class="launcher-card card blur hvr-grow">
+        <a href="/roadmaps" class="launcher-card card blur hvr-grow">
             <div class="launcher-icon-wrapper">
                 <svg class="launcher-icon"><use xlink:href="/assets/icons/sprites/free.svg#cil-map"></use></svg>
             </div>

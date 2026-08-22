@@ -6,10 +6,22 @@ $db = DatabaseConnection::getDefaultDatabase();
 $user = Session::getUser();
 $currentUserId = $user ? (int)$user->getUserId() : 0;
 
-$filter = $_GET['filter'] ?? 'my_roadmaps';
-$levelFilter = $_GET['level'] ?? 'all';
+$filter = $_GET['filter'] ?? '';
+$levelFilter = $_GET['level'] ?? '';
+
+// Restore saved preference from DB if no GET params
+if (empty($filter) || empty($levelFilter)) {
+    $savedPref = $db->global_settings->findOne(['user_id' => $currentUserId, 'key' => 'roadmap_filter']);
+    if ($savedPref) {
+        if (empty($filter)) $filter = $savedPref['value'] ?? 'all';
+        if (empty($levelFilter)) $levelFilter = $savedPref['level'] ?? 'all';
+    } else {
+        if (empty($filter)) $filter = 'all';
+        if (empty($levelFilter)) $levelFilter = 'all';
+    }
+}
 $page = max(1, (int)($_GET['page'] ?? 1));
-$limit = 20;
+$limit = 10;
 $skip = ($page - 1) * $limit;
 
 switch ($filter) {
@@ -70,17 +82,17 @@ $learners = count($db->ai_roadmaps->distinct('user_id'));
         <hr class="border-secondary border-opacity-25 my-3">
 
         <!-- Filter Tabs -->
-        <div class="d-flex gap-2 mb-3 flex-wrap" id="rm-filter-tabs">
-            <button class="btn btn-sm rounded-pill <?= $filter === 'all' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('all')">✨ For You</button>
-            <button class="btn btn-sm rounded-pill <?= $filter === 'continue' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('continue')">▶ Continue</button>
-            <button class="btn btn-sm rounded-pill <?= $filter === 'public' || $filter === 'explore' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('explore')">🌍 Explore</button>
-            <button class="btn btn-sm rounded-pill <?= $filter === 'liked' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('liked')">❤️ Most Liked</button>
-            <button class="btn btn-sm rounded-pill <?= $filter === 'editor' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('editor')">⭐ Editor Picks</button>
-            <button class="btn btn-sm rounded-pill <?= $filter === 'interacted' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('interacted')">🔥 Most Interacted</button>
-            <button class="btn btn-sm rounded-pill <?= $filter === 'my_likes' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('my_likes')">💖 My Likes</button>
-            <button class="btn btn-sm rounded-pill <?= $filter === 'mine' || $filter === 'my_roadmaps' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('mine')">👤 My Roadmaps</button>
-            <div class="vr mx-2 bg-secondary"></div>
-            <select class="form-select form-select-sm rounded-pill text-white border-secondary" id="rm-level-filter" style="width:auto;" onchange="rmFilterLevel(this.value)">
+        <div class="d-flex gap-2 mb-3 flex-nowrap overflow-auto pb-1" id="rm-filter-tabs" style="scrollbar-width:none;-ms-overflow-style:none;">
+            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'all' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('all')">✨ For You</button>
+            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'continue' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('continue')">▶ Continue</button>
+            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'public' || $filter === 'explore' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('explore')">🌍 Explore</button>
+            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'liked' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('liked')">❤️ Most Liked</button>
+            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'editor' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('editor')">⭐ Editor Picks</button>
+            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'interacted' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('interacted')">🔥 Most Interacted</button>
+            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'my_likes' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('my_likes')">💖 My Likes</button>
+            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'mine' || $filter === 'my_roadmaps' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('mine')">👤 My Roadmaps</button>
+            <div class="vr mx-2 bg-secondary flex-shrink-0"></div>
+            <select class="form-select form-select-sm rounded-pill text-white border-secondary flex-shrink-0" id="rm-level-filter" style="width:auto;" onchange="rmFilterLevel(this.value)">
                 <option value="all" <?= $levelFilter === 'all' ? 'selected' : '' ?>>All Levels</option>
                 <option value="beginner" <?= $levelFilter === 'beginner' ? 'selected' : '' ?>>Beginner</option>
                 <option value="intermediate" <?= $levelFilter === 'intermediate' ? 'selected' : '' ?>>Intermediate</option>
@@ -107,7 +119,7 @@ $learners = count($db->ai_roadmaps->distinct('user_id'));
                 <p class="text-secondary">Be the first to create a roadmap in this category! 🚀</p>
             </div>
             <?php else: ?>
-            <div class="row gy-4 row-cols-1 row-cols-md-2 row-cols-xl-3" id="roadmap-masonry">
+            <div class="roadmaps-grid-container" id="roadmap-masonry">
                 <?php foreach ($roadmapsRaw as $rm):
                     $rmId = (string)$rm['_id'];
                     $rmSlug = $rm['slug'] ?? '';
@@ -122,97 +134,87 @@ $learners = count($db->ai_roadmaps->distinct('user_id'));
                     $rmVisibility = $rm['visibility'] ?? 'private';
                     $rmPrompt = $rm['prompt'] ?? '';
                     $rmIsOwner = ($rm['user_id'] === $currentUserId);
-
-                    $levelClass = match(strtolower($rmLevel)) {
-                        'beginner' => 'bg-success',
-                        'intermediate' => 'bg-warning text-dark',
-                        'advanced' => 'bg-danger',
-                        default => 'bg-secondary'
-                    };
+                    $rmLikesCount = $rm['likes_count'] ?? 0;
                 ?>
-                <div class="col" data-title="<?= htmlspecialchars(strtolower($rmTitle)) ?>" data-level="<?= htmlspecialchars(strtolower($rmLevel)) ?>" data-tags="<?= htmlspecialchars(implode(',', array_map('strtolower', $rmTags))) ?>" data-is-owner="<?= $rmIsOwner ? '1' : '0' ?>" data-visibility="<?= htmlspecialchars($rmVisibility) ?>">
-                    <div class="card h-100 blur border-0" style="border-radius:14px;cursor:pointer;" data-roadmap-id="<?= $rmId ?>" data-slug="<?= htmlspecialchars($rmSlug) ?>">
+                <div class="col">
+                    <div class="card h-100 roadmap-card liquid-rim hvr-grow shadow-lg" style="cursor:pointer;" data-roadmap-id="<?= $rmId ?>" data-slug="<?= htmlspecialchars($rmSlug) ?>">
                         <div class="card-body d-flex flex-column p-3">
                             <!-- Badges -->
-                            <div class="d-flex justify-content-between align-items-start mb-2">
-                                <div class="d-flex flex-wrap gap-2">
-                                    <span class="badge <?= $levelClass ?> rounded-pill px-2 py-1" style="font-size:0.7rem;">
-                                        <i class='bx bx-star me-1'></i><?= htmlspecialchars($rmLevel) ?>
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div class="d-flex flex-wrap gap-1 align-items-center">
+                                    <?php $lvlColor = strtolower($rmLevel) === 'advanced' ? 'danger' : (strtolower($rmLevel) === 'intermediate' ? 'warning' : 'success'); ?>
+                                    <span class="badge bg-<?= $lvlColor ?>-gradient d-inline-flex align-items-center gap-1">
+                                        <i class="bx bxs-star"></i> <?= strtolower($rmLevel) ?>
                                     </span>
-                                    <span class="badge bg-primary bg-opacity-25 text-primary border border-primary border-opacity-25 rounded-pill px-2 py-1" style="font-size:0.65rem;">AI</span>
+                                    <span class="badge bg-<?= $rmVisibility === 'private' ? 'secondary' : 'info' ?>-gradient d-inline-flex align-items-center gap-1">
+                                        <i class="bx <?= $rmVisibility === 'private' ? 'bx-lock-alt' : 'bx-globe' ?>"></i> <?= $rmVisibility === 'private' ? 'Private' : 'Public' ?>
+                                    </span>
                                 </div>
                                 <?php if ($rmIsOwner): ?>
-                                <div class="dropdown" onclick="event.stopPropagation();">
-                                    <button class="btn btn-sm btn-link text-secondary p-0 border-0" data-coreui-toggle="dropdown" aria-expanded="false">
-                                        <i class="bx bx-dots-vertical-rounded" style="font-size:1.1rem;"></i>
+                                <div class="dropdown ms-1" onclick="event.stopPropagation();">
+                                    <button class="btn btn-link text-secondary p-0" data-coreui-toggle="dropdown" aria-expanded="false">
+                                        <i class="bx bx-cog"></i>
+                                        <i class="bx bx-caret-down small"></i>
                                     </button>
-                                    <ul class="dropdown-menu dropdown-menu-end" style="min-width:180px;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:6px;">
-                                        <li>
-                                            <a class="dropdown-item d-flex align-items-center gap-2 rounded" href="#" onclick="rmToggleVisibility('<?= $rmId ?>', '<?= $rmVisibility ?>');return false;" style="font-size:0.82rem;padding:8px 12px;color:var(--cui-body-color);">
-                                                <i class="bx <?= $rmVisibility === 'public' ? 'bx-lock' : 'bx-globe' ?>"></i>
-                                                <?= $rmVisibility === 'public' ? 'Make Private' : 'Make Public' ?>
-                                            </a>
-                                        </li>
-                                        <li>
-                                            <a class="dropdown-item d-flex align-items-center gap-2 rounded" href="#" onclick="rmShowPrompt('<?= $rmId ?>');return false;" style="font-size:0.82rem;padding:8px 12px;color:var(--cui-body-color);">
-                                                <i class="bx bx-show"></i> Show Generation Prompt
-                                            </a>
-                                        </li>
+                                    <ul class="dropdown-menu dropdown-menu-end blur shadow-sm border-secondary border-opacity-25">
+                                        <li><a class="dropdown-item small py-1" href="#" onclick="rmToggleVisibility('<?= $rmId ?>', '<?= $rmVisibility ?>');return false;"><i class="bx <?= $rmVisibility === 'public' ? 'bx-lock-alt' : 'bx-globe' ?> me-2"></i><?= $rmVisibility === 'public' ? 'Make Private' : 'Make Public' ?></a></li>
+                                        <li><a class="dropdown-item small py-1" href="#" onclick="rmShowPrompt('<?= $rmId ?>');return false;"><i class="bx bx-show me-2"></i>Show Prompt</a></li>
                                         <li><hr class="dropdown-divider border-secondary border-opacity-25 my-1"></li>
-                                        <li>
-                                            <a class="dropdown-item d-flex align-items-center gap-2 rounded text-danger" href="#" onclick="rmDeleteRoadmap('<?= $rmId ?>', '<?= htmlspecialchars(addslashes($rmTitle)) ?>');return false;" style="font-size:0.82rem;padding:8px 12px;">
-                                                <i class="bx bx-trash"></i> Delete Roadmap
-                                            </a>
-                                        </li>
+                                        <li><a class="dropdown-item small py-1 text-danger" href="#" onclick="rmDeleteRoadmap('<?= $rmId ?>', '<?= htmlspecialchars(addslashes($rmTitle)) ?>');return false;"><i class="bx bx-trash me-2"></i>Delete</a></li>
                                     </ul>
                                 </div>
                                 <?php endif; ?>
                             </div>
 
                             <!-- Title -->
-                            <h5 class="card-title text-white mb-1" style="font-size:0.95rem;"><?= htmlspecialchars($rmTitle) ?></h5>
+                            <h6 class="card-title fw-bold mb-2 text-white"><?= htmlspecialchars($rmTitle) ?></h6>
 
                             <!-- Description -->
-                            <p class="card-text text-secondary mb-2" style="font-size:0.8rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
-                                <?= htmlspecialchars(mb_strimwidth($rmDesc, 0, 120, '...')) ?>
-                            </p>
+                            <p class="card-text text-secondary mb-3 flex-grow-1 small"><?= htmlspecialchars(mb_strimwidth($rmDesc, 0, 120, '...')) ?></p>
 
-                            <!-- Meta -->
-                            <div class="d-flex gap-3 mb-2 text-secondary" style="font-size:0.78rem;">
-                                <span><i class='bx bx-list-ul me-1'></i><?= $rmCheckpointsTotal ?> Topics</span>
-                                <span><i class='bx bx-time me-1'></i><?= $rmHours ?>h</span>
+                            <!-- Stats -->
+                            <div class="d-flex align-items-center gap-3 text-secondary mb-2 small">
+                                <span class="d-inline-flex align-items-center gap-1"><i class="bx bx-list-ul"></i> <?= $rmCheckpointsTotal ?> Topics</span>
+                                <span class="d-inline-flex align-items-center gap-1"><i class="bx bx-time"></i> <?= $rmHours ?>h</span>
                             </div>
 
                             <!-- Tags -->
-                            <div class="d-flex flex-wrap gap-1 mb-2">
+                            <div class="d-flex flex-wrap gap-1 mb-3">
                                 <?php foreach (array_slice($rmTags, 0, 3) as $tag): ?>
-                                    <span class="badge bg-primary bg-opacity-15 text-primary border-0 rounded-pill px-2 py-0" style="font-size:0.68rem;">#<?= htmlspecialchars($tag) ?></span>
+                                    <span class="badge bg-primary-gradient px-2 py-1">#<?= htmlspecialchars(ltrim($tag, '#')) ?></span>
                                 <?php endforeach; ?>
                                 <?php if (count($rmTags) > 3): ?>
-                                    <span class="badge bg-secondary bg-opacity-25 text-secondary border-0 rounded-pill px-2 py-0" style="font-size:0.65rem;">+<?= count($rmTags) - 3 ?></span>
+                                    <span class="badge bg-secondary-gradient px-2 py-1">+<?= count($rmTags) - 3 ?></span>
                                 <?php endif; ?>
                             </div>
 
                             <!-- Progress -->
                             <?php if ($rmCheckpointsTotal > 0): ?>
-                            <div class="mb-2">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <small class="text-secondary" style="font-size:0.7rem;">Progress</small>
-                                    <small class="text-secondary" style="font-size:0.7rem;"><?= $rmProgress ?>%</small>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-end mb-1">
+                                    <span class="text-secondary small">Progress</span>
+                                    <span class="fw-bold text-white small"><?= $rmProgress ?>%</span>
                                 </div>
-                                <div class="progress" style="height:4px;background:rgba(255,255,255,0.08);border-radius:4px;">
-                                    <div class="progress-bar bg-success" style="width:<?= $rmProgress ?>%;border-radius:4px;"></div>
+                                <div class="progress bg-secondary bg-opacity-10 rounded-pill" style="height:4px;">
+                                    <div class="progress-bar bg-success rounded-pill" style="width:<?= $rmProgress ?>%"></div>
                                 </div>
                             </div>
                             <?php endif; ?>
 
                             <!-- Footer -->
-                            <div class="mt-auto d-flex justify-content-between align-items-center pt-2" style="border-top:1px solid rgba(255,255,255,0.06);">
-                                <span class="text-secondary" style="font-size:0.72rem;">
-                                    <i class='bx bx-user me-1'></i><?= htmlspecialchars($rmAuthor) ?>
-                                </span>
-                                <a href="/roadmaps/<?= htmlspecialchars($rmSlug) ?>" class="btn btn-sm btn-success rounded-pill px-3" style="font-size:0.75rem;" hx-boost="false" onclick="event.stopPropagation();">
-                                    <?= $rmProgress > 0 ? 'Continue' : 'Start' ?> <i class='bx bx-right-arrow-alt ms-1'></i>
+                            <div class="d-flex align-items-center justify-content-between pt-3 border-top border-secondary border-opacity-10 mt-auto">
+                                <div class="d-flex align-items-center gap-1 min-w-0 me-1">
+                                    <div class="d-flex align-items-center min-w-0">
+                                        <img src="<?= Session::getAvatarForUsername($rmAuthor) ?>" alt="" class="rounded-circle me-1 flex-shrink-0 border border-secondary border-opacity-25" width="18" height="18">
+                                        <span class="text-secondary text-truncate small" style="max-width:60px;font-size:0.75rem;"><?= htmlspecialchars($rmAuthor) ?></span>
+                                    </div>
+                                    <button class="btn btn-link text-secondary p-0 d-inline-flex align-items-center gap-1 text-decoration-none toggle-like-btn flex-shrink-0 ms-1" data-roadmap-id="<?= $rmId ?>" title="Like">
+                                        <i class="bx bx-heart fs-6"></i>
+                                        <span class="roadmap-like-count" style="font-size:0.75rem;"><?= intval($rmLikesCount) ?></span>
+                                    </button>
+                                </div>
+                                <a href="/roadmaps/<?= htmlspecialchars($rmSlug) ?>" class="btn btn-sm btn-success-gradient rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1 fw-medium shadow-sm text-nowrap flex-shrink-0" style="font-size:0.78rem;" hx-boost="false" onclick="event.stopPropagation();">
+                                    <?= $rmProgress > 0 ? 'Continue' : 'Explore' ?> <i class="bx bx-right-arrow-alt fs-6"></i>
                                 </a>
                             </div>
                         </div>
@@ -349,19 +351,35 @@ if (rmSearchInput) {
     });
 }
 
-// Filter tabs
+// Filter tabs — API-based like LearnAI
 var rmCurrentFilter = '<?= $filter ?>';
 var rmCurrentLevel = '<?= $levelFilter ?>';
+var rmPage = 1;
+var rmLoading = false;
+var rmHasMore = true;
 
 function rmFilter(filter) {
     rmCurrentFilter = filter;
+    rmPage = 1;
+    rmHasMore = true;
     updateFilterTabs();
-    filterCards();
+    fetchRoadmaps(true);
+    rmSavePreference();
 }
 
 function rmFilterLevel(level) {
     rmCurrentLevel = level;
-    filterCards();
+    rmPage = 1;
+    rmHasMore = true;
+    fetchRoadmaps(true);
+    rmSavePreference();
+}
+
+function rmSavePreference() {
+    var fd = new FormData();
+    fd.append('preference_id', 'roadmap_filters');
+    fd.append('value', JSON.stringify({ filter: rmCurrentFilter, level: rmCurrentLevel }));
+    fetch('/api/user/preference_save', { method: 'POST', body: fd }).catch(function() {});
 }
 
 function updateFilterTabs() {
@@ -384,46 +402,107 @@ function updateFilterTabs() {
     }
 }
 
-function filterCards() {
-    var cards = document.querySelectorAll('#roadmap-masonry .col');
-    var hasProgress = function(card) {
-        var bar = card.querySelector('.progress-bar');
-        return bar && parseInt(bar.style.width) > 0;
-    };
+async function fetchRoadmaps(reset) {
+    if (rmLoading || (!reset && !rmHasMore)) return;
+    rmLoading = true;
 
-    cards.forEach(function(card) {
-        var show = true;
-        var isOwner = card.getAttribute('data-is-owner') === '1';
-        var isPublic = card.getAttribute('data-visibility') === 'public';
+    var container = document.getElementById('roadmap-masonry');
+    if (!container) { rmLoading = false; return; }
 
-        // Filter by category
-        switch (rmCurrentFilter) {
-            case 'continue':
-                show = hasProgress(card);
-                break;
-            case 'explore':
-            case 'public':
-                show = isPublic;
-                break;
-            case 'mine':
-            case 'my_roadmaps':
-                show = isOwner;
-                break;
-            case 'all':
-            default:
-                show = true;
-                break;
+    if (reset) {
+        container.innerHTML = '<div class="text-center py-5" style="column-span:all;"><div class="spinner-border text-primary" role="status"></div><p class="text-secondary small mt-2">Loading...</p></div>';
+    } else {
+        var loader = document.createElement('div');
+        loader.id = 'rm-loader';
+        loader.className = 'text-center py-4';
+        loader.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"></div>';
+        container.appendChild(loader);
+        rmMasonry();
+    }
+
+    try {
+        var url = '/api/roadmaps/list?render=html&filter=' + encodeURIComponent(rmCurrentFilter) + '&level=' + encodeURIComponent(rmCurrentLevel) + '&page=' + rmPage;
+        var res = await fetch(url, { credentials: 'include' });
+        if (!res.ok) throw new Error('Network response was not ok');
+        var html = await res.text();
+
+        if (reset) {
+            container.outerHTML = html;
+            rmMasonry();
+        } else {
+            var loaderEl = document.getElementById('rm-loader');
+            if (loaderEl) loaderEl.remove();
+
+            if (!html.trim() || html.indexOf('No roadmaps found') !== -1) {
+                rmHasMore = false;
+            } else {
+                var tmp = document.createElement('div');
+                tmp.innerHTML = html;
+                var newGrid = tmp.querySelector('.roadmaps-grid-container');
+                if (newGrid) {
+                    var newCols = newGrid.querySelectorAll('.col');
+                    newCols.forEach(function(col) {
+                        container.appendChild(col);
+                    });
+                    rmMasonry();
+                }
+            }
         }
 
-        // Filter by level
-        if (show && rmCurrentLevel !== 'all') {
-            var cardLevel = card.getAttribute('data-level') || '';
-            show = cardLevel === rmCurrentLevel;
+        rmPage++;
+    } catch (err) {
+        console.error('Failed to fetch roadmaps:', err);
+        var loaderErr = document.getElementById('rm-loader');
+        if (loaderErr) loaderErr.remove();
+        if (reset) {
+            container.innerHTML = '<div class="text-center py-5 text-danger" style="column-span:all;">Failed to load roadmaps</div>';
         }
-
-        card.style.display = show ? '' : 'none';
-    });
+    } finally {
+        rmLoading = false;
+    }
 }
+
+// Like toggle — like lesson_like
+document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.toggle-like-btn');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    var roadmapId = btn.getAttribute('data-roadmap-id');
+    if (!roadmapId) return;
+
+    var icon = btn.querySelector('i');
+    var countEl = btn.querySelector('.roadmap-like-count');
+    var wasLiked = icon.classList.contains('bxs-heart');
+
+    // Optimistic update
+    if (wasLiked) {
+        icon.className = 'bx bx-heart';
+        if (countEl) countEl.textContent = Math.max(0, parseInt(countEl.textContent || '0') - 1);
+    } else {
+        icon.className = 'bx bxs-heart text-danger';
+        if (countEl) countEl.textContent = parseInt(countEl.textContent || '0') + 1;
+    }
+
+    fetch('/api/roadmaps/roadmap_like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ roadmap_id: roadmapId })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.result === 'success') {
+            icon.className = data.liked ? 'bx bxs-heart text-danger' : 'bx bx-heart';
+            if (countEl) countEl.textContent = data.like_count;
+        }
+    })
+    .catch(function() {
+        // Revert on error
+        icon.className = wasLiked ? 'bx bxs-heart text-danger' : 'bx bx-heart';
+        if (countEl) countEl.textContent = wasLiked ? parseInt(countEl.textContent || '0') + 1 : Math.max(0, parseInt(countEl.textContent || '0') - 1);
+    });
+});
 
 function rmPickSuggestion(el) {
     var prompt = el.getAttribute('data-prompt');
@@ -588,4 +667,68 @@ function escAttr(s) {
     if (!s) return '';
     return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
+
+// Masonry layout — compact grid like SNA
+function rmMasonry() {
+    var container = document.getElementById('roadmap-masonry');
+    if (!container) return;
+    var cols = container.querySelectorAll('.col');
+    if (!cols.length) return;
+
+    var containerWidth = container.offsetWidth;
+    var gap = 20;
+    var colCount = containerWidth >= 900 ? 3 : containerWidth >= 600 ? 2 : 1;
+    var colWidth = (containerWidth - (colCount - 1) * gap) / colCount;
+    var colHeights = new Array(colCount).fill(0);
+
+    cols.forEach(function(col) {
+        if (col.style.display === 'none') return;
+        col.style.width = colWidth + 'px';
+        col.style.position = 'absolute';
+
+        // Find shortest column
+        var minIdx = 0;
+        for (var i = 1; i < colHeights.length; i++) {
+            if (colHeights[i] < colHeights[minIdx]) minIdx = i;
+        }
+
+        var left = minIdx * (colWidth + gap);
+        var top = colHeights[minIdx];
+
+        col.style.left = left + 'px';
+        col.style.top = top + 'px';
+
+        colHeights[minIdx] = top + col.offsetHeight + gap;
+    });
+
+    // Set container height
+    container.style.height = Math.max.apply(null, colHeights) + 'px';
+    container.setAttribute('data-masonry-ready', '1');
+}
+
+// Initialize masonry on load and resize
+function rmInitMasonry() {
+    rmMasonry();
+    rmPage = 2; // Server already rendered page 1
+}
+document.addEventListener('DOMContentLoaded', rmInitMasonry);
+
+// Also re-run after HTMX swaps content
+document.addEventListener('htmx:afterSwap', function(e) {
+    if (e.detail.target && e.detail.target.querySelector && e.detail.target.querySelector('#roadmap-masonry')) {
+        setTimeout(rmMasonry, 10);
+    }
+});
+
+// Infinite scroll
+window.addEventListener('scroll', function() {
+    if (window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 300) {
+        fetchRoadmaps(false);
+    }
+});
+
+window.addEventListener('resize', function() {
+    clearTimeout(window._rmMasonryTimer);
+    window._rmMasonryTimer = setTimeout(rmMasonry, 150);
+});
 </script>

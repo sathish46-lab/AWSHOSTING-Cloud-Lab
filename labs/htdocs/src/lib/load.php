@@ -49,11 +49,26 @@ if (file_exists($version_file)) {
 } else {
     // Priority 2: Try running git command (Local fallback)
     $git_bin = '/usr/bin/git'; 
-    $cmd = "$git_bin -C " . escapeshellarg($repo_root) . " describe --tags --always 2>&1";
-    exec($cmd, $version_mini_hash, $return_var);
     
-    if ($return_var === 0 && !empty($version_mini_hash[0])) {
-        $git_version = trim($version_mini_hash[0]);
+    // Get total commit count
+    $count_cmd = "$git_bin -C " . escapeshellarg($repo_root) . " rev-list HEAD --count 2>&1";
+    exec($count_cmd, $count_output, $count_var);
+    $total_commits = ($count_var === 0 && !empty($count_output[0])) ? trim($count_output[0]) : '0';
+    
+    // Get short hash
+    $hash_cmd = "$git_bin -C " . escapeshellarg($repo_root) . " rev-parse --short HEAD 2>&1";
+    exec($hash_cmd, $hash_output, $hash_var);
+    $short_hash = ($hash_var === 0 && !empty($hash_output[0])) ? trim($hash_output[0]) : '';
+    
+    // Get latest tag (if any)
+    $tag_cmd = "$git_bin -C " . escapeshellarg($repo_root) . " describe --tags --abbrev=0 2>&1";
+    exec($tag_cmd, $tag_output, $tag_var);
+    $latest_tag = ($tag_var === 0 && !empty($tag_output[0])) ? trim($tag_output[0]) : '';
+    
+    if (!empty($latest_tag) && !empty($short_hash)) {
+        $git_version = "$latest_tag-$total_commits-g$short_hash";
+    } elseif (!empty($short_hash)) {
+        $git_version = "v1.0.0-$total_commits-g$short_hash";
     } else {
         $git_version = '1.0.0'; 
     }

@@ -18,23 +18,23 @@ $visibility = $lesson['visibility'] ?? 'Public';
 $isPrivate = strcasecmp($visibility, 'Private') === 0;
 ?>
 <div class="col lesson-grid-item" data-is-author="<?= $isAuthor ? '1' : '0' ?>" data-visibility="<?= htmlspecialchars($visibility) ?>" data-liked="<?= !empty($lesson['liked_by_current']) ? 'true' : 'false' ?>" data-likes-count="<?= intval($lesson['likes_count'] ?? 0) ?>">
-    <div class="card liquid-rim lesson-card h-100 hvr-grow blur shadow-lg" data-lesson-id="<?= $lesson['_id'] ?>">
+    <div class="card liquid-rim lesson-card h-100 hvr-grow shadow-lg" data-lesson-id="<?= $lesson['_id'] ?>">
         <div class="card-body d-flex flex-column p-3">
             <div class="d-flex justify-content-between align-items-start mb-3">
-                <div class="d-flex flex-wrap gap-1 align-items-center">
-                    <?php 
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <?php
                     $lvl = htmlspecialchars($lesson['level'] ?? 'Beginner');
                     $lvlColor = strcasecmp($lvl, 'Advanced') === 0 ? 'danger' : (strcasecmp($lvl, 'Intermediate') === 0 ? 'warning' : 'success');
                     $matchPct = 78 + (crc32((string)($lesson['_id'] ?? '1')) % 20);
                     ?>
-                    <span class="badge bg-<?= $lvlColor ?>-gradient d-inline-flex align-items-center gap-1">
-                        <i class="bx bxs-star"></i> <?= strtolower($lvl) ?>
+                    <span class="badge bg-<?= $lvlColor ?> text-white">
+                        <i class="bx bxs-star me-1"></i><?= strtolower($lvl) ?>
                     </span>
-                    <span class="badge bg-<?= $isPrivate ? 'secondary' : 'info' ?>-gradient d-inline-flex align-items-center gap-1 lesson-visibility-badge">
-                        <i class="bx <?= $isPrivate ? 'bx-lock-alt' : 'bx-globe' ?>"></i> <span class="visibility-text"><?= htmlspecialchars($isPrivate ? 'Private' : 'Public') ?></span>
+                    <span class="badge bg-<?= $isPrivate ? 'secondary' : 'info' ?> text-white lesson-visibility-badge">
+                        <i class="bx <?= $isPrivate ? 'bx-lock-alt' : 'bx-globe' ?> me-1"></i><?= $isPrivate ? 'Private' : 'Public' ?>
                     </span>
-                    <span class="badge bg-primary-gradient d-inline-flex align-items-center gap-1">
-                        <i class="bx bx-search"></i> auto-matched - <?= $matchPct ?>%
+                    <span class="badge bg-primary text-white">
+                        <i class="bx bx-search me-1"></i>Auto-matched · <?= $matchPct ?>%
                     </span>
                 </div>
                 <div class="dropdown ms-1">
@@ -59,9 +59,7 @@ $isPrivate = strcasecmp($visibility, 'Private') === 0;
                 </div>
             </div>
 
-            <a href="/learn/lesson/<?= $lesson['_id'] ?>" class="text-decoration-none text-white d-block mb-2">
-                <h6 class="card-title fw-bold mb-2 text-white"><?= htmlspecialchars($lesson['title'] ?? '') ?></h6>
-            </a>
+            <h6 class="card-title fw-bold mb-2 text-white"><?= htmlspecialchars($lesson['title'] ?? '') ?></h6>
             <p class="card-text text-secondary mb-3 flex-grow-1 small lesson-desc-clamp"><?= htmlspecialchars($lesson['description'] ?? 'An interactive AI-generated structured curriculum covering architectural foundations, practical exercises, and hands-on laboratory tasks.') ?></p>
 
             <div class="d-flex align-items-center gap-3 text-secondary mb-2 small">
@@ -87,9 +85,9 @@ $isPrivate = strcasecmp($visibility, 'Private') === 0;
             ?>
             <div class="d-flex flex-wrap gap-1 mb-3">
                 <?php foreach (array_slice($tags, 0, 3) as $t): ?>
-                    <span class="badge bg-primary-gradient px-2 py-1">#<?= htmlspecialchars(ltrim($t, '#')) ?></span>
+                    <span class="badge bg-primary text-white px-2 py-1">#<?= htmlspecialchars(ltrim($t, '#')) ?></span>
                 <?php endforeach; ?>
-                <span class="badge bg-secondary-gradient px-2 py-1">+<?= max(4, count($tags) + ($lesson['modules_count'] ?? 2) + 2) ?></span>
+                <span class="badge bg-secondary text-white px-2 py-1">+<?= max(4, count($tags) + ($lesson['modules_count'] ?? 2) + 2) ?></span>
             </div>
 
             <?php if (!empty($lesson['progress']) && $lesson['progress'] > 0): ?>
@@ -121,8 +119,8 @@ $isPrivate = strcasecmp($visibility, 'Private') === 0;
                         <i class="bx bx-bulb fs-6"></i>
                     </button>
                 </div>
-                <a href="/learn/lesson/<?= $lesson['_id'] ?>" class="btn btn-sm btn-success-gradient rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1 fw-medium shadow-sm text-nowrap flex-shrink-0" style="font-size: 0.78rem;">
-                    <?= (!empty($lesson['progress']) && $lesson['progress'] > 0) ? 'Continue' : 'Start Learning' ?> <i class="bx bx-right-arrow-alt fs-6"></i>
+                <a href="/learn/lesson/<?= $lesson['_id'] ?>" class="btn btn-sm btn-success rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1 fw-medium text-nowrap flex-shrink-0" style="font-size: 0.78rem;">
+                    <?= (!empty($lesson['progress']) && $lesson['progress'] > 0) ? 'Continue' : 'Start Learning' ?> <i class="bx bx-right-arrow-alt" style="width:12px;height:12px;"></i>
                 </a>
             </div>
         </div>

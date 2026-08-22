@@ -41,7 +41,7 @@
             <div class="row g-3 mb-2">
                 <!-- Achievement Card 1 -->
                 <div class="col-md-3">
-                    <div class="card p-3 blur h-100 transition-all" style="background-color: rgba(255, 255, 255, 0.3) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;">
+                    <div class="card p-3 liquid-rim h-100 hvr-grow shadow-lg transition-all">
                         <div class="card-body p-0">
                             <div class="d-flex align-items-start gap-3 mb-3">
                                 <div class="achievement-icon bg-primary bg-opacity-10 rounded-3 p-2">
@@ -69,7 +69,7 @@
 
                 <!-- Achievement Card 2 -->
                 <div class="col-md-3">
-                    <div class="card p-3 blur h-100 transition-all" style="background-color: rgba(255, 255, 255, 0.3) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;">
+                    <div class="card p-3 liquid-rim h-100 hvr-grow shadow-lg transition-all">
                         <div class="card-body p-0">
                             <div class="d-flex align-items-start gap-3 mb-3">
                                 <div class="achievement-icon bg-info bg-opacity-10 rounded-3 p-2">
@@ -97,7 +97,7 @@
 
                 <!-- Achievement Card 3 -->
                 <div class="col-md-3">
-                    <div class="card p-3 blur h-100 transition-all position-relative overflow-hidden" style="background-color: rgba(255, 255, 255, 0.3) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;">
+                    <div class="card p-3 liquid-rim h-100 hvr-grow shadow-lg transition-all position-relative overflow-hidden">
                         <div class="card-body p-0 d-flex flex-column justify-content-between h-100 text-center">
                             <div class="my-auto py-2">
                                 <h2 class="fw-bold m-0 text-gradient display-5">62 / 128</h2>
@@ -118,7 +118,7 @@
 
                 <!-- Achievement Card 4 -->
                 <div class="col-md-3">
-                    <div class="card p-3 blur h-100 transition-all text-center d-flex flex-column justify-content-center align-items-center" style="background-color: rgba(255, 255, 255, 0.3) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important;">
+                    <div class="card p-3 liquid-rim h-100 hvr-grow shadow-lg transition-all text-center d-flex flex-column justify-content-center align-items-center">
                         <div class="card-body p-0 d-flex flex-column justify-content-center w-100">
                             <div class="mb-2">
                                 <span class="display-4 fw-bold text-warning">4</span>
@@ -146,7 +146,7 @@
             <div class="row row-cols-1 row-cols-md-3 g-3">
                 <?php foreach ($categories as $cat): ?>
                 <div class="col">
-                    <a href="/quiz/<?= $cat['hash'] ?? $cat['_id'] ?>" class="card p-4 blur d-flex align-items-stretch hvr-grow text-decoration-none text-reset" style="background-color: rgba(255, 255, 255, 0.3) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important; height: 100%; cursor: pointer;">
+                    <a href="/quiz/<?= $cat['hash'] ?? $cat['_id'] ?>" class="card p-4 liquid-rim d-flex align-items-stretch hvr-grow text-decoration-none text-reset shadow-lg" style="height: 100%; cursor: pointer;">
                         <div class="card-body p-0 align-self-start justify-self-start">
                             <h5 class="card-title fw-bold mb-2"><?= $cat['title'] ?></h5>
                             <p class="card-text text-body-secondary small mb-0 opacity-75"><?= $cat['desc'] ?></p>

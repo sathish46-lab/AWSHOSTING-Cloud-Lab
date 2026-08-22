@@ -1,6 +1,6 @@
 <?php
 /**
- * Quiz Card Partial (Premium High-Density Style)
+ * Quiz Card Partial (Flat solid badges matching SNA reference)
  */
 
 $qTitle = $q['title'] ?? "Quiz Title";
@@ -9,7 +9,6 @@ $viewCount = $q['view_count'] ?? 0;
 $questions = $q['questions'] ?? $q['content'] ?? [];
 $qCount = count($questions);
 
-// Dynamic Point Calculation based on Difficulty
 $basePoints = 25;
 if ($qDiff === 'easy') $basePoints = 15;
 elseif ($qDiff === 'hard') $basePoints = 50;
@@ -19,164 +18,63 @@ $joltReward = $qJolt;
 $tags = (isset($q['tags'])) ? (array)$q['tags'] : ['tech'];
 if (empty($tags)) $tags = ['tech'];
 
-$tagLimit = 3; // Show max 3 tags initially to ensure 2-3 lines footprint
-$displayTags = array_slice($tags, 0, $tagLimit);
-$remainingTagsCount = count($tags) - $tagLimit;
-$remainingTagsJson = htmlspecialchars(json_encode(array_slice($tags, $tagLimit)));
+$isNew = (isset($q['created_at']) && time() - (int)$q['created_at'] < 86400 * 30);
 
-// Time ago calculation
 $createdAt = $q['created_at'] ?? time();
 $timeAgo = "recent";
 if (is_numeric($createdAt)) {
     $diff = time() - (int)$createdAt;
     if ($diff < 60) $timeAgo = "now";
-    elseif ($diff < 3600) $timeAgo = floor($diff/60) . "m";
-    elseif ($diff < 86400) $timeAgo = floor($diff/3600) . "h";
-    else $timeAgo = floor($diff/86400) . "d";
+    elseif ($diff < 3600) $timeAgo = floor($diff/60) . "m ago";
+    elseif ($diff < 86400) $timeAgo = floor($diff/3600) . "h ago";
+    else $timeAgo = floor($diff/86400) . "y ago";
 }
 
-$diffColor = '#f9b115';
-if ($qDiff === 'easy') $diffColor = '#2eb857';
-elseif ($qDiff === 'hard') $diffColor = '#e55353';
-
-$isNew = (isset($q['created_at']) && time() - (int)$q['created_at'] < 86400 * 30);
+$remainingTagsCount = count($tags) - 3;
+$remainingTagsJson = htmlspecialchars(json_encode(array_slice($tags, 3)));
 ?>
 
-<div class="col animate__animated animate__fadeIn quiz-card-item">
-    <div class="card p-3 blur hvr-grow h-100 position-relative" 
-         style="background-color: rgba(255, 255, 255, 0.1) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important; overflow: visible !important;">
-        <div class="card-body p-0 d-flex flex-column position-relative" style="overflow: visible !important;">
-            
-            <!-- Title -->
-            <h6 class="card-title fw-bold mb-2 theme-text" style="line-height: 1.4; font-size: 0.95rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.7rem;">
-                <?= htmlspecialchars($qTitle) ?>
-            </h6>
+<div class="col quiz-card-item">
+    <div class="card liquid-rim h-100 hvr-grow shadow-lg" data-quiz-hash="<?= htmlspecialchars($qHash) ?>">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-auto pb-0">
+                    <h5 class="card-title fw-bold theme-text" style="font-size: 0.95rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.7rem;">
+                        <?= htmlspecialchars($qTitle) ?>
+                    </h5>
 
-            <!-- Badge Row (Topics & Metadata) -->
-            <div class="d-flex flex-wrap align-items-center gap-1 mb-2">
-                <?php if ($isNew): ?>
-                    <span class="badge bg-success text-white rounded-pill px-2" style="font-size: 0.52rem; font-weight: 800; text-transform: lowercase;">new 🥳</span>
-                <?php endif; ?>
-                
-                <span class="badge rounded-pill px-2" style="font-size: 0.52rem; background: <?= $diffColor ?> !important; color: #fff !important; font-weight: 800; text-transform: lowercase;"><?= strtolower($qDiff) ?></span>
+                    <?php if ($isNew): ?>
+                        <span class="badge rounded-pill px-2 py-1" style="background: #2eb857; color: #fff; font-size: 0.6rem;">new 🥳</span>
+                    <?php endif; ?>
 
-                <!-- AI Tags -->
-                <?php foreach ($displayTags as $tag): ?>
-                    <span class="badge rounded-pill px-2" style="font-size: 0.52rem; background: rgba(var(--cui-body-color-rgb), 0.08) !important; border: 1px solid rgba(var(--cui-body-color-rgb), 0.1); color: var(--cui-body-color) !important; font-weight: 600; text-transform: lowercase;"><?= strtolower($tag) ?></span>
-                <?php endforeach; ?>
-                
-                <?php if ($remainingTagsCount > 0): ?>
-                    <span class="badge rounded-pill px-2 quiz-tag-more position-relative" style="cursor: pointer; font-size: 0.52rem; background: rgba(var(--cui-body-color-rgb), 0.08) !important; border: 1px solid rgba(var(--cui-body-color-rgb), 0.1); color: var(--cui-body-color) !important;"
-                        data-remaining-tags='<?= $remainingTagsJson ?>' onclick="toggleTagPopover(this)">+<?= $remainingTagsCount ?></span>
-                <?php endif; ?>
+                    <span class="badge rounded-pill px-2 py-1" style="background: rgba(255,255,255,0.08); border: 1.5px solid rgba(255,255,255,0.2); color: #fff; font-size: 0.6rem;">
+                        <i class="bx bxs-star me-1" style="font-size: 0.55rem;"></i><?= $qDiff ?>
+                    </span>
 
-                <span class="badge rounded-pill px-2" style="font-size: 0.52rem; background: transparent !important; color: rgba(var(--cui-body-color-rgb), 0.6) !important; font-weight: 800; text-transform: lowercase;">
-                    <i class="bx bx-time-five me-1"></i><?= strtolower($timeAgo) ?> ago
-                </span>
-            </div>
+                    <?php foreach (array_slice($tags, 0, 3) as $tag): ?>
+                        <span class="badge rounded-pill px-2 py-1" style="background: #5a57cb; color: #fff; font-size: 0.6rem;"><?= htmlspecialchars(ltrim($tag, '#')) ?></span>
+                    <?php endforeach; ?>
 
-            <!-- Space between badges and footer -->
-            <div class="mb-2"></div>
+                    <?php if ($remainingTagsCount > 0): ?>
+                        <span class="badge rounded-pill px-2 py-1 quiz-tag-more" style="cursor: pointer; background: rgba(var(--cui-emphasis-color-rgb), 0.1); border: 1px solid rgba(var(--cui-emphasis-color-rgb), 0.1); color: var(--cui-emphasis-color); font-size: 0.6rem;" data-remaining-tags='<?= $remainingTagsJson ?>'>+<?= $remainingTagsCount ?></span>
+                    <?php endif; ?>
 
-            <!-- Footer: Stats & Start -->
-            <div class="mt-auto pt-2 border-top d-flex align-items-center justify-content-between" style="border-color: var(--cui-border-color) !important;">
-                <div class="d-flex align-items-center gap-1">
-                    <div class="d-flex align-items-center">
-                        <span class="fw-bold theme-text" style="font-size: 0.75rem;"><?= $zealReward ?></span>
-                        <span style="font-size: 0.65rem; margin-left: 2px;">🔥</span>
-                    </div>
-                    <div class="d-flex align-items-center ms-1">
-                        <span class="fw-bold theme-text" style="font-size: 0.75rem;"><?= $joltReward ?></span>
-                        <span style="font-size: 0.65rem; margin-left: 2px;">⚡️</span>
-                    </div>
-                    <div class="d-flex align-items-center opacity-50 ms-1">
-                        <span class="fw-bold theme-text" style="font-size: 0.75rem;"><?= $viewCount ?></span>
-                        <span style="font-size: 0.65rem; margin-left: 2px;">👁️</span>
-                    </div>
-                    
-                    <button class="btn btn-link btn-sm clipboard p-0 ms-1 theme-text opacity-40 hover-opacity-100" 
-                        data-clipboard-text="<?= (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . "/quiz/v/" . $qHash ?>" 
-                        style="text-decoration: none;">
-                        <i class="bx bx-share-alt" style="font-size: 0.85rem;"></i>
-                    </button>
+                    <span class="badge rounded-pill px-2 py-1" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: rgba(var(--cui-body-color-rgb), 0.6); font-size: 0.6rem;">
+                        ⌚ <?= $timeAgo ?>
+                    </span>
                 </div>
-
-                <a href="/quiz/v/<?= $qHash ?>" class="btn btn-success btn-sm rounded-pill fw-bold px-2 py-1 ms-1" 
-                   style="font-size: 0.6rem; letter-spacing: 0.3px; white-space: nowrap; box-shadow: 0 4px 12px rgba(var(--sna-primary-rgb), 0.3);">
-                    Answer Quiz
-                </a>
             </div>
+        </div>
+        <div class="card-footer d-flex align-items-center justify-content-between" style="border-top: 1px solid var(--cui-border-color); background: transparent;">
+            <div class="d-flex align-items-center gap-1">
+                <span class="reward zeal-reward" style="font-size: 0.8rem;" data-coreui-toggle="tooltip" data-coreui-placement="top" title="Will be rewarded upon completing all questions successfully."><?= $zealReward ?> 🔥</span>
+                <span class="reward jolt-reward" style="font-size: 0.8rem;" data-coreui-toggle="tooltip" data-coreui-placement="top" title="Will be rewarded upon completing all questions successfully."><?= $joltReward ?> ⚡️</span>
+                <span class="reward" style="font-size: 0.8rem;" data-coreui-toggle="tooltip" data-coreui-placement="top" title="Views"><?= $viewCount ?> 👁️</span>
+                <button class="btn btn-link btn-sm clipboard p-0 ms-1" data-clipboard-text="<?= (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . "/quiz/v/" . $qHash ?>" style="text-decoration: none;" data-coreui-toggle="tooltip" data-coreui-placement="right" title="Click to copy shareable URL">
+                    <i class="bx bx-share-alt" style="font-size: 0.85rem;"></i>
+                </button>
+            </div>
+            <a href="/quiz/v/<?= htmlspecialchars($qHash) ?>" data-quizid="<?= htmlspecialchars($qHash) ?>" class="btn btn-success btn-sm rounded-pill text-nowrap" style="font-size: 0.7rem;">Answer Quiz</a>
         </div>
     </div>
 </div>
-
-<script>
-if (typeof toggleTagPopover === 'undefined') {
-    window.toggleTagPopover = function(el) {
-        const card = el.closest('.card');
-        const existing = card.querySelector('.tag-popover');
-        if (existing) { existing.remove(); return; }
-        
-        const tags = JSON.parse(el.dataset.remainingTags);
-        const popover = document.createElement('div');
-        popover.className = 'tag-popover animate__animated animate__fadeInUp animate__faster';
-        
-        // Dynamic Positioning Logic
-        const rect = el.getBoundingClientRect();
-        const cardRect = card.getBoundingClientRect();
-        const leftPos = rect.left - cardRect.left;
-        
-        popover.style = `
-            position: absolute; 
-            bottom: calc(100% - ${rect.top - cardRect.top}px + 12px); 
-            left: 10px; 
-            right: 10px; 
-            background: rgba(15, 20, 25, 0.98); 
-            backdrop-filter: blur(20px); 
-            border: 1px solid rgba(255,255,255,0.15); 
-            border-radius: 14px; 
-            padding: 12px; 
-            display: flex; 
-            flex-wrap: wrap; 
-            gap: 6px; 
-            z-index: 2000; 
-            box-shadow: 0 15px 35px rgba(0,0,0,0.6);
-        `;
-
-        // Add Pointer Arrow
-        const arrow = document.createElement('div');
-        arrow.style = `
-            position: absolute;
-            bottom: -6px;
-            left: ${leftPos + 8}px;
-            width: 12px;
-            height: 12px;
-            background: rgba(15, 20, 25, 0.98);
-            border-right: 1px solid rgba(255,255,255,0.15);
-            border-bottom: 1px solid rgba(255,255,255,0.15);
-            transform: rotate(45deg);
-        `;
-        popover.appendChild(arrow);
-        
-        tags.forEach(tag => {
-            const span = document.createElement('span');
-            span.className = 'badge rounded-pill px-2 py-1';
-            span.style.background = '#5a57cb';
-            span.style.fontSize = '0.52rem';
-            span.style.textTransform = 'lowercase';
-            span.textContent = tag.toLowerCase();
-            popover.appendChild(span);
-        });
-        
-        card.appendChild(popover);
-        
-        const closeHandler = function(e) {
-            if (!card.contains(e.target)) {
-                popover.remove();
-                document.removeEventListener('click', closeHandler);
-            }
-        };
-        setTimeout(() => document.addEventListener('click', closeHandler), 10);
-    }
-}
-</script>

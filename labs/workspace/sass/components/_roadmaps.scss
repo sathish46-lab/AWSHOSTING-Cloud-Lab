@@ -193,6 +193,14 @@ body:has(.roadmap-detail-page) {
       -webkit-backdrop-filter: saturate(200%) blur(18px);
     }
   }
+
+  :root[data-coreui-theme="light"] > .card,
+  :root[data-coreui-theme="light"] > .rm-card-wrap {
+    background: #f8f9fa !important;
+    border: 1px solid rgba(0,0,0,0.1) !important;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    color: #1a1a1a !important;
+  }
 }
 
 .rm-gutter {
@@ -284,6 +292,119 @@ body:has(.roadmap-detail-page) {
   color: #22d3ee;
 }
 
+// --- Card Legend ---
+.rm-legend-bar {
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 0.25rem 0.6rem;
+}
+
+.rm-legend-toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 600;
+  margin-bottom: 0.15rem;
+  transition: color 0.2s;
+
+
+  .rm-legend-arrow {
+    transition: transform 0.2s;
+    font-size: 0.5rem;
+  }
+  &.open .rm-legend-arrow { transform: rotate(90deg); }
+}
+
+.rm-legend-body {
+  display: none;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  padding: 0.2rem 0 0.3rem;
+
+  &.open { display: flex; }
+}
+
+.rm-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.58rem;
+  font-weight: 700;
+  border: 1px solid;
+  line-height: 1.3;
+}
+
+.rm-legend-chip-topic { background: rgba(240,192,64,0.9); color: #1a1a1a; border-color: rgba(212,160,23,0.5); }
+.rm-legend-chip-milestone { background: rgba(99,102,241,0.9); color: #fff; border-color: rgba(99,102,241,0.5); }
+.rm-legend-chip-checkpoint { background: rgba(34,197,94,0.85); color: #1a1a1a; border-color: rgba(34,197,94,0.5); }
+.rm-legend-chip-project { background: rgba(6,182,212,0.85); color: #1a1a1a; border-color: rgba(6,182,212,0.5); }
+.rm-legend-chip-decision { background: rgba(6,182,212,0.85); color: #1a1a1a; border-color: rgba(6,182,212,0.5); }
+.rm-legend-chip-note { background: rgba(148,163,184,0.85); color: #1a1a1a; border-color: rgba(148,163,184,0.5); }
+.rm-legend-chip-grouped { background: rgba(240,192,64,0.9); color: #1a1a1a; border-color: rgba(212,160,23,0.5); border-style: dashed; }
+
+#rm-left-content { transition: zoom 0.15s ease; }
+
+.rm-typewriter::after {
+  content: '|';
+  animation: rm-blink 0.6s infinite;
+  color: var(--cui-primary, #6366f1);
+  font-weight: 300;
+}
+
+.rm-typewriter-done::after {
+  display: none;
+}
+
+.rm-resources-loader {
+  margin-top: 0.75rem;
+}
+
+.rm-dots::after {
+  content: '';
+  animation: rm-dots-anim 1.2s infinite;
+}
+
+.rm-spin {
+  animation: rm-spin-anim 0.8s linear infinite;
+}
+
+@keyframes rm-spin-anim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes rm-dots-anim {
+  0% { content: ''; }
+  25% { content: '.'; }
+  50% { content: '..'; }
+  75% { content: '...'; }
+}
+
+@keyframes rm-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.rm-zoom-badge {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(0,0,0,0.7);
+  color: #e2e8f0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 20;
+  letter-spacing: 0.02em;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+
 // --- SVG Connector Wires (matches SNA CSS reference) ---
 .rm-canvas {
   position: relative;
@@ -340,23 +461,21 @@ body:has(.roadmap-detail-page) {
   justify-content: center;
   margin: 0 auto 0;
   text-align: center;
-  background: rgba(var(--cui-primary-rgb), 0.25);
-  border: 1px solid rgba(var(--cui-primary-rgb), 0.4);
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
   border-radius: 20px;
   padding: 0.4rem 1.2rem;
   font-size: 1.05rem;
   font-weight: 800;
-  color: var(--cui-primary);
+  color: #1a1a1a !important;
   letter-spacing: -0.3px;
   z-index: 3;
   width: fit-content;
-  box-shadow: 0 0 0 2px rgba(var(--cui-primary-rgb), 0.15);
   margin-bottom: 2.5rem;
 
   :root[data-coreui-theme="light"] & {
-    background: rgba(var(--cui-primary-rgb), 0.12);
-    border-color: rgba(var(--cui-primary-rgb), 0.3);
-    color: var(--cui-primary);
+    background: rgba(255, 255, 255, 0.95);
+    color: #1a1a1a;
   }
 }
 
@@ -393,9 +512,9 @@ body:has(.roadmap-detail-page) {
   }
 
   :root[data-coreui-theme="light"] & {
-    background: rgba(255,255,255,0.9);
+    background: #fff;
     color: #1a1a1a;
-    border-color: rgba(0,0,0,0.1);
+    border-color: rgba(0,0,0,0.12);
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     &:hover { border-color: rgba(0,0,0,0.2); }
   }
@@ -412,12 +531,12 @@ body:has(.roadmap-detail-page) {
   border: 1.5px solid rgba(212, 160, 23, 0.5);
 
   background: rgba(240, 192, 64, 0.9);
-  color: #1a1a1a;
+  color: #1a1a1a !important;
 
   :root[data-coreui-theme="light"] & {
-    background: rgba(212, 160, 23, 0.15);
-    color: #b8860b;
-    border-color: rgba(212, 160, 23, 0.3);
+    background: #ffd700;
+    color: #1a1a1a !important;
+    border-color: #d4a017;
   }
 }
 
@@ -425,26 +544,26 @@ body:has(.roadmap-detail-page) {
   border-color: rgba(99, 102, 241, 0.4);
   .rm-card-title {
     background: rgba(99, 102, 241, 0.9);
-    color: #fff;
+    color: #fff !important;
     border-color: rgba(99, 102, 241, 0.6);
   }
 }
 
 .rm-card-checkpoint .rm-card-title {
   background: rgba(34, 197, 94, 0.85);
-  color: #1a1a1a;
+  color: #1a1a1a !important;
   border-color: rgba(34, 197, 94, 0.5);
 }
 
 .rm-card-project .rm-card-title {
   background: rgba(6, 182, 212, 0.85);
-  color: #1a1a1a;
+  color: #1a1a1a !important;
   border-color: rgba(6, 182, 212, 0.5);
 }
 
 .rm-card-decision .rm-card-title {
   background: rgba(6, 182, 212, 0.85);
-  color: #1a1a1a;
+  color: #1a1a1a !important;
   border-color: rgba(6, 182, 212, 0.5);
 }
 
@@ -513,6 +632,60 @@ body:has(.roadmap-detail-page) {
     background: rgba(255, 200, 0, 0.06);
     border-color: rgba(255, 200, 0, 0.12);
     color: #e0e0e0;
+  }
+
+  // Light mode item overrides
+  :root[data-coreui-theme="light"] & {
+    background: #fff;
+    border-color: rgba(0,0,0,0.1);
+    color: #1a1a1a;
+
+    &:hover { background: rgba(212,160,23,0.08); border-color: rgba(212,160,23,0.2); }
+
+    &.rm-item-milestone {
+      background: rgba(99,102,241,0.12);
+      border-color: rgba(99,102,241,0.3);
+      color: #3730a3;
+    }
+    &.rm-item-checkpoint {
+      background: rgba(34,197,94,0.1);
+      border-color: rgba(34,197,94,0.3);
+      color: #166534;
+    }
+    &.rm-item-project {
+      background: rgba(6,182,212,0.1);
+      border-color: rgba(6,182,212,0.3);
+      color: #155e75;
+    }
+    &.rm-item-decision {
+      background: rgba(6,182,212,0.1);
+      border-color: rgba(6,182,212,0.3);
+      color: #155e75;
+    }
+    &.rm-item-topic {
+      background: rgba(212,160,23,0.06);
+      border-color: rgba(212,160,23,0.15);
+      color: #1a1a1a;
+    }
+  }
+}
+
+// Light mode overrides for card types
+:root[data-coreui-theme="light"] {
+  .rm-card-milestone { border-color: rgba(99,102,241,0.3); }
+  .rm-card-milestone .rm-card-title { background: #6366f1; color: #fff !important; border-color: #6366f1; }
+  .rm-card-checkpoint .rm-card-title { background: #22c55e; color: #1a1a1a !important; border-color: #16a34a; }
+  .rm-card-project .rm-card-title { background: #06b6d4; color: #1a1a1a !important; border-color: #0891b2; }
+  .rm-card-decision .rm-card-title { background: #06b6d4; color: #1a1a1a !important; border-color: #0891b2; }
+  .rm-card-grouped { background: #fff; border-color: rgba(212,160,23,0.3); }
+  .rm-card-complete { border-color: rgba(34,197,94,0.4) !important; }
+  .rm-card-complete .rm-card-title { background: #22c55e !important; color: #1a1a1a !important; border-color: #16a34a !important; }
+
+  // Roadmap modal: glass effect in both modes
+  .modal-content.blur {
+    background: var(--glass-bg, rgba(255, 255, 255, 0.79)) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12) !important;
   }
 }
 
@@ -1189,4 +1362,66 @@ body:has(.roadmap-detail-page) {
 
 @keyframes rmGenCharIn {
   to { opacity: 1; }
+}
+
+// ========================================================================
+// Roadmap Dashboard — Masonry Grid (JS positioned)
+// ========================================================================
+
+.roadmaps-page .roadmaps-grid-container {
+  position: relative;
+  width: 100%;
+  visibility: hidden;
+
+  &[data-masonry-ready="1"] {
+    visibility: visible;
+  }
+}
+
+// ========================================================================
+// Roadmap Dashboard Cards — SNA Reference Style
+// ========================================================================
+
+.roadmaps-page .roadmap-card {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  .card-title {
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .card-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+  }
+}
+
+// Light theme glass override for roadmap cards
+html[data-coreui-theme="light"] {
+  .roadmaps-page .roadmap-card {
+    background: rgba(255, 255, 255, 0.6) !important;
+
+  &.hvr-grow {
+    &:hover,
+    &:focus,
+    &:active {
+      transform: scale(1.03);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  &:not(.hvr-grow):hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  }
 }

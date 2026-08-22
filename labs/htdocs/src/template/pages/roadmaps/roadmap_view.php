@@ -75,6 +75,21 @@ try {
         <!-- LEFT PANEL -->
         <div id="roadmap-panel-left" class="rm-split-panel rm-left" style="width:calc(70% - 2px);">
             <div class="card blur" style="display:flex;flex-direction:column;">
+                <div id="rm-legend-bar" class="rm-legend-bar flex-shrink-0">
+                    <div class="rm-legend-toggle" id="rm-legend-toggle">
+                        <span class="rm-legend-arrow">&#9654;</span>
+                        Card legend
+                    </div>
+                    <div class="rm-legend-body" id="rm-legend-body">
+                        <span class="rm-legend-chip rm-legend-chip-topic">Topic</span>
+                        <span class="rm-legend-chip rm-legend-chip-milestone">Milestone</span>
+                        <span class="rm-legend-chip rm-legend-chip-checkpoint">Task</span>
+                        <span class="rm-legend-chip rm-legend-chip-note">Note</span>
+                        <span class="rm-legend-chip rm-legend-chip-decision">Decision</span>
+                        <span class="rm-legend-chip rm-legend-chip-project">Project</span>
+                        <span class="rm-legend-chip rm-legend-chip-grouped">Grouped</span>
+                    </div>
+                </div>
                 <div id="rm-left-content" class="rm-canvas" style="flex:1 1 0%;min-height:0;overflow-y:auto;padding:0.75rem 1rem;">
                     <div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div></div>
                 </div>
@@ -99,7 +114,7 @@ try {
                     <div id="roadmap-tab-chat" class="roadmap-tab-body h-100 d-flex flex-column" style="display:flex!important;">
                         <div class="flex-grow-1 overflow-auto hide-scrollbar p-3 d-flex flex-column gap-3" id="roadmap-chat-history">
                             <div class="d-flex h-100 align-items-center justify-content-center">
-                                <img src="/assets/logo/logo.png" style="width:80px;mix-blend-mode:exclusion;opacity:0.4;" alt="">
+                                <img src="/assets/img/chatbot.png" style="width:200px;mix-blend-mode:exclusion;opacity:0.4;" alt="">
                             </div>
                         </div>
                         <div class="p-2 pb-3 flex-shrink-0">
@@ -157,6 +172,160 @@ try {
 </div>
 
 <script src="/assets/js/roadmaps.js?v=3"></script>
+<style>
+.rm-section-label {
+    color: #1a1a1a !important;
+}
+</style>
+<script>
+(function(){
+    var origDraw = window.RoadmapView && window.RoadmapView.drawWires;
+    window.RoadmapView.drawWires = function() {
+        var container = document.getElementById('rm-left-content');
+        if (!container) return;
+
+        var sectionsWrap = container.querySelector('.rm-sections');
+        if (!sectionsWrap) return;
+
+        var sections = container.querySelectorAll('.rm-section');
+        if (!sections.length) return;
+
+        var cRect = container.getBoundingClientRect();
+        var st = container.scrollTop;
+        var zm = (window.RoadmapView._zoomLevel || 100) / 100;
+
+        function rY(el) { var r = el.getBoundingClientRect(); return (r.top - cRect.top + st) / zm; }
+        function rX(el) { var r = el.getBoundingClientRect(); return (r.left - cRect.left) / zm; }
+
+        var sectionData = [];
+
+        sections.forEach(function(section) {
+            var label = section.querySelector('.rm-section-label');
+            var cards = section.querySelectorAll('.rm-card');
+            if (!label || !cards.length) return;
+
+            var lH = label.offsetHeight;
+            var lCY = rY(label) + lH / 2;
+            var lBY = rY(label) + lH;
+            var lCX = rX(label) + label.offsetWidth / 2;
+
+            var cardTops = [];
+            cards.forEach(function(card) {
+                cardTops.push({
+                    x: rX(card) + card.offsetWidth / 2,
+                    y: rY(card)
+                });
+            });
+
+            if (cardTops.length === 0) return;
+
+            var leftX = Math.min.apply(null, cardTops.map(function(c){return c.x;}));
+            var rightX = Math.max.apply(null, cardTops.map(function(c){return c.x;}));
+            var tapY = lBY + 16;
+
+            sectionData.push({
+                labelCX: lCX, labelCY: lCY, labelBY: lBY,
+                tapY: tapY, leftX: leftX, rightX: rightX, cardTops: cardTops
+            });
+        });
+
+        if (sectionData.length === 0) return;
+
+        var parts = [];
+
+        var spineX = sectionData[0].labelCX;
+        var spineTop = sectionData[0].labelCY;
+        var spineBottom = sectionData[sectionData.length - 1].labelCY;
+        parts.push('<line x1="'+spineX+'" y1="'+spineTop+'" x2="'+spineX+'" y2="'+spineBottom+'" class="rm-spine"></line>');
+
+        sectionData.forEach(function(sd) {
+            parts.push('<line x1="'+sd.labelCX+'" y1="'+sd.labelCY+'" x2="'+sd.labelCX+'" y2="'+sd.tapY+'" class="rm-tap"></line>');
+            parts.push('<line x1="'+sd.leftX+'" y1="'+sd.tapY+'" x2="'+sd.rightX+'" y2="'+sd.tapY+'" class="rm-tap"></line>');
+            sd.cardTops.forEach(function(c) {
+                parts.push('<path d="M '+c.x+' '+sd.tapY+' L '+c.x+' '+c.y+'" class="rm-wire"></path>');
+            });
+        });
+
+        if (!parts.length) return;
+
+        var svgW = container.scrollWidth;
+        var svgH = container.scrollHeight;
+        var svg = '<svg class="rm-wires" aria-hidden="true" overflow="hidden" width="'+svgW+'" height="'+svgH+'" viewBox="0 0 '+svgW+' '+svgH+'">'+parts.join('')+'</svg>';
+
+        var existing = container.querySelector('.rm-wires');
+        if (existing) existing.remove();
+        container.insertAdjacentHTML('afterbegin', svg);
+    };
+
+    if (origDraw) {
+        var tries = 0;
+        (function retry() {
+            tries++;
+            var c = document.getElementById('rm-left-content');
+            var secs = c ? c.querySelectorAll('.rm-section') : [];
+            var ok = true;
+            secs.forEach(function(s){ if(s.offsetHeight===0) ok=false; });
+            if (ok || tries > 15) { window.RoadmapView.drawWires(); }
+            else { requestAnimationFrame(retry); }
+        })();
+    }
+
+    window.RoadmapView._zoomLevel = 100;
+    window.RoadmapView._zoomTarget = 100;
+
+    var leftPanel = document.getElementById('roadmap-panel-left');
+    var zoomBadge = null;
+    if (leftPanel) {
+        zoomBadge = document.createElement('div');
+        zoomBadge.className = 'rm-zoom-badge';
+        zoomBadge.textContent = '100%';
+        leftPanel.style.position = 'relative';
+        leftPanel.appendChild(zoomBadge);
+    }
+
+    var zoomAnimId = null;
+    function zoomTick() {
+        var cur = window.RoadmapView._zoomLevel;
+        var tgt = window.RoadmapView._zoomTarget;
+        if (Math.abs(cur - tgt) < 0.5) {
+            window.RoadmapView._zoomLevel = tgt;
+            zoomAnimId = null;
+        } else {
+            window.RoadmapView._zoomLevel = Math.round(cur + (tgt - cur) * 0.1);
+            zoomAnimId = requestAnimationFrame(zoomTick);
+        }
+        var el = document.getElementById('rm-left-content');
+        if (el) el.style.zoom = (window.RoadmapView._zoomLevel / 100);
+        if (zoomBadge) zoomBadge.textContent = window.RoadmapView._zoomLevel + '%';
+        window.RoadmapView.drawWires();
+    }
+
+    window.RoadmapView._applyZoom = function() {
+        if (!zoomAnimId) zoomAnimId = requestAnimationFrame(zoomTick);
+    };
+
+    if (leftPanel) {
+        leftPanel.addEventListener('wheel', function(e) {
+            if (!e.ctrlKey && !e.metaKey) return;
+            e.preventDefault();
+            var t = window.RoadmapView._zoomTarget;
+            t += e.deltaY < 0 ? 5 : -5;
+            t = Math.max(70, Math.min(140, t));
+            window.RoadmapView._zoomTarget = t;
+            window.RoadmapView._applyZoom();
+        }, { passive: false });
+    }
+
+    var legendToggle = document.getElementById('rm-legend-toggle');
+    var legendBody = document.getElementById('rm-legend-body');
+    if (legendToggle && legendBody) {
+        legendToggle.addEventListener('click', function() {
+            legendToggle.classList.toggle('open');
+            legendBody.classList.toggle('open');
+        });
+    }
+})();
+</script>
 <script>
 document.querySelectorAll('.roadmap-panel-tab').forEach(function(tab) {
     tab.addEventListener('click', function() {

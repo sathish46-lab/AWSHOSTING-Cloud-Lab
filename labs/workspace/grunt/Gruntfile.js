@@ -122,7 +122,7 @@ module.exports = function (grunt) {
           {
             expand: true,
             flatten: true,
-            src: ["../js/ui-init.js", "../js/htmx-bridge.js", "../js/clipboard.js"],
+            src: ["../js/ui-init.js", "../js/htmx-bridge.js", "../js/clipboard.js", "../js/roadmaps.js"],
             dest: "../../htdocs/assets/js/",
           },
         ],
@@ -133,14 +133,19 @@ module.exports = function (grunt) {
       options: {
         spawn: false,
         debounceDelay: 300,
-        interval: 100, // Very frequent polling for Docker responsiveness
+        interval: 100,
       },
       scripts: {
         files: [
           "Gruntfile.js",
           "../js/**/*.js",
+          "!../js/roadmaps.js",
         ],
         tasks: ["concat", "secureSourceMaps", "runTerser", "obfuscator:fast"],
+      },
+      roadmaps: {
+        files: ["../js/roadmaps.js"],
+        tasks: ["copy"],
       },
       css: {
         files: [

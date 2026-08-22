@@ -596,13 +596,7 @@ try {
                         return;
                     }
 
-                    const card = e.target.closest('.lesson-card');
-                    if (card && !e.target.closest('a, button, .dropdown, input, textarea')) {
-                        const lessonId = card.getAttribute('data-lesson-id');
-                        if (lessonId && !(window.getSelection() && window.getSelection().toString())) {
-                            window.location.href = '/learn/lesson/' + lessonId;
-                        }
-                    }
+                    // Card click navigation removed — only "Start Learning" button opens lesson
                 });
 
                 document.addEventListener('click', function (e) {

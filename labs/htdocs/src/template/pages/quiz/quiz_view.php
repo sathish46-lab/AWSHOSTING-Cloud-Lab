@@ -72,7 +72,7 @@ $subtopics = $topic['subtopics'] ?? [];
                 <?php else: ?>
                     <?php foreach ($subtopics as $sub): ?>
                     <div class="col">
-                        <a href="/quiz/<?= $topic['hash'] ?? $topic['_id'] ?>/Recent/<?= $sub['hash'] ?? $sub['_id'] ?>" class="card p-4 blur d-flex align-items-stretch hvr-grow text-decoration-none text-reset" style="background-color: rgba(255, 255, 255, 0.3) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2) !important; height: 100%; cursor: pointer;">
+                        <a href="/quiz/<?= $topic['hash'] ?? $topic['_id'] ?>/Recent/<?= $sub['hash'] ?? $sub['_id'] ?>" class="card p-4 liquid-rim d-flex align-items-stretch hvr-grow shadow-lg text-decoration-none text-reset" style="height: 100%; cursor: pointer;">
                             <div class="card-body p-0 align-self-start justify-self-start">
                                 <div class="d-flex align-items-center mb-3">
                                     <i class="bx <?= $sub['icon'] ?? 'bx-book-open' ?> fs-3 me-2" style="color: var(--cui-primary);"></i>

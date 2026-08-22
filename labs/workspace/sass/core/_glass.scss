@@ -18,8 +18,8 @@
 
 html[data-coreui-theme="light"] body .blur,
 html[data-coreui-theme="light"] .blur {
-  border: none !important;
-  box-shadow: none !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
 }
 
 // Only apply blur when visual blur is enabled

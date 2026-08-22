@@ -404,20 +404,7 @@ window.__RM_GEN = <?= json_encode(['topic' => $topic, 'level' => $level]) ?>;
 
     function updateCardClass(card) {
         if (!card) return;
-        var items = card.querySelectorAll('.rm-item');
-        var typePriority = { milestone: 4, checkpoint: 3, project: 2, decision: 2 };
-        var bestType = null;
-        var bestPriority = 0;
-        items.forEach(function(item) {
-            if (item.classList.contains('rm-item-milestone')) { if (4 > bestPriority) { bestPriority = 4; bestType = 'milestone'; } }
-            else if (item.classList.contains('rm-item-checkpoint')) { if (3 > bestPriority) { bestPriority = 3; bestType = 'checkpoint'; } }
-            else if (item.classList.contains('rm-item-project')) { if (2 > bestPriority) { bestPriority = 2; bestType = 'project'; } }
-        });
-        card.className = 'rm-card';
-        if (bestType === 'milestone') card.classList.add('rm-card-milestone');
-        else if (bestType === 'checkpoint') card.classList.add('rm-card-checkpoint');
-        else if (bestType === 'project') card.classList.add('rm-card-project');
-        else card.classList.add('rm-card-default');
+        card.className = 'rm-card rm-card-default';
     }
 
     function classFor(type) {

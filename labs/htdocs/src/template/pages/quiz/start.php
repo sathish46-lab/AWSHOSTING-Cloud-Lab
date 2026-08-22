@@ -150,8 +150,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <!-- Empty State (Positioned outside the grid to prevent Masonry layout bugs) -->
         <div id="recent-empty-state" class="<?= ($activeTab === 'recent' && empty($quizzes)) ? '' : 'd-none' ?>">
-            <div class="empty-state-container mx-auto mt-4 p-5 text-center position-relative blur" 
-                 style="max-width: 650px; background: rgba(var(--cui-emphasis-color-rgb), 0.03); border: 1px dashed rgba(var(--cui-emphasis-color-rgb), 0.15); border-radius: 24px; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);">
+            <div class="empty-state-container mx-auto mt-4 p-5 text-center position-relative liquid-rim shadow-lg" 
+                 style="max-width: 650px; border: 1px dashed rgba(var(--cui-emphasis-color-rgb), 0.15); border-radius: 24px;">
                 <div class="position-absolute top-50 start-50 translate-middle w-100 h-100" style="background: radial-gradient(circle, rgba(46, 184, 87, 0.05) 0%, transparent 60%); z-index: 0; pointer-events: none;"></div>
                 <div class="position-relative" style="z-index: 1;">
                     <div class="mb-4 position-relative d-inline-block">
@@ -239,8 +239,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <!-- Empty State Template for Difficulty Filter -->
 <template id="quiz-empty-state-template">
-    <div class="empty-state-container mx-auto mt-4 p-5 text-center position-relative blur animate__animated animate__fadeIn" 
-         style="max-width: 650px; background: rgba(var(--cui-emphasis-color-rgb), 0.03); border: 1px dashed rgba(var(--cui-emphasis-color-rgb), 0.15); border-radius: 24px; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);">
+    <div class="empty-state-container mx-auto mt-4 p-5 text-center position-relative liquid-rim shadow-lg animate__animated animate__fadeIn" 
+         style="max-width: 650px; border: 1px dashed rgba(var(--cui-emphasis-color-rgb), 0.15); border-radius: 24px;">
         <div class="position-absolute top-50 start-50 translate-middle w-100 h-100" style="background: radial-gradient(circle, rgba(46, 184, 87, 0.05) 0%, transparent 60%); z-index: 0; pointer-events: none;"></div>
         <div class="position-relative" style="z-index: 1;">
             <div class="mb-4 position-relative d-inline-block">
@@ -273,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <!-- Spot Quiz Modal (Two-Step: Confirm -> Generate) -->
 <div class="modal fade" id="spotQuizModal" tabindex="-1" aria-hidden="true" data-coreui-backdrop="static">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content blur border-0 shadow-lg overflow-hidden" style="background-color: rgba(255, 255, 255, 0.1) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important;">
+        <div class="modal-content liquid-rim border-0 shadow-lg overflow-hidden" style="background-color: rgba(15, 20, 25, 0.95) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important;">
             
             <!-- STEP 1: Confirmation View -->
             <div id="modal-view-confirm" class="modal-body p-4">
