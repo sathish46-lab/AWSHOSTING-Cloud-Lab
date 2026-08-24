@@ -27,19 +27,18 @@
             </nav>
         </div>
 
-        <!-- Center: Search Bar — flex:1 fills remaining space -->
+        <!-- Center: Search Trigger -->
         <div class="d-flex align-items-center justify-content-center search-bar-wrap mx-2 mx-md-3" style="z-index: 2;">
             <div class="search-bar-wrapper w-100" id="search-wrapper">
-                <div class="search-bar">
+                <div class="search-bar" id="searchTrigger" onclick="openSearchPalette()">
                     <i class="bx bx-search search-icon"></i>
                     <input type="text" class="search-input" 
-                        placeholder="Search for labs, devices, challenges..." 
-                        id="globalSearch" autocomplete="off">
-                    <span class="search-page-text d-none d-md-inline text-truncate" id="searchPageBadge" data-tip="curr: Dashboard" style="max-width: 180px;">curr: Dashboard</span>
+                        placeholder="Search labs, apps and pages..." 
+                        id="globalSearch" readonly autocomplete="off" style="cursor:pointer;">
+                    <span class="search-page-text d-none d-md-inline text-truncate" id="searchPageBadge" data-tip="curr: Dashboard" style="max-width: 140px;">curr: Dashboard</span>
                     <span class="page-title-tooltip" id="pageTitleTooltip">curr: Dashboard</span>
-                    <span class="badge bg-success d-none d-sm-inline" style="font-size: 0.6rem; padding: 3px 6px; opacity: 0.85;">Esc</span>
+                    <span class="badge bg-secondary d-none d-sm-inline" style="font-size: 0.6rem; padding: 2px 6px; opacity: 0.7;">⌘K</span>
                 </div>
-                <div id="search-results" class="search-results d-none"></div>
             </div>
         </div>
 
@@ -260,6 +259,20 @@
     </div>
 </header>
 
+<!-- Command Palette Overlay (outside header for proper z-index) -->
+<div class="search-overlay" id="searchOverlay" onclick="if(event.target===this)closeSearchPalette()">
+    <div class="search-palette">
+        <div class="search-palette-input-wrap">
+            <i class="bx bx-search search-palette-icon"></i>
+            <input type="text" class="search-palette-input" id="paletteInput" placeholder="Search labs, apps and pages..." autocomplete="off">
+            <span class="search-palette-esc" onclick="closeSearchPalette()">Esc</span>
+        </div>
+        <div id="paletteResults" class="search-palette-results">
+            <div class="search-palette-empty">Type to search your labs, apps and pages.</div>
+        </div>
+    </div>
+</div>
+
 <?php
 $labsSearchItems = [];
 if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN) {
@@ -293,187 +306,122 @@ if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN) {
 ?>
 
 <script>
+function openSearchPalette() {
+    var overlay = document.getElementById('searchOverlay');
+    var input = document.getElementById('paletteInput');
+    if (overlay) {
+        overlay.classList.add('active');
+        var results = document.getElementById('paletteResults');
+        if (results) results.innerHTML = '<div class="search-palette-empty">Type to search your labs, apps and pages.</div>';
+        setTimeout(function() { if (input) { input.value = ''; input.focus(); } }, 50);
+    }
+}
+function closeSearchPalette() {
+    var overlay = document.getElementById('searchOverlay');
+    if (overlay) overlay.classList.remove('active');
+}
+document.addEventListener('keydown', function(e) {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openSearchPalette(); }
+    if (e.key === 'Escape') { closeSearchPalette(); }
+});
+</script>
+<script>
 (function() {
-    var searchInput = document.getElementById('globalSearch');
-    var resultsEl = document.getElementById('search-results');
-    var wrapper = document.getElementById('search-wrapper');
-    if (!searchInput || !resultsEl || !wrapper) return;
+    var paletteInput = document.getElementById('paletteInput');
+    var paletteResults = document.getElementById('paletteResults');
+    if (!paletteInput || !paletteResults) return;
 
     var activeIndex = -1;
     var currentQuery = '';
     var debounceTimer = null;
-
-    function getPageTitle() {
-        var t = document.title.replace(/\s*[-|]\s*Tom Labs.*$/, '').trim();
-        return t || 'Dashboard';
-    }
-
-    function updatePageBadge() {
-        var badge = document.getElementById('searchPageBadge');
-        var tooltip = document.getElementById('pageTitleTooltip');
-        if (badge) {
-            var title = 'curr: ' + getPageTitle();
-            badge.textContent = title;
-            badge.setAttribute('data-tip', title);
-            if (tooltip) tooltip.textContent = title;
-        }
-    }
-    updatePageBadge();
-
-    document.addEventListener('htmx:afterSettle', function() { setTimeout(updatePageBadge, 50); });
-    document.addEventListener('htmx:afterRequest', function() { setTimeout(updatePageBadge, 100); });
-
-    if (typeof MutationObserver !== 'undefined') {
-        var titleEl = document.querySelector('title');
-        if (titleEl) {
-            new MutationObserver(function() { setTimeout(updatePageBadge, 30); })
-                .observe(titleEl, { childList: true, characterData: true, subtree: true });
-        }
-    }
-
-    var badgeEl = document.getElementById('searchPageBadge');
-    var tipEl = document.getElementById('pageTitleTooltip');
-    if (badgeEl && tipEl) {
-        badgeEl.onmouseenter = function() {
-            if (badgeEl.scrollWidth > badgeEl.offsetWidth) {
-                tipEl.textContent = badgeEl.getAttribute('data-tip');
-                tipEl.classList.add('visible');
-            }
-        };
-        badgeEl.onmouseleave = function() { tipEl.classList.remove('visible'); };
-    }
-
-    function rotatePlaceholder() {
-        var page = getPageTitle();
-        var items = [
-            'Search for labs, challenges, lessons...',
-            'Current page: ' + page,
-            'Type to search anything...',
-            'Find labs, quizzes, roadmaps...',
-            'Ctrl+K to search...',
-            'Explore challenges & earn Zeal...',
-            'Deploy. Learn. Conquer.',
-        ];
-        var idx = 0;
-        setInterval(function() {
-            if (document.activeElement === searchInput) return;
-            idx = (idx + 1) % items.length;
-            searchInput.setAttribute('placeholder', items[idx]);
-        }, 2500);
-    }
-    rotatePlaceholder();
-
-    function highlightMatch(text, query) {
-        if (!query) return text;
-        var re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
-        return text.replace(re, '<strong style="color: var(--cui-body-color); background: rgba(59,130,246,0.15); border-radius: 3px; padding: 0 2px;">$1</strong>');
-    }
 
     var groupMeta = {
         running:    { label: 'Your Labs',        icon: 'bx-hard-hat',  colour: '#22c55e' },
         catalog:    { label: 'Lab Catalog',       icon: 'bx-diamond',   colour: '#E95420' },
         apps:       { label: 'Pages & Apps',      icon: 'bx-grid-alt',  colour: '#6366f1' },
         challenges: { label: 'Challenges',        icon: 'bx-trophy',    colour: '#ef4444' },
-        quiz:       { label: 'Quiz Topics',       icon: 'bx-cert',      colour: '#8b5cf6' },
-        learn:      { label: 'Learn AI Lessons',  icon: 'bx-brain',     colour: '#06b6d4' },
-        roadmaps:   { label: 'Roadmaps',          icon: 'bx-map',       colour: '#10b981' },
+        quiz:       { label: 'Quiz Topics',       icon: 'bx-check-circle', colour: '#8b5cf6' },
+        learn:      { label: 'Learn AI',          icon: 'bx-book-open',    colour: '#06b6d4' },
+        roadmaps:   { label: 'Roadmaps',          icon: 'bx-map-pin',      colour: '#10b981' },
         syllabus:   { label: 'Syllabus',          icon: 'bx-notes',     colour: '#f472b6' },
     };
+
+    function highlightMatch(text, query) {
+        if (!query) return text;
+        var re = new RegExp('(' + query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+        return text.replace(re, '<strong>$1</strong>');
+    }
 
     function renderIcon(item) {
         if (item.icon && item.icon.kind === 'image' && item.icon.url) {
             return '<img src="' + item.icon.url + '" style="width:22px;height:22px;border-radius:50%;object-fit:cover;" alt="">';
         }
         if (item.icon && item.icon.kind === 'glyph') {
-            return '<i class="bx ' + item.icon.glyph + '" style="font-size:1.15rem;width:22px;text-align:center;color:' + (item.icon.colour || '#999') + ';"></i>';
+            return '<i class="bx ' + item.icon.glyph + ' result-icon" style="color:' + (item.icon.colour || '#999') + ';"></i>';
         }
         if (item.glyph) {
-            return '<i class="bx ' + item.glyph + '" style="font-size:1.15rem;width:22px;text-align:center;color:' + (item.colour || '#999') + ';"></i>';
+            return '<i class="bx ' + item.glyph + ' result-icon" style="color:' + (item.colour || '#999') + ';"></i>';
         }
-        return '<i class="bx bx-hash text-secondary" style="font-size:1.15rem;width:22px;text-align:center;"></i>';
+        return '<i class="bx bx-hash result-icon text-secondary"></i>';
     }
 
-    function renderGroup(key, items, query) {
+    function renderPaletteGroup(key, items, query) {
         var meta = groupMeta[key] || { label: key, icon: 'bx-folder', colour: '#999' };
-        var html = '<div class="px-3 py-1 text-uppercase fw-bold d-flex align-items-center gap-1" style="font-size:0.65rem;letter-spacing:0.08em;color:' + meta.colour + ';opacity:0.85;">'
-            + '<i class="bx ' + meta.icon + '" style="font-size:0.75rem;"></i>' + meta.label + '</div>';
+        var html = '<div class="search-palette-section"><div class="px-3 py-1 text-uppercase fw-bold d-flex align-items-center gap-1" style="font-size:0.65rem;letter-spacing:0.08em;color:' + meta.colour + ';opacity:0.85;">'
+            + '<i class="bx ' + meta.icon + '" style="font-size:0.75rem;"></i> ' + meta.label + '</div>';
 
         items.forEach(function(item) {
-            var activeClass = globalIdx === activeIndex ? ' active' : '';
             var href = item.href || item.url || '#';
             var isExternal = item.codeserver || false;
             var dataAttr = isExternal ? '' : ' data-full-nav';
             html += '<a href="' + href + '" hx-get="' + href + '" hx-target="#main-content" hx-push-url="true"'
-                + ' class="d-flex align-items-center gap-2 px-3 py-2 text-decoration-none search-result-item' + activeClass + '"'
-                + ' data-index="' + globalIdx + '"' + dataAttr
-                + ' style="transition:background 0.1s;color:var(--cui-body-color);font-size:0.88rem;">'
+                + ' class="search-palette-item' + (globalIdx === activeIndex ? ' active' : '') + '"'
+                + ' data-index="' + globalIdx + '"' + dataAttr + '>'
                 + renderIcon(item)
-                + '<span>' + highlightMatch(item.label || item.title || '', query) + '</span>'
-                + '<span class="ms-auto text-secondary" style="font-size:0.7rem;opacity:0.5;">' + (item.sub || '') + '</span>'
-                + '<i class="bx bx-right-arrow-alt text-secondary" style="opacity:0;transition:opacity 0.15s;font-size:1rem;"></i>'
+                + '<span class="result-title">' + highlightMatch(item.label || item.title || '', query) + '</span>'
+                + '<span class="result-sub">' + (item.sub || '') + '</span>'
+                + '<span class="result-action">' + (item.codeserver ? 'Open' : (item.sub ? '' : 'Go')) + '</span>'
                 + '</a>';
             globalIdx++;
         });
+        html += '</div>';
         return html;
     }
 
     var globalIdx = 0;
 
-    function renderResults(data) {
+    function renderPaletteResults(data) {
         var groups = data.groups || {};
         var query = data.q || '';
         var order = ['running', 'catalog', 'apps', 'challenges', 'quiz', 'learn', 'roadmaps', 'syllabus'];
-
         var hasResults = order.some(function(k) { return groups[k] && groups[k].length > 0; });
 
         if (!hasResults) {
-            resultsEl.innerHTML = '<div class="px-3 py-3 text-center text-secondary small">No results found for "' + query + '"</div>';
-            resultsEl.classList.remove('d-none');
+            paletteResults.innerHTML = '<div class="search-palette-empty">No results found for "' + query + '"</div>';
             return;
         }
 
         var html = '';
         globalIdx = 0;
-
         order.forEach(function(key) {
             if (groups[key] && groups[key].length > 0) {
-                html += renderGroup(key, groups[key], query);
+                html += renderPaletteGroup(key, groups[key], query);
             }
         });
-
-        resultsEl.innerHTML = html;
-        resultsEl.classList.remove('d-none');
+        paletteResults.innerHTML = html;
         activeIndex = -1;
 
-        resultsEl.querySelectorAll('.search-result-item').forEach(function(item) {
+        paletteResults.querySelectorAll('.search-palette-item').forEach(function(item) {
             item.addEventListener('mouseenter', function() {
-                resultsEl.querySelectorAll('.search-result-item').forEach(function(el) {
-                    el.classList.remove('active');
-                    el.style.background = '';
-                    var arrow = el.querySelector('i:last-child');
-                    if (arrow) arrow.style.opacity = '0';
-                });
+                paletteResults.querySelectorAll('.search-palette-item').forEach(function(el) { el.classList.remove('active'); });
                 item.classList.add('active');
-                item.style.background = 'rgba(255,255,255,0.06)';
-                var arrow = item.querySelector('i:last-child');
-                if (arrow) arrow.style.opacity = '1';
                 activeIndex = parseInt(item.dataset.index);
-            });
-            item.addEventListener('mouseleave', function() {
-                item.classList.remove('active');
-                item.style.background = '';
-                var arrow = item.querySelector('i:last-child');
-                if (arrow) arrow.style.opacity = '0';
             });
             item.addEventListener('click', function(e) {
                 e.preventDefault();
                 var url = item.getAttribute('href');
                 var isLabPage = item.hasAttribute('data-full-nav');
-                searchInput.value = '';
-                currentQuery = '';
-                resultsEl.classList.add('d-none');
-                resultsEl.innerHTML = '';
-                activeIndex = -1;
+                closeSearchPalette();
                 if (isLabPage) {
                     window.location.href = url;
                 } else {
@@ -483,75 +431,45 @@ if (Session::getAuthStatus() === Constants::STATUS_LOGGEDIN) {
         });
     }
 
-    function fetchSearch(query) {
+    function fetchPaletteSearch(query) {
         fetch('/api/search?q=' + encodeURIComponent(query))
             .then(function(r) { return r.json(); })
-            .then(function(data) { renderResults(data); })
+            .then(function(data) { renderPaletteResults(data); })
             .catch(function() {
-                resultsEl.innerHTML = '<div class="px-3 py-3 text-center text-secondary small">Search error</div>';
-                resultsEl.classList.remove('d-none');
+                paletteResults.innerHTML = '<div class="search-palette-empty">Search error</div>';
             });
     }
 
-    searchInput.addEventListener('input', function() {
-        currentQuery = searchInput.value.trim();
+    paletteInput.addEventListener('input', function() {
+        currentQuery = paletteInput.value.trim();
         activeIndex = -1;
         clearTimeout(debounceTimer);
         if (!currentQuery || currentQuery.length < 1) {
-            resultsEl.classList.add('d-none');
-            resultsEl.innerHTML = '';
+            paletteResults.innerHTML = '<div class="search-palette-empty">Type to search your labs, apps and pages.</div>';
             return;
         }
-        debounceTimer = setTimeout(function() { fetchSearch(currentQuery); }, 200);
+        debounceTimer = setTimeout(function() { fetchPaletteSearch(currentQuery); }, 200);
     });
 
-    searchInput.addEventListener('focus', function() {
-        if (currentQuery) {
-            clearTimeout(debounceTimer);
-            fetchSearch(currentQuery);
-        }
-    });
-
-    searchInput.addEventListener('keydown', function(e) {
-        var items = resultsEl.querySelectorAll('.search-result-item');
+    paletteInput.addEventListener('keydown', function(e) {
+        var items = paletteResults.querySelectorAll('.search-palette-item');
         if (!items.length) return;
 
         if (e.key === 'ArrowDown') {
             e.preventDefault();
             activeIndex = Math.min(activeIndex + 1, items.length - 1);
-            items.forEach(function(el, i) {
-                el.classList.toggle('active', i === activeIndex);
-                el.style.background = i === activeIndex ? 'rgba(255,255,255,0.06)' : '';
-                var arrow = el.querySelector('i:last-child');
-                if (arrow) arrow.style.opacity = i === activeIndex ? '1' : '0';
-            });
+            items.forEach(function(el, i) { el.classList.toggle('active', i === activeIndex); });
             items[activeIndex].scrollIntoView({ block: 'nearest' });
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             activeIndex = Math.max(activeIndex - 1, 0);
-            items.forEach(function(el, i) {
-                el.classList.toggle('active', i === activeIndex);
-                el.style.background = i === activeIndex ? 'rgba(255,255,255,0.06)' : '';
-                var arrow = el.querySelector('i:last-child');
-                if (arrow) arrow.style.opacity = i === activeIndex ? '1' : '0';
-            });
+            items.forEach(function(el, i) { el.classList.toggle('active', i === activeIndex); });
             items[activeIndex].scrollIntoView({ block: 'nearest' });
         } else if (e.key === 'Enter' && activeIndex >= 0) {
             e.preventDefault();
             items[activeIndex].click();
         } else if (e.key === 'Escape') {
-            searchInput.value = '';
-            currentQuery = '';
-            resultsEl.classList.add('d-none');
-            resultsEl.innerHTML = '';
-            activeIndex = -1;
-            searchInput.blur();
-        }
-    });
-
-    document.addEventListener('click', function(e) {
-        if (!wrapper.contains(e.target)) {
-            resultsEl.classList.add('d-none');
+            closeSearchPalette();
         }
     });
 })();

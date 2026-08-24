@@ -336,12 +336,12 @@ try {
             }
 
             if (currentFilterTab !== 'all') {
+                var inactiveStyle = 'color: var(--cui-body-color); opacity: 0.65; border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.2);';
+                var activeStyle = 'background: rgba(var(--cui-primary-rgb), 0.15); color: var(--cui-primary); border: 1px solid rgba(var(--cui-primary-rgb), 0.25);';
                 document.querySelectorAll('.lesson-filter-btn').forEach(b => {
-                    b.classList.remove('active', 'text-white');
-                    b.classList.add('text-secondary');
+                    b.style.cssText = 'font-size: 0.82rem; ' + inactiveStyle;
                     if (b.getAttribute('data-filter') === currentFilterTab) {
-                        b.classList.add('active', 'text-white');
-                        b.classList.remove('text-secondary');
+                        b.style.cssText = 'font-size: 0.82rem; ' + activeStyle;
                     }
                 });
             }
@@ -471,12 +471,12 @@ try {
             document.querySelectorAll('.lesson-filter-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
+                    var inactiveStyle = 'color: var(--cui-body-color); opacity: 0.65; border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.2);';
+                    var activeStyle = 'background: rgba(var(--cui-primary-rgb), 0.15); color: var(--cui-primary); border: 1px solid rgba(var(--cui-primary-rgb), 0.25);';
                     document.querySelectorAll('.lesson-filter-btn').forEach(b => {
-                        b.classList.remove('active', 'text-white');
-                        b.classList.add('text-secondary');
+                        b.style.cssText = 'font-size: 0.82rem; ' + inactiveStyle;
                     });
-                    btn.classList.add('active', 'text-white');
-                    btn.classList.remove('text-secondary');
+                    btn.style.cssText = 'font-size: 0.82rem; ' + activeStyle;
 
                     currentFilterTab = btn.getAttribute('data-filter') || 'all';
                     fetchLessonsGrid();

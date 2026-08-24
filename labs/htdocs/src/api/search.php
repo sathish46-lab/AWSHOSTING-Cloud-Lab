@@ -81,10 +81,10 @@ $pages = [
     ['title' => 'Dashboard',       'section' => 'Main',     'url' => '/dashboard',          'glyph' => 'bx-home',         'colour' => '#3b82f6'],
     ['title' => 'Machine Labs',    'section' => 'Main',     'url' => '/labs',               'glyph' => 'bxLab',           'colour' => '#22c55e'],
     ['title' => 'Challenge Labs',  'section' => 'Main',     'url' => '/challenges',         'glyph' => 'bx-trophy',       'colour' => '#ef4444'],
-    ['title' => 'Spot Quiz',       'section' => 'Learn',    'url' => '/quiz',               'glyph' => 'bx-cert',         'colour' => '#8b5cf6'],
+    ['title' => 'Spot Quiz',       'section' => 'Learn',    'url' => '/quiz',               'glyph' => 'bx-check-circle', 'colour' => '#8b5cf6'],
     ['title' => 'Code Arena',      'section' => 'Learn',    'url' => '/code',               'glyph' => 'bx-code',         'colour' => '#f59e0b'],
-    ['title' => 'Learn AI',        'section' => 'Learn',    'url' => '/learn',              'glyph' => 'bx-brain',        'colour' => '#06b6d4'],
-    ['title' => 'Roadmaps',        'section' => 'Learn',    'url' => '/roadmaps',           'glyph' => 'bx-map',          'colour' => '#10b981'],
+    ['title' => 'Learn AI',        'section' => 'Learn',    'url' => '/learn',              'glyph' => 'bx-book-open',    'colour' => '#06b6d4'],
+    ['title' => 'Roadmaps',        'section' => 'Learn',    'url' => '/roadmaps',           'glyph' => 'bx-map-pin',      'colour' => '#10b981'],
     ['title' => 'Syllabus AI',     'section' => 'Learn',    'url' => '/syllabus',           'glyph' => 'bx-notes',        'colour' => '#f472b6'],
     ['title' => 'Clubs',           'section' => 'Social',   'url' => '/clubs',              'glyph' => 'bx-group',        'colour' => '#ec4899'],
     ['title' => 'Clans',           'section' => 'Social',   'url' => '/clans',              'glyph' => 'bx-flag',         'colour' => '#ef4444'],
@@ -132,7 +132,7 @@ foreach ($quizCats as $cat) {
         $results['quiz'][] = [
             'type' => 'quiz_category', 'label' => $cat['title'],
             'sub' => 'Quiz · ' . ($cat['section'] ?? ''),
-            'glyph' => 'bx-cert', 'colour' => '#8b5cf6', 'href' => '/quiz/' . ($cat['hash'] ?? ''),
+            'glyph' => 'bx-check-circle', 'colour' => '#8b5cf6', 'href' => '/quiz/' . ($cat['hash'] ?? ''),
         ];
     }
 }
@@ -148,7 +148,7 @@ foreach ($quizSubs as $sub) {
         $results['quiz'][] = [
             'type' => 'quiz_subtopic', 'label' => $sub['title'],
             'sub' => 'Quiz · ' . ($sub['desc'] ?? ''),
-            'glyph' => 'bx-cert', 'colour' => '#8b5cf6',
+            'glyph' => 'bx-check-circle', 'colour' => '#8b5cf6',
             'href' => $parentHash ? '/quiz/' . $parentHash : '/quiz',
         ];
     }
@@ -170,7 +170,7 @@ try {
         $results[$section][] = [
             'type' => 'topic', 'label' => $lesson['title'] ?? '',
             'sub' => ($isSyllabus ? 'Syllabus' : 'Lesson') . ' · ' . ($lesson['level'] ?? ''),
-            'glyph' => 'bx-book', 'colour' => $isSyllabus ? '#f472b6' : '#06b6d4',
+            'glyph' => 'bx-book-open', 'colour' => $isSyllabus ? '#f472b6' : '#06b6d4',
             'href' => '/learn/lesson/' . (string)($lesson['_id']),
         ];
     }
@@ -181,7 +181,7 @@ foreach ($quizSubs as $sub) {
     if (($sub['category_id'] ?? '') === 'roadmap' && stripos($sub['title'] ?? '', $ql) !== false) {
         $results['roadmaps'][] = [
             'type' => 'topic', 'label' => $sub['title'],
-            'sub' => 'Roadmap', 'glyph' => 'bx-map', 'colour' => '#10b981',
+            'sub' => 'Roadmap',             'glyph' => 'bx-map-pin', 'colour' => '#10b981',
             'href' => '/roadmaps/' . ($sub['hash'] ?? ''),
         ];
     }

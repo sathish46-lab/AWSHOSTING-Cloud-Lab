@@ -39,7 +39,7 @@ $tomThemes = [
     ],
     'ironman' => [
         'color' => '#150303',
-        'primary' => '#ffcc00',
+        'primary' => '#ffcc0082',
         'assets' => [
             '/assets/Background_Img/IronMan/0.jpg',
             '/assets/Background_Img/IronMan/1.png'

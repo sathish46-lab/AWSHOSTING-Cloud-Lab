@@ -332,7 +332,7 @@ async def create_oauth_client(db, client_name: str, redirect_uris: List[str], sc
         "client_secret": client_secret,
         "client_name": client_name,
         "redirect_uris": redirect_uris,
-        "scopes": scopes or ["labs:*"],
+        "scopes": scopes or ["openid", "profile", "email"],
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
     }
@@ -440,14 +440,14 @@ def setup_custom_routes(mcp: FastMCP):
     @mcp.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
     async def oauth_metadata(request: Request):
         """OAuth 2.0 Authorization Server Metadata (RFC 8414)."""
-        base = get_base_url(request)
+        base = MCP_PUBLIC_URL
         return JSONResponse({
             "issuer": base,
             "authorization_endpoint": f"{base}/mcp/authorize",
             "token_endpoint": f"{base}/mcp/token",
             "registration_endpoint": f"{base}/mcp/register",
             "jwks_uri": f"{base}/mcp/jwks",
-            "scopes_supported": ["labs:*", "openid", "profile", "email"],
+            "scopes_supported": ["openid", "profile", "email"],
             "response_types_supported": ["code"],
             "response_modes_supported": ["query", "fragment"],
             "grant_types_supported": ["authorization_code", "refresh_token"],
@@ -462,11 +462,11 @@ def setup_custom_routes(mcp: FastMCP):
     @mcp.custom_route("/.well-known/oauth-protected-resource", methods=["GET"])
     async def protected_resource_metadata(request: Request):
         """OAuth 2.0 Protected Resource Metadata (RFC 9728)."""
-        base = get_base_url(request)
+        base = MCP_PUBLIC_URL
         return JSONResponse({
             "resource": f"{base}/mcp",
             "authorization_servers": [base],
-            "scopes_supported": ["labs:*"],
+            "scopes_supported": ["openid", "profile", "email"],
             "bearer_methods_supported": ["header"]
         })
     
@@ -478,7 +478,7 @@ def setup_custom_routes(mcp: FastMCP):
         
         client_name = body.get("client_name", "MCP Client")
         redirect_uris = body.get("redirect_uris", [])
-        scopes = body.get("scope", "labs:*").split()
+        scopes = body.get("scope", "openid profile email").split()
         
         if not redirect_uris:
             return JSONResponse(
@@ -507,7 +507,8 @@ def setup_custom_routes(mcp: FastMCP):
         client_id = request.query_params.get("client_id")
         redirect_uri = request.query_params.get("redirect_uri")
         response_type = request.query_params.get("response_type", "code")
-        scope = request.query_params.get("scope", "labs:*")
+        scope_original = request.query_params.get("scope", "labs:*")
+        scope = "openid profile email"  # Friendly display scope
         state = request.query_params.get("state")
         code_challenge = request.query_params.get("code_challenge")
         code_challenge_method = request.query_params.get("code_challenge_method", "S256")
@@ -564,64 +565,83 @@ def setup_custom_routes(mcp: FastMCP):
             return RedirectResponse(url=login_url)
         
         # Show consent page
-        scopes_list = scope.split()
-        return HTMLResponse(f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Authorize {client['client_name']} - Tom Labs MCP</title>
-                <meta name="viewport" content="width=device-width, initial-scale=1">
-                <style>
-                    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 480px; margin: 60px auto; padding: 20px; }}
-                    .card {{ background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }}
-                    h2 {{ margin: 0 0 8px; color: #1a1a1a; }}
-                    .client-name {{ color: #666; margin-bottom: 24px; }}
-                    .scope-list {{ background: #f8f9fa; border-radius: 8px; padding: 16px; margin: 16px 0; }}
-                    .scope-item {{ display: flex; align-items: center; gap: 12px; padding: 8px 0; }}
-                    .scope-item:last-child {{ border-bottom: none; }}
-                    .btn {{ display: inline-block; padding: 12px 24px; border-radius: 8px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-size: 14px; }}
-                    .btn-primary {{ background: #ff9800; color: white; }}
-                    .btn-primary:hover {{ background: #f57c00; }}
-                    .btn-secondary {{ background: #f5f5f5; color: #333; margin-left: 12px; }}
-                    .btn-secondary:hover {{ background: #eee; }}
-                    .btn-group {{ display: flex; gap: 12px; margin-top: 24px; }}
-                    .info {{ font-size: 13px; color: #888; margin-top: 16px; }}
-                </style>
-            </head>
-            <body>
-                <div class="card">
-                    <h2>Authorize Application</h2>
-                    <p class="client-name"><strong>{client['client_name']}</strong> wants to access your Tom Labs account</p>
-                    
-                    <div class="scope-list">
-                        <p style="margin: 0 0 12px; font-weight: 500;">This application will be able to:</p>
-                        {''.join(f'<div class="scope-item"><span style="width:20px;height:20px;border:2px solid #ff9800;border-radius:4px;flex-shrink:0;"></span><span>{escape_html(s)}</span></div>' for s in scopes_list)}
-                    </div>
-                    
-                    <form method="POST" action="/mcp/authorize">
-                        <input type="hidden" name="client_id" value="{escape_html(client_id)}">
-                        <input type="hidden" name="redirect_uri" value="{escape_html(redirect_uri)}">
-                        <input type="hidden" name="response_type" value="{escape_html(response_type)}">
-                        <input type="hidden" name="scope" value="{escape_html(scope)}">
-                        <input type="hidden" name="state" value="{escape_html(state or '')}">
-                        <input type="hidden" name="code_challenge" value="{escape_html(code_challenge)}">
-                        <input type="hidden" name="code_challenge_method" value="{escape_html(code_challenge_method)}">
-                        <input type="hidden" name="resource" value="{escape_html(resource or '')}">
-                        <input type="hidden" name="user_id" value="{escape_html(user_id)}">
-                        <input type="hidden" name="user_email" value="{escape_html(user_email)}">
-                        <input type="hidden" name="action" value="allow">
-                        
-                        <div class="btn-group">
-                            <button type="submit" class="btn btn-primary">Allow Access</button>
-                            <button type="submit" name="action" value="deny" class="btn btn-secondary">Deny</button>
-                        </div>
-                    </form>
-                    
-                    <p class="info">You can revoke access anytime from your account settings.</p>
-                </div>
-            </body>
-            </html>
-        """)
+        user_display = user_email.split('@')[0] if user_email else 'User'
+        
+        return HTMLResponse(f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Approve Access - Tom Labs</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#1a1a1a;color:#e5e5e5;overflow:hidden;background-image:radial-gradient(ellipse at 50% 0%,rgba(255,152,0,.12),transparent 60%),radial-gradient(ellipse at 80% 100%,rgba(255,87,34,.08),transparent 50%)}}
+.card{{width:100%;max-width:460px;padding:32px;background:rgba(40,40,40,.85);border:1px solid rgba(255,255,255,.08);border-radius:16px;box-shadow:0 24px 48px rgba(0,0,0,.4);backdrop-filter:blur(16px)}}
+.brand{{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:20px}}
+h1{{font-size:24px;font-weight:700;color:#fff;margin-bottom:12px}}
+.desc{{font-size:14px;color:#999;line-height:1.6;margin-bottom:24px}}
+.desc strong{{color:#fff;font-weight:600}}
+.callback-box{{border:1px solid rgba(255,152,0,.3);border-radius:10px;padding:16px;margin-bottom:20px;background:rgba(255,152,0,.04)}}
+.callback-label{{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#888;margin-bottom:6px}}
+.callback-url{{font-family:'SF Mono',Monaco,'Cascadia Code',monospace;font-size:13px;color:#fff;word-break:break-all}}
+.warning{{font-size:12px;color:#777;line-height:1.6;margin-bottom:20px}}
+.details-toggle{{font-size:13px;color:#ff9800;cursor:pointer;border:none;background:none;font-family:inherit;padding:0;margin-bottom:20px;display:inline-block}}
+.details-toggle:hover{{color:#ffb74d}}
+.details-content{{display:none;margin-bottom:20px;padding:16px;background:rgba(255,255,255,.04);border-radius:10px;border:1px solid rgba(255,255,255,.06)}}
+.details-content.show{{display:block}}
+.detail-label{{font-size:12px;color:#888;font-weight:500}}
+.detail-value{{font-family:'SF Mono',Monaco,'Cascadia Code',monospace;font-size:14px;color:#fff;margin-top:4px;word-break:break-all}}
+.btn-row{{display:flex;gap:10px;margin-top:8px}}
+.btn{{flex:1;padding:12px 20px;border-radius:10px;font-weight:600;font-size:14px;border:none;cursor:pointer;transition:all .15s;font-family:inherit}}
+.btn-allow{{background:#ff9800;color:#000}}
+.btn-allow:hover{{background:#ffb74d}}
+.btn-deny{{background:rgba(255,255,255,.08);color:#999;border:1px solid rgba(255,255,255,.1)}}
+.btn-deny:hover{{background:rgba(255,255,255,.12);color:#ccc}}
+</style>
+</head>
+<body>
+<div class="card">
+<div class="brand">Tom Labs</div>
+<h1>Approve access</h1>
+<p class="desc"><strong>{escape_html(client['client_name'])}</strong> is asking to use your labs. If you allow it, it acts as you, with exactly the permissions your account already has.</p>
+
+<div class="callback-box">
+<div class="callback-label">Your credentials go to</div>
+<div class="callback-url">{escape_html(redirect_uri)}</div>
+</div>
+
+<p class="warning">Allow this only if you started {escape_html(client['client_name'])} yourself and you recognise the address above. Nobody from Tom Labs will ever ask you to approve this screen.</p>
+
+<button class="details-toggle" onclick="var el=document.getElementById('details');el.classList.toggle('show');this.textContent=el.classList.contains('show')?'− Connection details':'+ Connection details'">+ Connection details</button>
+<div class="details-content" id="details">
+<div class="detail-label">Client ID</div>
+<div class="detail-value">{escape_html(client_id)}</div>
+<div class="detail-label" style="margin-top:16px">Scopes requested</div>
+<div class="detail-value">{escape_html(' '.join(scope.split()))}</div>
+</div>
+
+<form method="POST" action="/mcp/authorize">
+<input type="hidden" name="client_id" value="{escape_html(client_id)}">
+<input type="hidden" name="redirect_uri" value="{escape_html(redirect_uri)}">
+<input type="hidden" name="response_type" value="{escape_html(response_type)}">
+<input type="hidden" name="scope" value="{escape_html(scope)}">
+<input type="hidden" name="scope_original" value="{escape_html(scope_original)}">
+<input type="hidden" name="state" value="{escape_html(state or '')}">
+<input type="hidden" name="code_challenge" value="{escape_html(code_challenge)}">
+<input type="hidden" name="code_challenge_method" value="{escape_html(code_challenge_method)}">
+<input type="hidden" name="resource" value="{escape_html(resource or '')}">
+<input type="hidden" name="user_id" value="{escape_html(user_id)}">
+<input type="hidden" name="user_email" value="{escape_html(user_email)}">
+<input type="hidden" name="action" value="allow">
+<div class="btn-row">
+<button type="submit" class="btn btn-allow">Allow access</button>
+<button type="submit" name="action" value="deny" class="btn btn-deny">Deny</button>
+</div>
+</form>
+</div>
+</body>
+</html>""")
     
     @mcp.custom_route("/mcp/authorize", methods=["POST"])
     async def oauth_authorize_post(request: Request):
@@ -633,7 +653,8 @@ def setup_custom_routes(mcp: FastMCP):
         client_id = form.get("client_id")
         redirect_uri = form.get("redirect_uri")
         response_type = form.get("response_type")
-        scope = form.get("scope")
+        scope = form.get("scope")  # Display scope (openid profile email)
+        scope_original = form.get("scope_original", "labs:*")  # Original scope for token
         state = form.get("state")
         code_challenge = form.get("code_challenge")
         code_challenge_method = form.get("code_challenge_method")
@@ -648,7 +669,7 @@ def setup_custom_routes(mcp: FastMCP):
         
         # Generate authorization code
         auth_code = secrets.token_urlsafe(32)
-        scopes_list = scope.split()
+        scopes_list = scope_original.split()
         
         await store_auth_code(db, auth_code, client_id, user_id, redirect_uri, 
                               scopes_list, code_challenge, code_challenge_method)
@@ -751,7 +772,7 @@ def setup_custom_routes(mcp: FastMCP):
     @mcp.custom_route("/mcp", methods=["GET"])
     async def mcp_discovery_ui(request: Request):
         """MCP Discovery UI - shows connection instructions and tool list."""
-        base = get_base_url(request)
+        base = MCP_PUBLIC_URL
         
         # Get available tools from MCP server
         tools_list = []
@@ -1036,6 +1057,20 @@ async def _bump_connection(client_id: str, delta: int):
         logger.warning(f"Connection tracking failed: {e}")
 
 
+async def _heartbeat_connection(client_id: str):
+    """Update last_seen_at for active connection (heartbeat)."""
+    if not client_id:
+        return
+    try:
+        db = get_db()
+        db.mcp_connections.update_one(
+            {"client_id": client_id, "connected": True},
+            {"$set": {"last_seen_at": datetime.utcnow()}},
+        )
+    except Exception as e:
+        logger.debug(f"Heartbeat update failed: {e}")
+
+
 class MCPConnectionTrackingMiddleware:
     """
     ASGI middleware: marks a client as connected while it has an open
@@ -1091,11 +1126,14 @@ class MCPConnectionTrackingMiddleware:
                 logger.info(f"SSE connect for client {client_id}")
                 async with lock:
                     await _bump_connection(client_id, +1)
-            elif client_id and opened and message.get("type") == "http.response.body" and not message.get("more_body"):
-                opened = False
-                logger.info(f"SSE close for client {client_id}")
-                async with lock:
-                    await _bump_connection(client_id, -1)
+            elif client_id and opened and message.get("type") == "http.response.body":
+                # Heartbeat: update last_seen_at on every SSE message
+                await _heartbeat_connection(client_id)
+                if not message.get("more_body"):
+                    opened = False
+                    logger.info(f"SSE close for client {client_id}")
+                    async with lock:
+                        await _bump_connection(client_id, -1)
             await send(message)
 
         try:
@@ -1120,7 +1158,16 @@ def _truncate(value: Any, max_chars: int = 4000) -> Any:
                 return s[:max_chars]
         return value
     s = str(value)
-    return s[:max_chars] if len(s) > max_chars else value
+    if len(s) > max_chars:
+        return s[:max_chars]
+    # Try to parse string as JSON (handles nested escaped JSON)
+    if isinstance(s, str) and s.strip().startswith('{'):
+        try:
+            parsed = json.loads(s)
+            return parsed
+        except Exception:
+            pass
+    return value
 
 
 def _extract_identity(request) -> Dict[str, Any]:

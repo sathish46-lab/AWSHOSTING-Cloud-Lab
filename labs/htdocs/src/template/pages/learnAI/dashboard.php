@@ -176,7 +176,7 @@ try {
                     <span class="badge rounded-pill bg-body-secondary border border-info border-opacity-50 text-body px-3 py-1 fw-normal cursor-pointer transition-all-lite text-info-hover topic-pill shadow-sm" data-prompt="Teach me Web Engineering Fundamentals. Cover HTTP/2 vs HTTP/3, CORS, caching headers, WebSocket protocols, and performance optimization.">Web Engineering Fundamentals</span>
                 </div>
                 
-                <div class="card bg-body-tertiary border border-secondary border-opacity-25 rounded-4 p-2 shadow-sm mb-2">
+                <div class="card border border-secondary border-opacity-25 rounded-4 p-2 shadow-sm mb-2">
                     <textarea id="aiLessonPrompt" class="form-control bg-transparent border-0 text-body-emphasis shadow-none py-2 px-3 w-100" placeholder="Describe the technology or concept you want to master (e.g., 'Advanced Packet Capture & Analysis using tcpdump and Wireshark')..." rows="3" style="resize: none;" autocomplete="off"></textarea>
                     <input type="hidden" id="aiLessonLevel" value="<?= htmlspecialchars($prefLessonDiff) ?>">
                     <div class="d-flex justify-content-between align-items-center px-2 pb-1 pt-2">
@@ -206,32 +206,32 @@ try {
 
         <!-- Statistics Bar -->
         <div class="mt-4 mb-4 d-flex flex-wrap align-items-center justify-content-center gap-2 px-2">
-            <span class="badge rounded-pill bg-body-secondary border border-primary border-opacity-50 text-body px-3 py-1 fw-normal d-inline-flex align-items-center gap-1 shadow-sm" style="font-size: 0.75rem;">
-                <span class="fs-6">📚</span> <span class="text-primary fw-bold"><?= number_format($statsLessons) ?></span> <span class="text-primary">Lessons</span>
+            <span class="badge rounded-pill border border-primary text-primary px-2 py-1" style="background: transparent; font-size: 0.75rem;">
+                <span>📚</span> <?= number_format($statsLessons) ?> lessons
             </span>
-            <span class="badge rounded-pill bg-body-secondary border border-info border-opacity-50 text-body px-3 py-1 fw-normal d-inline-flex align-items-center gap-1 shadow-sm" style="font-size: 0.75rem;">
-                <span class="fs-6">📖</span> <span class="text-info fw-bold"><?= number_format($statsChapters) ?></span> <span class="text-info">Chapters</span>
+            <span class="badge rounded-pill border border-info text-info px-2 py-1" style="background: transparent; font-size: 0.75rem;">
+                <span>📖</span> <?= number_format($statsChapters) ?> chapters
             </span>
-            <span class="badge rounded-pill bg-body-secondary border border-success border-opacity-50 text-body px-3 py-1 fw-normal d-inline-flex align-items-center gap-1 shadow-sm" style="font-size: 0.75rem;">
-                <span class="fs-6">👥</span> <span class="text-success fw-bold"><?= number_format($statsLearners) ?></span> <span class="text-success">Learners</span>
+            <span class="badge rounded-pill border border-success text-success px-2 py-1" style="background: transparent; font-size: 0.75rem;">
+                <span>👥</span> <?= number_format($statsLearners) ?> learners
             </span>
             
             <span class="text-secondary opacity-50 mx-1 d-none d-md-inline">|</span>
             
-            <span class="badge rounded-pill bg-body-secondary border border-warning border-opacity-50 text-body px-3 py-1 fw-normal d-inline-flex align-items-center gap-1 shadow-sm" style="font-size: 0.75rem;">
-                <span class="fs-6">⚡</span> <span class="text-warning fw-bold"><?= number_format($statsUnlocks) ?></span> <span class="text-warning">Ask AI Unlocks</span>
+            <span class="badge rounded-pill border border-warning text-warning px-2 py-1" style="background: transparent; font-size: 0.75rem;">
+                <span>⚡</span> <?= number_format($statsUnlocks) ?> ask ai unlocks
             </span>
-            <span class="badge rounded-pill bg-body-secondary border border-info border-opacity-50 text-body px-3 py-1 fw-normal d-inline-flex align-items-center gap-1 shadow-sm" style="font-size: 0.75rem;">
-                <span class="fs-6">💬</span> <span class="text-info fw-bold"><?= number_format($statsConversations) ?></span> <span class="text-info">Conversations</span>
+            <span class="badge rounded-pill border border-info text-info px-2 py-1" style="background: transparent; font-size: 0.75rem;">
+                <span>💬</span> <?= number_format($statsConversations) ?> conversations
             </span>
-            <span class="badge rounded-pill bg-body-secondary border border-primary border-opacity-50 text-body px-3 py-1 fw-normal d-inline-flex align-items-center gap-1 shadow-sm" style="font-size: 0.75rem;">
-                <span class="fs-6">📨</span> <span class="text-primary fw-bold"><?= number_format($statsMessages) ?></span> <span class="text-primary">Messages</span>
+            <span class="badge rounded-pill border border-primary text-primary px-2 py-1" style="background: transparent; font-size: 0.75rem;">
+                <span>📨</span> <?= number_format($statsMessages) ?> messages
             </span>
-            <span class="badge rounded-pill bg-body-secondary border border-info border-opacity-50 text-body px-3 py-1 fw-normal d-inline-flex align-items-center gap-1 shadow-sm" style="font-size: 0.75rem;">
-                <span class="fs-6">🎯</span> <span class="text-info fw-bold"><?= number_format($statsTokens) ?></span> <span class="text-info">Tokens</span>
+            <span class="badge rounded-pill border border-info text-info px-2 py-1" style="background: transparent; font-size: 0.75rem;">
+                <span>🎯</span> <?= number_format($statsTokens) ?> tokens
             </span>
-            <span class="badge rounded-pill bg-body-secondary border border-danger border-opacity-50 text-body px-3 py-1 fw-normal d-inline-flex align-items-center gap-1 shadow-sm" style="font-size: 0.75rem;">
-                <span class="fs-6">💡</span> <span class="text-danger fw-bold"><?= number_format($statsReveals) ?></span> <span class="text-danger">Reveals</span>
+            <span class="badge rounded-pill border border-danger text-danger px-2 py-1" style="background: transparent; font-size: 0.75rem;">
+                <span>💡</span> <?= number_format($statsReveals) ?> reveals
             </span>
         </div>
 
@@ -240,19 +240,30 @@ try {
                 <h4 class="fw-bold text-white mb-3">Learning Paths</h4>
                 <?php
                 $getBtnClass = fn($tab) => ($prefFilterTab === $tab ? 'active' : '');
+                $activeStyle = 'background: rgba(var(--cui-primary-rgb), 0.15); color: var(--cui-primary); border: 1px solid rgba(var(--cui-primary-rgb), 0.25);';
+                $inactiveStyle = 'color: var(--cui-body-color); opacity: 0.65; border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.2);';
                 ?>
                 <div class="d-flex flex-wrap align-items-center gap-2 mb-3 lesson-tabs-container">
-                    <button class="btn btn-xs btn-outline-secondary rounded-pill border-opacity-25 px-3 py-1 <?= $getBtnClass('all') ?> d-inline-flex align-items-center gap-1 lesson-filter-btn" data-filter="all"><span class="fs-6">✨</span> For You</button>
-                    <button class="btn btn-xs btn-outline-secondary rounded-pill border-opacity-25 px-3 py-1 <?= $getBtnClass('continue') ?> d-inline-flex align-items-center gap-1 lesson-filter-btn" data-filter="continue"><span class="fs-6">📚</span> Continue</button>
-                    <button class="btn btn-xs btn-outline-secondary rounded-pill border-opacity-25 px-3 py-1 <?= $getBtnClass('explore') ?> d-inline-flex align-items-center gap-1 lesson-filter-btn" data-filter="explore"><span class="fs-6">🌏</span> Explore</button>
-                    <button class="btn btn-xs btn-outline-secondary rounded-pill border-opacity-25 px-3 py-1 <?= $getBtnClass('most_liked') ?> d-inline-flex align-items-center gap-1 lesson-filter-btn" data-filter="most_liked"><span class="fs-6">❤️‍🔥</span> Most Liked</button>
-                    <button class="btn btn-xs btn-outline-secondary rounded-pill border-opacity-25 px-3 py-1 <?= $getBtnClass('editor_picks') ?> d-inline-flex align-items-center gap-1 lesson-filter-btn" data-filter="editor_picks"><span class="fs-6">⭐</span> Editor Picks</button>
-                    <button class="btn btn-xs btn-outline-secondary rounded-pill border-opacity-25 px-3 py-1 <?= $getBtnClass('interacted') ?> d-inline-flex align-items-center gap-1 lesson-filter-btn" data-filter="interacted"><span class="fs-6">🔥</span> Most Interacted</button>
-                    <button class="btn btn-xs btn-outline-secondary rounded-pill border-opacity-25 px-3 py-1 <?= $getBtnClass('my_likes') ?> d-inline-flex align-items-center gap-1 lesson-filter-btn" data-filter="my_likes"><span class="fs-6">❤️</span> My Likes</button>
-                    <button class="btn btn-xs btn-outline-secondary rounded-pill border-opacity-25 px-3 py-1 <?= $getBtnClass('my_lessons') ?> d-inline-flex align-items-center gap-1 lesson-filter-btn" data-filter="my_lessons"><span class="fs-6">👤</span> My Lessons</button>
+                    <?php
+                    $laFilters = [
+                        'all' => '✨ For You',
+                        'continue' => '📚 Continue',
+                        'explore' => '🌏 Explore',
+                        'most_liked' => '❤️‍🔥 Most Liked',
+                        'editor_picks' => '⭐ Editor Picks',
+                        'interacted' => '🔥 Most Interacted',
+                        'my_likes' => '❤️ My Likes',
+                        'my_lessons' => '👤 My Lessons',
+                    ];
+                    foreach ($laFilters as $key => $label):
+                        $isActive = ($prefFilterTab === $key);
+                        $style = $isActive ? $activeStyle : $inactiveStyle;
+                    ?>
+                        <button class="btn btn-xs rounded-pill d-inline-flex align-items-center gap-1 lesson-filter-btn" style="font-size: 0.82rem; <?= $style ?>" data-filter="<?= $key ?>"><?= $label ?></button>
+                    <?php endforeach; ?>
                 </div>
                 <div class="d-flex flex-wrap align-items-center gap-2">
-                    <button class="btn btn-xs btn-outline-secondary rounded-pill border-opacity-25 px-3 py-1 <?= $getBtnClass('my_syllabi') ?> d-inline-flex align-items-center gap-1 lesson-filter-btn" data-filter="my_syllabi"><span class="fs-6">👨‍🎓</span> My Syllabi Lessons</button>
+                    <button class="btn btn-xs rounded-pill d-inline-flex align-items-center gap-1 lesson-filter-btn" style="font-size: 0.82rem; <?= ($prefFilterTab === 'my_syllabi') ? $activeStyle : $inactiveStyle ?>" data-filter="my_syllabi">👨‍🎓 My Syllabi Lessons</button>
                     <span class="text-secondary opacity-50 mx-1">|</span>
                     <div class="dropdown">
                         <button class="btn btn-xs btn-outline-secondary rounded-pill border-opacity-25 px-3 py-1 dropdown-toggle lesson-level-btn" id="lessonLevelDropdownBtn" type="button" data-coreui-toggle="dropdown" aria-expanded="false">

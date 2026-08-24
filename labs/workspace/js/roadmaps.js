@@ -510,6 +510,13 @@
             return arr.indexOf(itemId) !== -1;
         },
 
+        hasEvidence: function(topicId, itemId) {
+            if (!this.data || !this.data.evidence_data) return false;
+            var ev = this.data.evidence_data[topicId];
+            if (!ev) return false;
+            return !!ev[itemId];
+        },
+
         openDeclareModal: function(topicId, itemId) {
             var self = this;
             var body = document.getElementById('rm-declare-body');
@@ -672,6 +679,11 @@
                     var arr = self.data.progress_data[topicId];
                     if (arr.indexOf(itemId) === -1) arr.push(itemId);
 
+                    // Mark evidence as present
+                    if (!self.data.evidence_data) self.data.evidence_data = {};
+                    if (!self.data.evidence_data[topicId]) self.data.evidence_data[topicId] = {};
+                    self.data.evidence_data[topicId][itemId] = true;
+
                     self.data.roadmap.progress = json.progress_percentage || 0;
                     self.data.roadmap.checkpoints_completed = json.checkpoints_completed || self.data.roadmap.checkpoints_completed;
                     self.data.roadmap.checkpoints_total = json.checkpoints_total || self.data.roadmap.checkpoints_total;
@@ -680,6 +692,7 @@
                     if (modal) modal.hide();
 
                     self.renderHeader();
+                    self.renderLeft();
                     self.renderRight();
                     self.showToast('Declaration submitted! Progress: ' + json.progress_percentage + '%', 'success');
                 } else {
@@ -785,6 +798,7 @@
                                 var itemText = item.text || item.title || '';
                                 var itemType = item.type || 'learning';
                                 var checked = self.isCompleted(topicId, itemId);
+                                var hasEv = checked && self.hasEvidence(topicId, itemId);
                                 var cls = self.classFor(itemType);
                                 var glyph = self.glyphFor(itemType);
                                 var checkClass = checked ? ' rm-checked' : '';
@@ -793,6 +807,16 @@
                                 html += '<input type="checkbox" class="rm-check" data-slug="' + self.esc(itemId) + '"' + (checked ? ' checked' : '') + '>';
                                 if (glyph) html += '<span class="rm-glyph">' + glyph + '</span>';
                                 html += '<span class="rm-node-link" style="cursor:pointer;" data-topic="' + self.esc(topicId) + '" data-item="' + self.esc(itemId) + '" data-item-text="' + self.esc(itemText) + '" data-section="' + self.esc(section.id || '') + '">' + self.esc(itemText) + '</span>';
+                                if (checked) {
+                                    html += '<span class="rm-item-actions">';
+                                    html += '<span class="rm-item-action rm-item-action-note" title="Notes"><i class="bx bx-pencil"></i></span>';
+                                    if (hasEv) {
+                                        html += '<span class="rm-item-action rm-item-action-ev" title="View evidence" data-action="view-ev" data-topic="' + self.esc(topicId) + '" data-item="' + self.esc(itemId) + '"><i class="bx bx-paperclip"></i></span>';
+                                    } else {
+                                        html += '<span class="rm-item-action rm-item-action-ev" title="Add evidence" data-action="add-ev" data-topic="' + self.esc(topicId) + '" data-item="' + self.esc(itemId) + '"><i class="bx bx-upvote"></i></span>';
+                                    }
+                                    html += '</span>';
+                                }
                                 html += '</li>';
                             });
                             html += '</ul>';
@@ -839,6 +863,20 @@
                     var itemText = this.getAttribute('data-item-text');
                     var sectionId = this.getAttribute('data-section');
                     if (topicId && itemId) RoadmapView.openTopicItem(topicId, itemId, itemText, sectionId);
+                });
+            });
+
+            // Wire up evidence action icons in left panel
+            document.querySelectorAll('#rm-left-content .rm-item-action[data-action]').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var action = this.getAttribute('data-action');
+                    var topicId = this.getAttribute('data-topic');
+                    var itemId = this.getAttribute('data-item');
+                    if (!topicId || !itemId) return;
+                    if (action === 'add-ev' || action === 'view-ev') {
+                        RoadmapView.openDeclareModal(topicId, itemId);
+                    }
                 });
             });
 
@@ -977,21 +1015,29 @@
                         var itemType = item.type || 'concept';
                         var itemText = item.text || item.title || '';
                         var declared = self.isCompleted(topicId, itemId);
+                        var hasEv = declared && self.hasEvidence(topicId, itemId);
                         var bc = self.badgeClass(itemType);
                         var bl = itemType.charAt(0).toUpperCase() + itemType.slice(1);
 
                         // Checkbox icon
                         var checkIcon = declared
                             ? '<div class="rm-progress-check done"><i class="bx bx-check"></i></div>'
-                            : '<div class="rm-progress-check"><i class="bx bx-circle"></i></div>';
+                            : '<div class="rm-progress-check"></div>';
 
                         // Row class
                         var rowClass = 'rm-progress-item' + (declared ? ' completed' : '');
 
-                        // Action button icon only
-                        var actionIcon = declared
-                            ? '<i class="bx bx-paperclip"></i>'
-                            : '<i class="bx bx-upvote"></i>';
+                        // Action button: only when checked
+                        var actionHtml = '';
+                        if (declared) {
+                            var actionIcon = hasEv
+                                ? '<i class="bx bx-paperclip"></i>'
+                                : '<i class="bx bx-upvote"></i>';
+                            var actionLabel = hasEv ? 'View evidence' : 'Add evidence';
+                            actionHtml = '<div class="rm-progress-action flex-shrink-0 always-visible">'
+                                + '<span class="rm-progress-action-btn' + (hasEv ? ' declared' : '') + '" title="' + actionLabel + '">' + actionIcon + '</span>'
+                                + '</div>';
+                        }
 
                         html += '<div class="' + rowClass + '" style="cursor:pointer;" onclick="window.RoadmapView.openDeclareModal(\'' + self.esc(topicId) + '\',\'' + self.esc(itemId) + '\')">';
                         html += '<div class="d-flex align-items-start gap-2">';
@@ -1002,9 +1048,7 @@
                         html += '<div class="rm-progress-item-text' + (declared ? ' text-secondary' : '') + '">' + self.esc(itemText) + '</div>';
                         html += '<span class="rm-progress-badge ' + bc + '">' + bl + '</span>';
                         html += '</div>';
-                        html += '<div class="rm-progress-action flex-shrink-0">';
-                        html += '<span class="rm-progress-action-btn' + (declared ? ' declared' : '') + '">' + actionIcon + '</span>';
-                        html += '</div>';
+                        html += actionHtml;
                         html += '</div></div>';
                     });
                 });
@@ -1018,15 +1062,27 @@
             var barTab = document.getElementById('rm-progress-bar-tab');
             var countEl = document.getElementById('rm-progress-count');
             var warnEl = document.getElementById('rm-progress-warning');
+
+            // Count actual declared items (any type with evidence/declaration)
+            var totalDeclared = 0;
+            sections.forEach(function(section) {
+                (section.topics || []).forEach(function(topic) {
+                    (topic.items || []).forEach(function(item) {
+                        if (self.hasEvidence(topic.id, item.id)) totalDeclared++;
+                    });
+                });
+            });
+            var totalAllItems = totalItems;
+            var remainingEvidence = totalAllItems - totalDeclared;
+
             if (pctTab) pctTab.textContent = (rm.progress || 0) + '%';
             if (barTab) barTab.style.width = (rm.progress || 0) + '%';
-            if (countEl) countEl.textContent = (rm.checkpoints_completed || 0) + ' / ' + (rm.checkpoints_total || 0) + ' checkpoints declared';
+            if (countEl) countEl.textContent = totalDeclared + ' / ' + totalAllItems + ' checkpoints declared';
 
             // Warning message
             if (warnEl) {
-                var remaining = (rm.checkpoints_total || 0) - (rm.checkpoints_completed || 0);
-                if (remaining > 0 && (rm.progress || 0) < 100) {
-                    warnEl.innerHTML = '<i class="bx bx-error text-warning me-1"></i><span class="text-warning" style="font-size:0.72rem;">' + remaining + ' evidence needed for 100% — max 50% without proof</span>';
+                if (remainingEvidence > 0 && (rm.progress || 0) < 100) {
+                    warnEl.innerHTML = '<i class="bx bx-error text-warning me-1"></i><span class="text-warning" style="font-size:0.72rem;">' + remainingEvidence + ' evidence needed for 100% — max 50% without proof</span>';
                     warnEl.classList.remove('d-none');
                 } else {
                     warnEl.classList.add('d-none');
@@ -1069,6 +1125,9 @@
                     var barEl = document.getElementById('rm-progress-bar');
                     if (pctEl) pctEl.textContent = json.progress + '%';
                     if (barEl) barEl.style.width = json.progress + '%';
+
+                    // Re-render left panel to update evidence icons
+                    self.renderLeft();
 
                     // Live update right panel progress tab
                     var progressList = document.getElementById('rm-progress-list');

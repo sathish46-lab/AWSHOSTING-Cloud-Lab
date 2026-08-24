@@ -113,13 +113,15 @@
             const reqs = c.request_count || 0;
             const last = c.last_used_at ? timeAgo(c.last_used_at) : 'never';
             const shortId = c.client_id.replace(/^labs-mcp-/, '').slice(0, 8);
-            const connected = isConnected(c);
+            const status = c.status || (c.connected ? 'active' : 'offline');
+            const statusClass = status === 'active' ? 'mcp-status-ok' : status === 'idle' ? 'mcp-status-idle' : 'mcp-status-off';
+            const statusText = status === 'active' ? 'Connected' : status === 'idle' ? 'Idle' : 'Offline';
             return `
                 <li class="mcp-side__item d-flex align-items-center gap-2 py-2">
-                    <span class="mcp-status-dot ${connected ? 'mcp-status-ok' : 'mcp-status-off'}" aria-hidden="true"></span>
+                    <span class="mcp-status-dot ${statusClass}" aria-hidden="true"></span>
                     <span class="flex-grow-1 text-truncate">
                         <span class="fw-semibold text-body">${escapeHtml(name)}</span>
-                        <span class="d-block small text-secondary">${escapeHtml(shortId)} · ${reqs} call${reqs === 1 ? '' : 's'} · ${escapeHtml(last)} · ${connected ? 'Connected' : 'Offline'}</span>
+                        <span class="d-block small text-secondary">${escapeHtml(shortId)} · ${reqs} call${reqs === 1 ? '' : 's'} · ${escapeHtml(last)} · ${statusText}</span>
                     </span>
                 </li>`;
         }).join('');
@@ -367,6 +369,14 @@
     }
 
     function highlightJson(value) {
+        // If value is a string, try to parse it as JSON first
+        if (typeof value === 'string') {
+            try {
+                value = JSON.parse(value);
+            } catch (e) {
+                // Keep as string if not valid JSON
+            }
+        }
         const src = JSON.stringify(value, null, 2);
         let out = '';
         let i = 0;
@@ -376,7 +386,20 @@
         const NUM_RE = /^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/;
         const LIT_RE = /^(true|false|null)/;
 
+        // Add line numbers
+        let lineNum = 1;
+        out += '<span class="tok-line-num">' + lineNum + '</span>';
+
         while (i < src.length) {
+            // Check for newline to add line number
+            if (src[i] === '\n') {
+                out += '\n';
+                lineNum++;
+                out += '<span class="tok-line-num">' + lineNum + '</span>';
+                i++;
+                continue;
+            }
+
             const rest = src.slice(i);
             const key = rest.match(KEY_RE);
             if (key) {

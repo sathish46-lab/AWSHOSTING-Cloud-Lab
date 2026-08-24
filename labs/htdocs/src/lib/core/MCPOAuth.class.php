@@ -319,7 +319,7 @@ class MCPOAuth {
             'username' => $username,
             'email' => $email,
             'redirect_uris' => $redirectUris,
-            'scopes' => ['labs:*'],
+            'scopes' => ['openid', 'profile', 'email'],
             'created_at' => new MongoDB\BSON\UTCDateTime(time() * 1000),
             'last_used_at' => new MongoDB\BSON\UTCDateTime(time() * 1000),
             'revoked' => false
@@ -337,7 +337,7 @@ class MCPOAuth {
      * Register a new MCP client via dynamic client registration (RFC 7591).
      * Not tied to a user — created before the user authenticates.
      */
-    public static function registerClient($clientName, $redirectUris, $scopes = ['labs:*']) {
+    public static function registerClient($clientName, $redirectUris, $scopes = ['openid', 'profile', 'email']) {
         $db = self::getDb();
 
         $clientId = 'labs-mcp-' . self::generateSecureToken(16);
@@ -484,7 +484,7 @@ class MCPOAuth {
             'token_endpoint' => $baseUrl . '/mcp/token',
             'revocation_endpoint' => $baseUrl . '/mcp/revoke',
             'registration_endpoint' => $baseUrl . '/mcp/register',
-            'scopes_supported' => ['labs:*'],
+            'scopes_supported' => ['openid', 'profile', 'email'],
             'response_types_supported' => ['code'],
             'grant_types_supported' => ['authorization_code', 'refresh_token'],
             'code_challenge_methods_supported' => ['S256', 'plain'],

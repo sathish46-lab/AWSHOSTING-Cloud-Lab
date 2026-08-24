@@ -317,8 +317,13 @@ body:has(.mcp-page--activity) .footer {
     box-shadow: 0 0 8px var(--cui-success);
   }
 
+  &.mcp-status-idle {
+    background: var(--cui-warning);
+    box-shadow: 0 0 8px var(--cui-warning);
+  }
+
   &.mcp-status-off {
-    background: var(--cui-secondary);
+    background: var(--cui-danger);
   }
 
   &.mcp-status-expiring {
@@ -918,6 +923,21 @@ body:has(.mcp-page--activity) .footer {
       background: none;
       padding: 0;
     }
+
+    .tok-key { color: #9cdcfe; }
+    .tok-str { color: #ce9178; }
+    .tok-num { color: #b5cea8; }
+    .tok-bool { color: #569cd6; }
+    .tok-null { color: #f44747; }
+    .tok-punct { color: rgba(255, 255, 255, 0.45); }
+    .tok-line-num {
+      display: inline-block;
+      width: 2.5em;
+      text-align: right;
+      padding-right: 1em;
+      color: rgba(255, 255, 255, 0.25);
+      user-select: none;
+    }
   }
 
   .mcp-call__copy {
@@ -1040,6 +1060,14 @@ body:has(.mcp-page--activity) .footer {
     .tok-bool { color: #569cd6; }
     .tok-null { color: #f44747; }
     .tok-punct { color: rgba(255, 255, 255, 0.45); }
+    .tok-line-num {
+      display: inline-block;
+      width: 2.5em;
+      text-align: right;
+      padding-right: 1em;
+      color: rgba(255, 255, 255, 0.25);
+      user-select: none;
+    }
   }
 }
 

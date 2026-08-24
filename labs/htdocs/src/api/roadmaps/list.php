@@ -185,10 +185,10 @@ $db->global_settings->updateOne(
                     <div class="d-flex justify-content-between align-items-start mb-3">
                         <div class="d-flex flex-wrap gap-1 align-items-center">
                             <?php $lvlColor = strtolower($rm['level']) === 'advanced' ? 'danger' : (strtolower($rm['level']) === 'intermediate' ? 'warning' : 'success'); ?>
-                            <span class="badge bg-<?= $lvlColor ?>-gradient d-inline-flex align-items-center gap-1">
+                            <span class="badge rounded-pill border border-<?= $lvlColor ?> text-<?= $lvlColor ?> d-inline-flex align-items-center gap-1" style="background: transparent;">
                                 <i class="bx bxs-star"></i> <?= strtolower($rm['level']) ?>
                             </span>
-                            <span class="badge bg-<?= $rm['visibility'] === 'private' ? 'secondary' : 'info' ?>-gradient d-inline-flex align-items-center gap-1">
+                            <span class="badge rounded-pill border border-<?= $rm['visibility'] === 'private' ? 'secondary' : 'info' ?> text-<?= $rm['visibility'] === 'private' ? 'secondary' : 'info' ?> d-inline-flex align-items-center gap-1" style="background: transparent;">
                                 <i class="bx <?= $rm['visibility'] === 'private' ? 'bx-lock-alt' : 'bx-globe' ?>"></i> <?= $rm['visibility'] === 'private' ? 'Private' : 'Public' ?>
                             </span>
                         </div>
@@ -216,10 +216,10 @@ $db->global_settings->updateOne(
                     <div class="d-flex flex-wrap gap-1 mb-3">
                         <?php $tags = (array)$rm['tags']; ?>
                         <?php foreach (array_slice($tags, 0, 3) as $tag): ?>
-                            <span class="badge bg-primary-gradient px-2 py-1">#<?= htmlspecialchars(ltrim($tag, '#')) ?></span>
+                            <span class="badge rounded-pill border border-primary text-primary px-2 py-1" style="background: transparent;">#<?= htmlspecialchars(ltrim($tag, '#')) ?></span>
                         <?php endforeach; ?>
                         <?php if (count($tags) > 3): ?>
-                            <span class="badge bg-secondary-gradient px-2 py-1">+<?= count($tags) - 3 ?></span>
+                            <span class="badge rounded-pill border border-secondary text-secondary px-2 py-1" style="background: transparent;">+<?= count($tags) - 3 ?></span>
                         <?php endif; ?>
                     </div>
                     <?php if ($rm['checkpoints_total'] > 0): ?>
@@ -242,6 +242,9 @@ $db->global_settings->updateOne(
                             <button class="btn btn-link text-secondary p-0 d-inline-flex align-items-center gap-1 text-decoration-none toggle-like-btn flex-shrink-0 ms-1" data-roadmap-id="<?= $rm['id'] ?>" title="Like">
                                 <i class="bx bx-heart fs-6"></i>
                                 <span class="roadmap-like-count" style="font-size:0.75rem;"><?= intval($rm['likes_count']) ?></span>
+                            </button>
+                            <button class="btn btn-link text-secondary p-0 d-inline-flex align-items-center text-decoration-none flex-shrink-0 ms-1" data-copy="<?= (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/roadmaps/' . htmlspecialchars($rm['slug']) ?>" title="Copy link">
+                                <i class="bx bx-share-alt fs-6"></i>
                             </button>
                         </div>
                         <a href="/roadmaps/<?= htmlspecialchars($rm['slug']) ?>" class="btn btn-sm btn-success-gradient rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1 fw-medium shadow-sm text-nowrap flex-shrink-0" style="font-size:0.78rem;" hx-boost="false" onclick="event.stopPropagation();">

@@ -91,6 +91,37 @@ var TomBG = {
             if (typeof TomBG.updateCustomSlotsUI === 'function') {
               TomBG.updateCustomSlotsUI();
             }
+            var currentMode = localStorage.getItem('tom-labs-bg-mode') || 'spiderman';
+            document.querySelectorAll('.theme-template-card').forEach(function(card) {
+              if (card.getAttribute('data-mode') === currentMode) {
+                card.style.borderColor = 'var(--cui-primary)';
+                card.style.boxShadow = '0 0 12px rgba(var(--cui-primary-rgb), 0.35)';
+                var src = card.getAttribute('data-bg-src');
+                if (src) card.style.backgroundImage = "linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('" + src + "')";
+              }
+            });
+            if ('IntersectionObserver' in window) {
+              var observer = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                  if (entry.isIntersecting) {
+                    var card = entry.target;
+                    var src = card.getAttribute('data-bg-src');
+                    if (src && !card.style.backgroundImage.includes(src)) {
+                      card.style.backgroundImage = "linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('" + src + "')";
+                    }
+                    observer.unobserve(card);
+                  }
+                });
+              }, { rootMargin: '200px' });
+              document.querySelectorAll('.theme-template-card').forEach(function(card) {
+                if (card.getAttribute('data-mode') !== currentMode) observer.observe(card);
+              });
+            } else {
+              document.querySelectorAll('.theme-template-card').forEach(function(card) {
+                var src = card.getAttribute('data-bg-src');
+                if (src) card.style.backgroundImage = "linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('" + src + "')";
+              });
+            }
           })
           .catch(function(err) {
             console.error("Failed to load background modal", err);

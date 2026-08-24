@@ -16,6 +16,8 @@ if (session_status() === PHP_SESSION_NONE) {
 $clientId = $_GET['client_id'] ?? ($_POST['client_id'] ?? '');
 $redirectUri = $_GET['redirect_uri'] ?? ($_POST['redirect_uri'] ?? '');
 $responseType = $_GET['response_type'] ?? '';
+// Force friendly scope display for consent page, but preserve original for token
+$scopeDisplay = 'openid profile email';
 $scope = $_GET['scope'] ?? ($_POST['scope'] ?? 'labs:*');
 $state = $_GET['state'] ?? ($_POST['state'] ?? '');
 $codeChallenge = $_GET['code_challenge'] ?? ($_POST['code_challenge'] ?? '');

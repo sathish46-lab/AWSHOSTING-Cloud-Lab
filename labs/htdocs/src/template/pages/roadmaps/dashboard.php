@@ -53,29 +53,29 @@ $learners = count($db->ai_roadmaps->distinct('user_id'));
     <div class="container roadmaps-page p-4 p-lg-5 py-4 py-xl-5">
         <h2 class="mb-4 fw-bold text-center">Design your learning path</h2>
 
-        <div class="d-flex justify-content-center gap-2 flex-wrap mb-3" style="max-width:600px;margin:0 auto;">
-            <div class="flex-grow-1 position-relative">
-                <i class="bx bx-search position-absolute text-secondary" style="left:14px;top:50%;transform:translateY(-50%);font-size:1rem;"></i>
-                <input type="text" id="roadmap-search-input" class="form-control ps-5 pe-3 py-2 rounded-pill text-white border-secondary" placeholder="Generate Roadmap" autocomplete="off" style="font-size:0.9rem;">
+        <div class="rm-generate-bar">
+            <div class="rm-search-wrap">
+                <i class="bx bx-search rm-search-icon text-secondary"></i>
+                <input type="text" id="roadmap-search-input" class="rm-search-input" placeholder="Search by title, #tag, or keyword... (Ctrl+K)" autocomplete="off">
             </div>
-            <button class="btn btn-primary rounded-pill px-4 fw-semibold d-flex align-items-center gap-1" onclick="startGenerateFromSearch()">
-                <i class="bx bx-send"></i> Generate
+            <button class="rm-generate-btn" onclick="startGenerateFromSearch()">
+                <i class="bx bx-paper-plane"></i> Generate
             </button>
         </div>
 
         <!-- Stats -->
         <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap mt-3 mb-2">
-            <span class="badge rounded-pill bg-primary bg-opacity-25 text-primary border border-primary border-opacity-25 px-3 py-2">
-                <i class='bx bxs-map me-1'></i> <?= $total ?> Roadmaps
+            <span class="badge rounded-pill border border-primary text-primary px-2 py-1" style="background: transparent; font-size: 0.75rem;">
+                <i class='bx bxs-map me-1'></i> <?= $total ?> roadmaps
             </span>
-            <span class="badge rounded-pill bg-info bg-opacity-25 text-info border border-info border-opacity-25 px-3 py-2">
-                <i class='bx bx-group me-1'></i> <?= $learners ?> Learners
+            <span class="badge rounded-pill border border-info text-info px-2 py-1" style="background: transparent; font-size: 0.75rem;">
+                <i class='bx bx-group me-1'></i> <?= $learners ?> learners
             </span>
-            <span class="badge rounded-pill bg-success bg-opacity-25 text-success border border-success border-opacity-25 px-3 py-2">
-                <i class='bx bx-check-circle me-1'></i> <?= $completedCount ?> Completed
+            <span class="badge rounded-pill border border-success text-success px-2 py-1" style="background: transparent; font-size: 0.75rem;">
+                <i class='bx bx-check-circle me-1'></i> <?= $completedCount ?> completed
             </span>
-            <span class="badge rounded-pill bg-warning bg-opacity-25 text-warning border border-warning border-opacity-25 px-3 py-2">
-                <i class='bx bx-globe me-1'></i> <?= $publicCount ?> Public
+            <span class="badge rounded-pill border border-warning text-warning px-2 py-1" style="background: transparent; font-size: 0.75rem;">
+                <i class='bx bx-globe me-1'></i> <?= $publicCount ?> public
             </span>
         </div>
 
@@ -83,14 +83,23 @@ $learners = count($db->ai_roadmaps->distinct('user_id'));
 
         <!-- Filter Tabs -->
         <div class="d-flex gap-2 mb-3 flex-nowrap overflow-auto pb-1" id="rm-filter-tabs" style="scrollbar-width:none;-ms-overflow-style:none;">
-            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'all' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('all')">✨ For You</button>
-            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'continue' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('continue')">▶ Continue</button>
-            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'public' || $filter === 'explore' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('explore')">🌍 Explore</button>
-            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'liked' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('liked')">❤️ Most Liked</button>
-            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'editor' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('editor')">⭐ Editor Picks</button>
-            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'interacted' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('interacted')">🔥 Most Interacted</button>
-            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'my_likes' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('my_likes')">💖 My Likes</button>
-            <button class="btn btn-sm rounded-pill flex-shrink-0 <?= $filter === 'mine' || $filter === 'my_roadmaps' ? 'btn-primary' : 'btn-outline-secondary' ?>" onclick="rmFilter('mine')">👤 My Roadmaps</button>
+            <?php
+            $rmFilters = [
+                'all' => '✨ For You',
+                'continue' => '▶ Continue',
+                'explore' => '🌍 Explore',
+                'liked' => '❤️ Most Liked',
+                'editor' => '⭐ Editor Picks',
+                'interacted' => '🔥 Most Interacted',
+                'my_likes' => '💖 My Likes',
+                'mine' => '👤 My Roadmaps',
+            ];
+            foreach ($rmFilters as $key => $label):
+                $isActive = ($filter === $key) || ($key === 'explore' && $filter === 'public') || ($key === 'mine' && $filter === 'my_roadmaps');
+                $activeStyle = $isActive ? 'background: rgba(var(--cui-primary-rgb), 0.15); color: var(--cui-primary); border: 1px solid rgba(var(--cui-primary-rgb), 0.25);' : 'color: var(--cui-body-color); opacity: 0.65; border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.2);';
+            ?>
+                <button class="btn btn-sm rounded-pill flex-shrink-0 fw-semibold" style="font-size: 0.82rem; <?= $activeStyle ?>" onclick="rmFilter('<?= $key ?>')"><?= $label ?></button>
+            <?php endforeach; ?>
             <div class="vr mx-2 bg-secondary flex-shrink-0"></div>
             <select class="form-select form-select-sm rounded-pill text-white border-secondary flex-shrink-0" id="rm-level-filter" style="width:auto;" onchange="rmFilterLevel(this.value)">
                 <option value="all" <?= $levelFilter === 'all' ? 'selected' : '' ?>>All Levels</option>
@@ -143,10 +152,10 @@ $learners = count($db->ai_roadmaps->distinct('user_id'));
                             <div class="d-flex justify-content-between align-items-start mb-3">
                                 <div class="d-flex flex-wrap gap-1 align-items-center">
                                     <?php $lvlColor = strtolower($rmLevel) === 'advanced' ? 'danger' : (strtolower($rmLevel) === 'intermediate' ? 'warning' : 'success'); ?>
-                                    <span class="badge bg-<?= $lvlColor ?>-gradient d-inline-flex align-items-center gap-1">
+                                    <span class="badge rounded-pill border border-<?= $lvlColor ?> text-<?= $lvlColor ?> d-inline-flex align-items-center gap-1" style="background: transparent;">
                                         <i class="bx bxs-star"></i> <?= strtolower($rmLevel) ?>
                                     </span>
-                                    <span class="badge bg-<?= $rmVisibility === 'private' ? 'secondary' : 'info' ?>-gradient d-inline-flex align-items-center gap-1">
+                                    <span class="badge rounded-pill border border-<?= $rmVisibility === 'private' ? 'secondary' : 'info' ?> text-<?= $rmVisibility === 'private' ? 'secondary' : 'info' ?> d-inline-flex align-items-center gap-1" style="background: transparent;">
                                         <i class="bx <?= $rmVisibility === 'private' ? 'bx-lock-alt' : 'bx-globe' ?>"></i> <?= $rmVisibility === 'private' ? 'Private' : 'Public' ?>
                                     </span>
                                 </div>
@@ -181,10 +190,10 @@ $learners = count($db->ai_roadmaps->distinct('user_id'));
                             <!-- Tags -->
                             <div class="d-flex flex-wrap gap-1 mb-3">
                                 <?php foreach (array_slice($rmTags, 0, 3) as $tag): ?>
-                                    <span class="badge bg-primary-gradient px-2 py-1">#<?= htmlspecialchars(ltrim($tag, '#')) ?></span>
+                                    <span class="badge rounded-pill border border-primary text-primary px-2 py-1" style="background: transparent;">#<?= htmlspecialchars(ltrim($tag, '#')) ?></span>
                                 <?php endforeach; ?>
                                 <?php if (count($rmTags) > 3): ?>
-                                    <span class="badge bg-secondary-gradient px-2 py-1">+<?= count($rmTags) - 3 ?></span>
+                                    <span class="badge rounded-pill border border-secondary text-secondary px-2 py-1" style="background: transparent;">+<?= count($rmTags) - 3 ?></span>
                                 <?php endif; ?>
                             </div>
 
@@ -211,6 +220,9 @@ $learners = count($db->ai_roadmaps->distinct('user_id'));
                                     <button class="btn btn-link text-secondary p-0 d-inline-flex align-items-center gap-1 text-decoration-none toggle-like-btn flex-shrink-0 ms-1" data-roadmap-id="<?= $rmId ?>" title="Like">
                                         <i class="bx bx-heart fs-6"></i>
                                         <span class="roadmap-like-count" style="font-size:0.75rem;"><?= intval($rmLikesCount) ?></span>
+                                    </button>
+                                    <button class="btn btn-link text-secondary p-0 d-inline-flex align-items-center text-decoration-none flex-shrink-0 ms-1" data-copy="<?= (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/roadmaps/' . htmlspecialchars($rmSlug) ?>" title="Copy link">
+                                        <i class="bx bx-share-alt fs-6"></i>
                                     </button>
                                 </div>
                                 <a href="/roadmaps/<?= htmlspecialchars($rmSlug) ?>" class="btn btn-sm btn-success-gradient rounded-pill px-2 py-1 d-inline-flex align-items-center gap-1 fw-medium shadow-sm text-nowrap flex-shrink-0" style="font-size:0.78rem;" hx-boost="false" onclick="event.stopPropagation();">
@@ -383,9 +395,10 @@ function rmSavePreference() {
 }
 
 function updateFilterTabs() {
+    var inactiveStyle = 'color: var(--cui-body-color); opacity: 0.65; border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.2);';
+    var activeStyle = 'background: rgba(var(--cui-primary-rgb), 0.15); color: var(--cui-primary); border: 1px solid rgba(var(--cui-primary-rgb), 0.25);';
     document.querySelectorAll('#rm-filter-tabs .btn').forEach(function(btn) {
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-outline-secondary');
+        btn.style.cssText = 'font-size: 0.82rem; ' + inactiveStyle;
     });
     var filterMap = {
         'all': 0, 'continue': 1, 'explore': 2, 'public': 2,
@@ -396,8 +409,7 @@ function updateFilterTabs() {
     if (idx !== undefined) {
         var btns = document.querySelectorAll('#rm-filter-tabs .btn');
         if (btns[idx]) {
-            btns[idx].classList.remove('btn-outline-secondary');
-            btns[idx].classList.add('btn-primary');
+            btns[idx].style.cssText = 'font-size: 0.82rem; ' + activeStyle;
         }
     }
 }
@@ -541,7 +553,7 @@ function rmRenderSuggestions(data) {
             + (rm.prompt ? '<div class="text-secondary" style="font-size:0.75rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(rm.prompt) + '</div>' : '')
             + '</div>'
             + '<div class="d-flex flex-column align-items-end" style="flex-shrink:0;">'
-            + '<span class="badge rounded-pill bg-primary bg-opacity-25 text-primary" style="font-size:0.6rem;">' + escHtml(rm.level || '') + '</span>'
+            + '<span class="badge rounded-pill border border-primary text-primary" style="font-size:0.6rem; background:transparent;">' + escHtml(rm.level || '') + '</span>'
             + '<span class="text-secondary" style="font-size:0.65rem;">' + pct + '%</span>'
             + '</div>'
             + '<i class="bx bx-right-arrow-alt text-secondary" style="opacity:0;transition:opacity 0.15s;font-size:1rem;flex-shrink:0;"></i>'

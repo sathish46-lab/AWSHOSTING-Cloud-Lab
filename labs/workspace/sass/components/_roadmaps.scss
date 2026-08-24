@@ -779,7 +779,7 @@ body:has(.roadmap-detail-page) {
 .rm-check {
   width: 18px;
   height: 18px;
-  border-radius: 5px;
+  border-radius: 50%;
   border: 2px solid rgba(var(--cui-body-color-rgb), 0.3);
   background: transparent;
   cursor: pointer;
@@ -788,6 +788,18 @@ body:has(.roadmap-detail-page) {
   transition: all 0.2s ease;
   appearance: none;
   -webkit-appearance: none;
+  outline: none;
+  box-shadow: none;
+  font-size: 0;
+  padding: 0;
+  line-height: 0;
+
+  &::-webkit-checkmark,
+  &::-webkit-inner-spin-button,
+  &::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
 
   &:checked {
     background: var(--cui-success, #22c55e);
@@ -819,6 +831,53 @@ body:has(.roadmap-detail-page) {
   flex: 1 1 0%;
 
   &:hover { color: var(--cui-primary) !important; }
+}
+
+// --- Left panel item action icons (evidence) ---
+.rm-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 1;
+}
+
+.rm-item-action {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-size: 0.75rem;
+
+  &.rm-item-action-note {
+    background: rgba(99, 102, 241, 0.15);
+    color: #818cf8;
+    &:hover { background: rgba(99, 102, 241, 0.3); }
+  }
+
+  &.rm-item-action-ev {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    &:hover { background: rgba(34, 197, 94, 0.3); }
+  }
+}
+
+:root[data-coreui-theme="light"] {
+  .rm-item-action-note {
+    background: rgba(99, 102, 241, 0.12);
+    color: #6366f1;
+    &:hover { background: rgba(99, 102, 241, 0.2); }
+  }
+  .rm-item-action-ev {
+    background: rgba(34, 197, 94, 0.1);
+    color: #16a34a;
+    &:hover { background: rgba(34, 197, 94, 0.2); }
+  }
 }
 
 // --- Right Panel Tabs ---
@@ -1031,6 +1090,10 @@ body:has(.roadmap-detail-page) {
 }
 
 .rm-progress-item:hover .rm-progress-action {
+  opacity: 1;
+}
+
+.rm-progress-action.always-visible {
   opacity: 1;
 }
 
@@ -1423,5 +1486,89 @@ html[data-coreui-theme="light"] {
     transform: translateY(-4px);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   }
+  }
+}
+
+// --- Stats & Card Badges (flat default look, no neon glow) ---
+.roadmaps-page .badge {
+  text-shadow: none !important;
+  box-shadow: none !important;
+
+  &.rounded-pill:not([class*="bg-"]):not([style*="background"]) {
+    background: transparent !important;
+  }
+}
+
+// --- Generate Bar (Search + Button) ---
+.rm-generate-bar {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  max-width: 700px;
+  margin: 0 auto 12px;
+
+  .rm-search-wrap {
+    flex-grow: 1;
+    position: relative;
+
+    .rm-search-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 1.1rem;
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .rm-search-input {
+      width: 100%;
+      padding: 8px 16px 8px 44px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: var(--cui-body-color);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+
+      &::placeholder {
+        color: rgba(var(--cui-secondary-color-rgb), 0.6);
+      }
+
+      &:focus {
+        border-color: rgba(99, 102, 241, 0.5);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+      }
+    }
+  }
+
+  .rm-generate-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: none;
+    font-weight: 600;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    color: #fff;
+    background: var(--cui-primary);
+    box-shadow: 0 4px 15px rgba(var(--cui-primary-rgb), 0.4);
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(var(--cui-primary-rgb), 0.5);
+    }
+
+    &:active {
+      transform: translateY(0);
+    }
   }
 }

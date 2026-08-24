@@ -23,7 +23,7 @@
 }
 
 /* Direct device and domain glowing outline rules - only for default/plain themes */
-html:not(.bg-mode-spiderman):not(.bg-mode-ironman):not(.bg-mode-IronMan) {
+html:not(.bg-mode-spiderman) {
   #smart-insights-card {
     border: 1px solid rgba(111, 50, 207, 0.28) !important;
     box-shadow: 0 4px 20px rgba(111, 50, 207, 0.03) !important;
@@ -35,7 +35,7 @@ html:not(.bg-mode-spiderman):not(.bg-mode-ironman):not(.bg-mode-IronMan) {
 }
 
 /* Light Theme Contrast & Glow Adjustments - only for default/plain themes */
-html[data-coreui-theme="light"]:not(.bg-mode-spiderman):not(.bg-mode-ironman):not(.bg-mode-IronMan) {
+html[data-coreui-theme="light"]:not(.bg-mode-spiderman) {
   #smart-insights-card {
     border: 1px solid rgba(111, 50, 207, 0.6) !important;
     box-shadow: 0 8px 30px rgba(111, 50, 207, 0.15) !important;
@@ -112,201 +112,10 @@ html[data-coreui-theme], html {
   }
 }
 
-// ========================================================================
-// Spiderman Premium Theme Enhancements (Visual Blur Gradient Glow)
-// ========================================================================
-
-// --- DARK MODE SPIDERMAN ---
-html:not([data-coreui-theme="light"]).bg-mode-spiderman {
-  & body.hwa-enabled {
-
-    .card:not(.clan-card):not(.blur) {
-      // 1. Gorgeous Dark Gray to Dark Red diagonal glass gradient
-      background: linear-gradient(135deg, rgba(14, 14, 16, 0.65) 0%, rgba(35, 12, 14, 0.6) 100%) !important;
-
-      // 2. High-fidelity thin vibrant red translucent border
-      border: 1px solid rgba(255, 59, 48, 0.28) !important;
-
-      // 3. Luxurious deep shadow blended with a soft ambient red neon glow
-      box-shadow:
-        0 8px 32px 0 rgba(0, 0, 0, 0.45),
-        0 0 20px rgba(255, 59, 48, 0.12),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
-
-      // 4. Hover states to elevate the interactive feel
-      &:hover {
-        border-color: rgba(255, 59, 48, 0.55) !important;
-        box-shadow:
-          0 12px 40px rgba(0, 0, 0, 0.55),
-          0 0 30px rgba(255, 59, 48, 0.28),
-          inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
-        transform: translateY(-2px);
-      }
-    }
-  }
-
-  // Fallback state when Visual Blur is OFF
-  & body.hwa-disabled {
-
-    .card:not(.clan-card),
-    .blur:not(.clan-card) {
-      background: rgba(14, 14, 16, 0.68) !important;
-      border: 1px solid rgba(255, 59, 48, 0.2) !important;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
-
-      &:hover {
-        border-color: rgba(255, 59, 48, 0.4) !important;
-      }
-    }
-  }
-}
-
-// --- LIGHT MODE SPIDERMAN ---
-html[data-coreui-theme="light"].bg-mode-spiderman {
-  & body.hwa-enabled {
-
-    .card:not(.clan-card),
-    .blur:not(.clan-card) {
-      // 1. Sleek light mode frosted glass background
-      background: rgba(255, 255, 255, 0.72) !important;
-
-      // 2. Translucent red border for light theme
-      border: 1px solid rgba(255, 59, 48, 0.22) !important;
-
-      // 3. Soft ambient red shadow
-      box-shadow:
-        0 8px 32px 0 rgba(0, 0, 0, 0.06),
-        0 0 15px rgba(255, 59, 48, 0.06),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
-
-      &:hover {
-        border-color: rgba(255, 59, 48, 0.45) !important;
-        box-shadow:
-          0 12px 40px rgba(0, 0, 0, 0.12),
-          0 0 25px rgba(255, 59, 48, 0.15),
-          inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
-        transform: translateY(-2px);
-      }
-    }
-  }
-
-  // Fallback state when Visual Blur is OFF
-  & body.hwa-disabled {
-
-    .card:not(.clan-card),
-    .blur:not(.clan-card) {
-      background: rgba(255, 255, 255, 0.68) !important;
-      border: 1px solid rgba(255, 59, 48, 0.18) !important;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
-
-      &:hover {
-        border-color: rgba(255, 59, 48, 0.35) !important;
-      }
-    }
-  }
-}
-
-// ========================================================================
-// Iron Man Premium Theme Enhancements (Crimson & Gold Armor Fusion Glow)
-// ========================================================================
-
-// --- DARK MODE IRON MAN ---
-html:not([data-coreui-theme="light"]).bg-mode-ironman,
-html:not([data-coreui-theme="light"]).bg-mode-IronMan {
-  & body.hwa-enabled {
-
-    .card:not(.clan-card):not(.blur) {
-      // 1. Sleek Deep Dark Gray to Crimson-Gold Armor glass gradient
-      background: linear-gradient(135deg, rgba(20, 8, 8, 0.65) 0%, rgba(45, 12, 12, 0.6) 100%) !important;
-
-      // 2. Iron Man's signature glowing arc-reactor gold border
-      border: 1px solid rgba(255, 204, 0, 0.3) !important;
-
-      // 3. Luxurious deep shadow blended with a soft ambient hot-red neon glow
-      box-shadow:
-        0 8px 32px 0 rgba(0, 0, 0, 0.45),
-        0 0 20px rgba(214, 48, 49, 0.15),
-        inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
-
-      // 4. Hover states to elevate the interactive feel
-      &:hover {
-        border-color: rgba(255, 204, 0, 0.6) !important;
-        box-shadow:
-          0 12px 40px rgba(0, 0, 0, 0.55),
-          0 0 30px rgba(214, 48, 49, 0.35),
-          inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
-        transform: translateY(-2px);
-      }
-    }
-  }
-
-  // Fallback state when Visual Blur is OFF
-  & body.hwa-disabled {
-
-    .card:not(.clan-card),
-    .blur:not(.clan-card) {
-      background: rgba(18, 8, 8, 0.68) !important;
-      border: 1px solid rgba(255, 204, 0, 0.22) !important;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
-
-      &:hover {
-        border-color: rgba(255, 204, 0, 0.45) !important;
-      }
-    }
-  }
-}
-
-// --- LIGHT MODE IRON MAN ---
-html[data-coreui-theme="light"].bg-mode-ironman,
-html[data-coreui-theme="light"].bg-mode-IronMan {
-  & body.hwa-enabled {
-
-    .card:not(.clan-card),
-    .blur:not(.clan-card) {
-      // 1. Sleek light mode frosted glass background
-      background: rgba(255, 255, 255, 0.72) !important;
-
-      // 2. Translucent gold border for light theme
-      border: 1px solid rgba(255, 204, 0, 0.24) !important;
-
-      // 3. Soft ambient red/gold shadow
-      box-shadow:
-        0 8px 32px 0 rgba(0, 0, 0, 0.06),
-        0 0 15px rgba(214, 48, 49, 0.08),
-        inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
-
-      &:hover {
-        border-color: rgba(255, 204, 0, 0.5) !important;
-        box-shadow:
-          0 12px 40px rgba(0, 0, 0, 0.12),
-          0 0 25px rgba(214, 48, 49, 0.18),
-          inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
-        transform: translateY(-2px);
-      }
-    }
-  }
-
-  // Fallback state when Visual Blur is OFF
-  & body.hwa-disabled {
-
-    .card:not(.clan-card),
-    .blur:not(.clan-card) {
-      background: rgba(255, 255, 255, 0.68) !important;
-      border: 1px solid rgba(255, 204, 0, 0.2) !important;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
-
-      &:hover {
-        border-color: rgba(255, 204, 0, 0.4) !important;
-      }
-    }
-  }
-}
 
 // Highly-specific nested glass card overrides to resolve graphic composer double-blur & high opacity fallback bugs
 html[data-coreui-theme="light"].glass-mode {
-  &.bg-mode-spiderman,
-  &.bg-mode-ironman,
-  &.bg-mode-IronMan {
+  &.bg-mode-spiderman {
     .continue-learning-card {
       background: rgba(255, 255, 255, 0.38) !important;
       backdrop-filter: saturate(200%) blur(18px) !important;
@@ -326,9 +135,7 @@ html[data-coreui-theme="light"].glass-mode {
 }
 
 html:not([data-coreui-theme="light"]).glass-mode {
-  &.bg-mode-spiderman,
-  &.bg-mode-ironman,
-  &.bg-mode-IronMan {
+  &.bg-mode-spiderman {
     .continue-learning-card {
       background: linear-gradient(135deg, rgba(14, 14, 16, 0.45) 0%, rgba(35, 12, 14, 0.4) 100%) !important;
       backdrop-filter: saturate(200%) blur(18px) !important;

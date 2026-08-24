@@ -130,7 +130,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // GET — populate the template inputs from the transaction and render the page
 $_GET['client_id'] = $txn['client_id'];
 $_GET['redirect_uri'] = $txn['redirect_uri'];
-$_GET['scope'] = $txn['scope'];
+$_GET['scope'] = 'openid profile email'; // Friendly display scope
 $_GET['state'] = $txn['state'];
 $_GET['code_challenge'] = $txn['code_challenge'];
 $_GET['code_challenge_method'] = $txn['code_challenge_method'];

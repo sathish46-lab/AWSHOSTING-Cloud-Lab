@@ -108,13 +108,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         ];
     }
 
-    // 4. Connected = client currently has an open MCP SSE stream
+    // 4. Connected status: active (heartbeat <60s), idle (connected but no heartbeat), offline
     $connRows = $db->mcp_connections->find(['connected' => true]);
     foreach ($connRows as $row) {
         $cid = $row['client_id'] ?? '';
         if (!$cid || !isset($connected[$cid])) continue;
-        $connected[$cid]['connected'] = true;
+
+        // Check heartbeat: last_seen within 60 seconds = active
+        $lastSeen = $row['last_seen_at'] ?? null;
+        $active = $lastSeen && $lastSeen instanceof MongoDB\BSON\UTCDateTime
+            && $lastSeen->toDateTime()->getTimestamp() > (time() - 60);
+
+        // Verify token is still valid (not revoked, not expired)
+        $validToken = $db->mcp_tokens->findOne([
+            'client_id' => $cid,
+            'user_id' => $userId,
+            'revoked' => ['$ne' => true],
+            'access_expires_at' => ['$gte' => new MongoDB\BSON\UTCDateTime(time() * 1000)]
+        ]);
+
+        if (empty($validToken)) {
+            // Token invalid → offline
+            $connected[$cid]['status'] = 'offline';
+            $connected[$cid]['connected'] = false;
+        } elseif ($active) {
+            // Token valid + recent heartbeat → active
+            $connected[$cid]['status'] = 'active';
+            $connected[$cid]['connected'] = true;
+        } else {
+            // Token valid but no heartbeat for >60s → idle (stream may be stale)
+            $connected[$cid]['status'] = 'idle';
+            $connected[$cid]['connected'] = true;
+        }
     }
+
+    // Clean up truly stale connections (no activity for >5 minutes = dead)
+    $staleThreshold = new MongoDB\BSON\UTCDateTime((time() - 300) * 1000);
+    $db->mcp_connections->updateMany(
+        ['connected' => true, 'last_seen_at' => ['$lt' => $staleThreshold]],
+        ['$set' => ['connected' => false, 'disconnected_at' => new MongoDB\BSON\UTCDateTime(time() * 1000)]]
+    );
 
     // Aggregates: request count + last-used per client
     $agg = $db->mcp_activity->aggregate([
