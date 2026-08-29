@@ -147,14 +147,34 @@ class Router:
 
   Command Groups:
     lab          Base template operations (system only)
-    instance     User instance operations (UI builds here)
+    instance     User instance operations + bulk deploy
     network      Network routes, WireGuard peers, iptables
     proxy        Traefik proxy management
     container    Docker container management
     system       System health, workers, cleanup
     user         User SSH sync, listing
-    stream       Live log streaming
-    quiz         AI quiz generation
+
+  Instance Commands:
+    labsctl instance build --hash=HASH       Build instance image
+    labsctl instance deploy --hash=HASH      Deploy single instance
+    labsctl instance stop --hash=HASH        Stop instance
+    labsctl instance start --hash=HASH       Start instance
+    labsctl instance status --hash=HASH      Show instance status
+
+  Instance Bulk Deploy:
+    labsctl instance bulk                    Bulk deploy all matching
+    labsctl instance bulk --status=STATUS    Filter by status (default: not_deployed)
+    labsctl instance bulk --user=USER        Filter by user
+    labsctl instance bulk --throttle=N       Concurrent deploys (default: 3)
+    labsctl instance bulk --dry-run          Preview only
+
+  Instance Health & Reconcile:
+    labsctl instance health                  Check DB vs actual container
+    labsctl instance reconcile               Show mismatched states
+    labsctl instance reconcile --apply       Fix mismatched states
+    labsctl instance queue                   Show queue status
+    labsctl instance cancel                  Cancel pending jobs
+    labsctl instance cleanup                 Remove old queue entries
 
   Quick Commands (legacy):
     build        Build lab image
@@ -163,25 +183,16 @@ class Router:
     start        Start lab container
     remove       Remove lab container
     shell        Enter container shell
-    list-images  List built images
-    get-workers  Check active workers
 
   Options:
     --help, -h    Show this help
     --version     Show version
 
   Examples:
-    labsctl lab generate-keys             Generate SSH host keys (all templates)
-    labsctl lab generate-keys essentials  Generate keys for one template
-    labsctl lab build essentials:lab      Build base template image (system)
-    labsctl lab build docker_lab:lab      Build docker_lab template (system)
-    labsctl lab build minio:lab           Build minio template (system)
-    labsctl lab deploy --hash=abc123 --user=sathish
-    labsctl instance build --hash=abc123     Build user instance (UI)
-    labsctl instance deploy --hash=abc123
-    labsctl network status
-    labsctl proxy list
-    labsctl container list
-    labsctl system images
-    labsctl system status
+    labsctl instance health
+    labsctl instance bulk --status=stopped --throttle=5
+    labsctl instance bulk --user=sathish --dry-run
+    labsctl instance reconcile --apply
+    labsctl lab build essentials:lab
+    labsctl deploy --hash=abc123 --user=sathish
 """)
