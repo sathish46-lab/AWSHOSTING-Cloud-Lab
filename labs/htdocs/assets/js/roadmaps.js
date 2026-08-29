@@ -510,6 +510,13 @@
             return arr.indexOf(itemId) !== -1;
         },
 
+        hasEvidence: function(topicId, itemId) {
+            if (!this.data || !this.data.evidence_data) return false;
+            var ev = this.data.evidence_data[topicId];
+            if (!ev) return false;
+            return !!ev[itemId];
+        },
+
         openDeclareModal: function(topicId, itemId) {
             var self = this;
             var body = document.getElementById('rm-declare-body');
@@ -672,6 +679,11 @@
                     var arr = self.data.progress_data[topicId];
                     if (arr.indexOf(itemId) === -1) arr.push(itemId);
 
+                    // Mark evidence as present
+                    if (!self.data.evidence_data) self.data.evidence_data = {};
+                    if (!self.data.evidence_data[topicId]) self.data.evidence_data[topicId] = {};
+                    self.data.evidence_data[topicId][itemId] = true;
+
                     self.data.roadmap.progress = json.progress_percentage || 0;
                     self.data.roadmap.checkpoints_completed = json.checkpoints_completed || self.data.roadmap.checkpoints_completed;
                     self.data.roadmap.checkpoints_total = json.checkpoints_total || self.data.roadmap.checkpoints_total;
@@ -680,6 +692,7 @@
                     if (modal) modal.hide();
 
                     self.renderHeader();
+                    self.renderLeft();
                     self.renderRight();
                     self.showToast('Declaration submitted! Progress: ' + json.progress_percentage + '%', 'success');
                 } else {
@@ -749,7 +762,7 @@
                 sections.forEach(function(section, idx) {
                     var topics = section.topics || [];
                     html += '<section class="rm-section" data-section="' + idx + '">';
-                    html += '<div class="rm-section-label">' + (idx + 1) + '. ' + self.esc(section.title || 'Section ' + (idx + 1)) + '</div>';
+                    html += '<div class="rm-section-label">' + self.esc(section.title || 'Section ' + (idx + 1)) + '</div>';
                     html += '<div class="rm-section-cards">';
 
                     if (topics.length === 0) {
@@ -785,6 +798,7 @@
                                 var itemText = item.text || item.title || '';
                                 var itemType = item.type || 'learning';
                                 var checked = self.isCompleted(topicId, itemId);
+                                var hasEv = checked && self.hasEvidence(topicId, itemId);
                                 var cls = self.classFor(itemType);
                                 var glyph = self.glyphFor(itemType);
                                 var checkClass = checked ? ' rm-checked' : '';
@@ -793,6 +807,16 @@
                                 html += '<input type="checkbox" class="rm-check" data-slug="' + self.esc(itemId) + '"' + (checked ? ' checked' : '') + '>';
                                 if (glyph) html += '<span class="rm-glyph">' + glyph + '</span>';
                                 html += '<span class="rm-node-link" style="cursor:pointer;" data-topic="' + self.esc(topicId) + '" data-item="' + self.esc(itemId) + '" data-item-text="' + self.esc(itemText) + '" data-section="' + self.esc(section.id || '') + '">' + self.esc(itemText) + '</span>';
+                                if (checked) {
+                                    html += '<span class="rm-item-actions">';
+                                    html += '<span class="rm-item-action rm-item-action-note" title="Notes"><i class="bx bx-pencil"></i></span>';
+                                    if (hasEv) {
+                                        html += '<span class="rm-item-action rm-item-action-ev" title="View evidence" data-action="view-ev" data-topic="' + self.esc(topicId) + '" data-item="' + self.esc(itemId) + '"><i class="bx bx-paperclip"></i></span>';
+                                    } else {
+                                        html += '<span class="rm-item-action rm-item-action-ev" title="Add evidence" data-action="add-ev" data-topic="' + self.esc(topicId) + '" data-item="' + self.esc(itemId) + '"><i class="bx bx-upvote"></i></span>';
+                                    }
+                                    html += '</span>';
+                                }
                                 html += '</li>';
                             });
                             html += '</ul>';
@@ -842,8 +866,43 @@
                 });
             });
 
-            // Draw SVG connector wires
-            this.drawWires();
+            // Wire up evidence action icons in left panel
+            document.querySelectorAll('#rm-left-content .rm-item-action[data-action]').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var action = this.getAttribute('data-action');
+                    var topicId = this.getAttribute('data-topic');
+                    var itemId = this.getAttribute('data-item');
+                    if (!topicId || !itemId) return;
+                    if (action === 'add-ev' || action === 'view-ev') {
+                        RoadmapView.openDeclareModal(topicId, itemId);
+                    }
+                });
+            });
+
+            // Draw SVG connector wires (retry until layout settles)
+            var self = this;
+            var attempts = 0;
+            function tryDrawWires() {
+                attempts++;
+                var container = document.getElementById('rm-left-content');
+                if (!container) return;
+                var sections = container.querySelectorAll('.rm-section');
+                if (!sections.length) return;
+
+                // Check if all sections have non-zero height (layout ready)
+                var ready = true;
+                sections.forEach(function(s) {
+                    if (s.offsetHeight === 0) ready = false;
+                });
+
+                if (ready || attempts > 10) {
+                    self.drawWires();
+                } else {
+                    requestAnimationFrame(tryDrawWires);
+                }
+            }
+            requestAnimationFrame(tryDrawWires);
         },
 
         drawWires: function() {
@@ -856,10 +915,11 @@
             var sections = container.querySelectorAll('.rm-section');
             if (!sections.length) return;
 
-            var wrapRect = sectionsWrap.getBoundingClientRect();
+            var cRect = container.getBoundingClientRect();
+            var st = container.scrollTop;
 
-            var svgParts = [];
-            var allCoords = [];
+            function rY(el) { var r = el.getBoundingClientRect(); return r.top - cRect.top + st; }
+            function rX(el) { var r = el.getBoundingClientRect(); return r.left - cRect.left; }
 
             var sectionData = [];
 
@@ -868,76 +928,57 @@
                 var cards = section.querySelectorAll('.rm-card');
                 if (!label || !cards.length) return;
 
-                var labelRect = label.getBoundingClientRect();
-                var labelCX = labelRect.left + labelRect.width / 2 - wrapRect.left;
-                var labelCY = labelRect.top + labelRect.height / 2 - wrapRect.top;
-                var labelBY = labelRect.bottom - wrapRect.top;
-                var labelTY = labelRect.top - wrapRect.top;
+                var lH = label.offsetHeight;
+                var lCY = rY(label) + lH / 2;
+                var lBY = rY(label) + lH;
+                var lCX = rX(label) + label.offsetWidth / 2;
 
                 var cardTops = [];
-                var cardBottoms = [];
                 cards.forEach(function(card) {
-                    var cr = card.getBoundingClientRect();
                     cardTops.push({
-                        x: cr.left + cr.width / 2 - wrapRect.left,
-                        y: cr.top - wrapRect.top
+                        x: rX(card) + card.offsetWidth / 2,
+                        y: rY(card)
                     });
-                    cardBottoms.push(cr.bottom - wrapRect.top);
                 });
 
                 if (cardTops.length === 0) return;
 
-                var leftX = Math.min.apply(null, cardTops.map(function(c) { return c.x; }));
-                var rightX = Math.max.apply(null, cardTops.map(function(c) { return c.x; }));
-                var tapY = labelBY + 14;
-                var lastCardBottom = Math.max.apply(null, cardBottoms);
+                var leftX = Math.min.apply(null, cardTops.map(function(c){return c.x;}));
+                var rightX = Math.max.apply(null, cardTops.map(function(c){return c.x;}));
+                var tapY = lBY + 16;
 
-                sectionData.push({ labelCX: labelCX, labelCY: labelCY, labelBY: labelBY, labelTY: labelTY, tapY: tapY, leftX: leftX, rightX: rightX, cardTops: cardTops, lastCardBottom: lastCardBottom, section: section });
-
-                allCoords.push(labelBY, tapY);
-                cardTops.forEach(function(c) { allCoords.push(c.y); });
+                sectionData.push({
+                    labelCX: lCX, labelCY: lCY, labelBY: lBY,
+                    tapY: tapY, leftX: leftX, rightX: rightX, cardTops: cardTops
+                });
             });
 
             if (sectionData.length === 0) return;
 
-            for (var si = 0; si < sectionData.length; si++) {
-                var sd = sectionData[si];
+            var parts = [];
 
-                svgParts.push('<line x1="' + sd.labelCX + '" y1="' + sd.labelBY + '" x2="' + sd.labelCX + '" y2="' + sd.tapY + '" class="rm-tap"></line>');
-                svgParts.push('<line x1="' + sd.leftX + '" y1="' + sd.tapY + '" x2="' + sd.rightX + '" y2="' + sd.tapY + '" class="rm-tap"></line>');
+            var spineX = sectionData[0].labelCX;
+            var spineTop = sectionData[0].labelCY;
+            var spineBottom = sectionData[sectionData.length - 1].labelCY;
+            parts.push('<line x1="'+spineX+'" y1="'+spineTop+'" x2="'+spineX+'" y2="'+spineBottom+'" class="rm-spine"></line>');
 
+            sectionData.forEach(function(sd) {
+                parts.push('<line x1="'+sd.labelCX+'" y1="'+sd.labelCY+'" x2="'+sd.labelCX+'" y2="'+sd.tapY+'" class="rm-tap"></line>');
+                parts.push('<line x1="'+sd.leftX+'" y1="'+sd.tapY+'" x2="'+sd.rightX+'" y2="'+sd.tapY+'" class="rm-tap"></line>');
                 sd.cardTops.forEach(function(c) {
-                    svgParts.push('<path d="M ' + c.x + ' ' + sd.tapY + ' L ' + c.x + ' ' + c.y + '" class="rm-wire"></path>');
+                    parts.push('<path d="M '+c.x+' '+sd.tapY+' L '+c.x+' '+c.y+'" class="rm-wire"></path>');
                 });
+            });
 
-                if (si < sectionData.length - 1) {
-                    var nextSD = sectionData[si + 1];
-                    var segTop = sd.lastCardBottom + 10;
-                    var segBottom = nextSD.labelTY - 4;
+            if (!parts.length) return;
 
-                    if (segBottom > segTop) {
-                        var spineX1 = sd.labelCX;
-                        var spineX2 = nextSD.labelCX;
-                        svgParts.push('<line x1="' + spineX1 + '" y1="' + segTop + '" x2="' + spineX2 + '" y2="' + segBottom + '" class="rm-spine"></line>');
-                        allCoords.push(segTop, segBottom);
-                    }
-                }
-            }
+            var svgW = container.scrollWidth;
+            var svgH = container.scrollHeight;
+            var svg = '<svg class="rm-wires" aria-hidden="true" overflow="hidden" width="'+svgW+'" height="'+svgH+'" viewBox="0 0 '+svgW+' '+svgH+'">'+parts.join('')+'</svg>';
 
-            if (svgParts.length === 0) return;
-
-            var minY = Math.min.apply(null, allCoords);
-            var maxY = Math.max.apply(null, allCoords);
-            var svgH = maxY - minY + 40;
-            var svgW = sectionsWrap.scrollWidth;
-
-            var svg = '<svg class="rm-wires" aria-hidden="true" overflow="hidden" width="' + svgW + '" height="' + svgH + '" viewBox="0 0 ' + svgW + ' ' + svgH + '">';
-            svg += svgParts.join('');
-            svg += '</svg>';
-
-            var existing = sectionsWrap.querySelector('.rm-wires');
+            var existing = container.querySelector('.rm-wires');
             if (existing) existing.remove();
-            sectionsWrap.insertAdjacentHTML('afterbegin', svg);
+            container.insertAdjacentHTML('afterbegin', svg);
         },
 
         renderRight: function() {
@@ -974,21 +1015,29 @@
                         var itemType = item.type || 'concept';
                         var itemText = item.text || item.title || '';
                         var declared = self.isCompleted(topicId, itemId);
+                        var hasEv = declared && self.hasEvidence(topicId, itemId);
                         var bc = self.badgeClass(itemType);
                         var bl = itemType.charAt(0).toUpperCase() + itemType.slice(1);
 
                         // Checkbox icon
                         var checkIcon = declared
                             ? '<div class="rm-progress-check done"><i class="bx bx-check"></i></div>'
-                            : '<div class="rm-progress-check"><i class="bx bx-circle"></i></div>';
+                            : '<div class="rm-progress-check"></div>';
 
                         // Row class
                         var rowClass = 'rm-progress-item' + (declared ? ' completed' : '');
 
-                        // Action button icon only
-                        var actionIcon = declared
-                            ? '<i class="bx bx-paperclip"></i>'
-                            : '<i class="bx bx-upvote"></i>';
+                        // Action button: only when checked
+                        var actionHtml = '';
+                        if (declared) {
+                            var actionIcon = hasEv
+                                ? '<i class="bx bx-paperclip"></i>'
+                                : '<i class="bx bx-upvote"></i>';
+                            var actionLabel = hasEv ? 'View evidence' : 'Add evidence';
+                            actionHtml = '<div class="rm-progress-action flex-shrink-0 always-visible">'
+                                + '<span class="rm-progress-action-btn' + (hasEv ? ' declared' : '') + '" title="' + actionLabel + '">' + actionIcon + '</span>'
+                                + '</div>';
+                        }
 
                         html += '<div class="' + rowClass + '" style="cursor:pointer;" onclick="window.RoadmapView.openDeclareModal(\'' + self.esc(topicId) + '\',\'' + self.esc(itemId) + '\')">';
                         html += '<div class="d-flex align-items-start gap-2">';
@@ -999,9 +1048,7 @@
                         html += '<div class="rm-progress-item-text' + (declared ? ' text-secondary' : '') + '">' + self.esc(itemText) + '</div>';
                         html += '<span class="rm-progress-badge ' + bc + '">' + bl + '</span>';
                         html += '</div>';
-                        html += '<div class="rm-progress-action flex-shrink-0">';
-                        html += '<span class="rm-progress-action-btn' + (declared ? ' declared' : '') + '">' + actionIcon + '</span>';
-                        html += '</div>';
+                        html += actionHtml;
                         html += '</div></div>';
                     });
                 });
@@ -1015,15 +1062,27 @@
             var barTab = document.getElementById('rm-progress-bar-tab');
             var countEl = document.getElementById('rm-progress-count');
             var warnEl = document.getElementById('rm-progress-warning');
+
+            // Count actual declared items (any type with evidence/declaration)
+            var totalDeclared = 0;
+            sections.forEach(function(section) {
+                (section.topics || []).forEach(function(topic) {
+                    (topic.items || []).forEach(function(item) {
+                        if (self.hasEvidence(topic.id, item.id)) totalDeclared++;
+                    });
+                });
+            });
+            var totalAllItems = totalItems;
+            var remainingEvidence = totalAllItems - totalDeclared;
+
             if (pctTab) pctTab.textContent = (rm.progress || 0) + '%';
             if (barTab) barTab.style.width = (rm.progress || 0) + '%';
-            if (countEl) countEl.textContent = (rm.checkpoints_completed || 0) + ' / ' + (rm.checkpoints_total || 0) + ' checkpoints declared';
+            if (countEl) countEl.textContent = totalDeclared + ' / ' + totalAllItems + ' checkpoints declared';
 
             // Warning message
             if (warnEl) {
-                var remaining = (rm.checkpoints_total || 0) - (rm.checkpoints_completed || 0);
-                if (remaining > 0 && (rm.progress || 0) < 100) {
-                    warnEl.innerHTML = '<i class="bx bx-error text-warning me-1"></i><span class="text-warning" style="font-size:0.72rem;">' + remaining + ' evidence needed for 100% — max 50% without proof</span>';
+                if (remainingEvidence > 0 && (rm.progress || 0) < 100) {
+                    warnEl.innerHTML = '<i class="bx bx-error text-warning me-1"></i><span class="text-warning" style="font-size:0.72rem;">' + remainingEvidence + ' evidence needed for 100% — max 50% without proof</span>';
                     warnEl.classList.remove('d-none');
                 } else {
                     warnEl.classList.add('d-none');
@@ -1067,6 +1126,9 @@
                     if (pctEl) pctEl.textContent = json.progress + '%';
                     if (barEl) barEl.style.width = json.progress + '%';
 
+                    // Re-render left panel to update evidence icons
+                    self.renderLeft();
+
                     // Live update right panel progress tab
                     var progressList = document.getElementById('rm-progress-list');
                     if (progressList) self.renderRight();
@@ -1081,7 +1143,7 @@
             if (!document.getElementById('rm-topic-modal')) {
                 var modalHtml = '<div class="modal fade" id="rm-topic-modal" tabindex="-1" aria-hidden="true">' +
                     '<div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">' +
-                    '<div class="modal-content" style="background:var(--cui-card-bg,#1a1d23);border:1px solid rgba(255,255,255,0.1);border-radius:16px;">' +
+                    '<div class="modal-content blur">' +
                     '<div class="modal-header border-0 pb-0">' +
                     '<h5 class="modal-title fw-bold" id="rm-topic-title" style="font-size:1.1rem;"></h5>' +
                     '<button type="button" class="btn-close btn-close-white" data-coreui-dismiss="modal" aria-label="Close"></button>' +
@@ -1143,35 +1205,200 @@
 
                 var content = json.content_html || json.content || '';
                 var resources = json.resources || [];
-                var html = '';
+                var regenCount = json.regenerate_count || 0;
 
-                // Subtitle: badge + section name
-                html += '<div class="mb-3"><span class="badge ' + typeBadgeClass + ' me-2" style="font-size:0.65rem;">' + self.esc(typeLabel) + '</span><span class="text-body-secondary small">' + self.esc(sectionTitle) + '</span></div>';
+                var regenIcon = '<svg class="icon text-warning" style="height:20px;width:20px;vertical-align:middle;"><use xlink:href="/assets/icons/sprites/free.svg#cil-loop-circular"></use></svg>';
+                var regenTag = regenCount > 0 ? ' <span class="rm-regen-tag text-body-secondary" style="font-size:0.6rem;">(regenerated ' + regenCount + 'x)</span>' : '<span class="rm-regen-tag" style="display:none;font-size:0.6rem;"></span>';
 
-                // Content (no title — just the explanation)
-                if (content) {
-                    html += '<div class="mb-3" style="font-size:0.88rem;line-height:1.7;color:var(--cui-body-color);">' + content + '</div>';
-                } else {
-                    html += '<p class="text-body-secondary small">No content generated yet.</p>';
-                }
+                // Subtitle with regenerate button for content
+                var subtitleHtml = '<div class="mb-3 d-flex align-items-center gap-2">' +
+                    '<span class="badge ' + typeBadgeClass + '" style="font-size:0.65rem;">' + self.esc(typeLabel) + '</span>' +
+                    '<span class="text-body-secondary small">' + self.esc(sectionTitle) + '</span>' +
+                    '<button class="btn btn-link p-0 ms-1 rm-regen-btn" data-section="content" title="Regenerate content" style="text-decoration:none;opacity:0.6;transition:opacity 0.2s;">' + regenIcon + '</button>' +
+                    regenTag + '</div>';
 
-                // Free Resources
+                // Resources header with regenerate button
+                var resourcesHeaderHtml = '<div class="mt-3 d-flex align-items-center gap-2">' +
+                    '<h6 class="fw-bold mb-0" style="font-size:0.85rem;"><i class="bx bx-link-alt me-1"></i>Free Resources</h6>' +
+                    '<button class="btn btn-link p-0 rm-regen-btn" data-section="resources" title="Regenerate resources" style="text-decoration:none;opacity:0.6;transition:opacity 0.2s;">' + regenIcon + '</button>' +
+                    '</div>';
+
+                // Build resources HTML
+                var resourcesHtml = '';
                 if (resources.length > 0) {
-                    html += '<div class="mt-3"><h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bx bx-link-alt me-1"></i>Free Resources</h6>';
-                    html += '<div class="d-flex flex-column gap-1">';
+                    resourcesHtml += resourcesHeaderHtml;
+                    resourcesHtml += '<div class="d-flex flex-column gap-1">';
                     resources.forEach(function(res) {
                         var resType = (res.type || 'Article');
                         var resClass = resType.toLowerCase() === 'video' ? 'badge-soft-danger' : 'badge-soft-success';
-                        html += '<a href="' + self.esc(res.url) + '" target="_blank" rel="noopener noreferrer" class="d-flex align-items-center gap-2 text-decoration-none p-2 rounded" style="background:rgba(var(--cui-body-color-rgb),0.03);border:1px solid rgba(var(--cui-body-color-rgb),0.06);">';
-                        html += '<span class="badge ' + resClass + '" style="font-size:0.6rem;min-width:50px;">' + self.esc(resType) + '</span>';
-                        html += '<span class="flex-grow-1 small" style="color:var(--cui-body-color);">' + self.esc(res.title || res.url) + '</span>';
-                        if (res.source) html += '<span class="text-body-secondary" style="font-size:0.65rem;">' + self.esc(res.source) + '</span>';
-                        html += '</a>';
+                        resourcesHtml += '<a href="' + self.esc(res.url) + '" target="_blank" rel="noopener noreferrer" class="d-flex align-items-center gap-2 text-decoration-none p-2 rounded" style="background:rgba(var(--cui-body-color-rgb),0.03);border:1px solid rgba(var(--cui-body-color-rgb),0.06);">';
+                        resourcesHtml += '<span class="badge ' + resClass + '" style="font-size:0.6rem;min-width:50px;">' + self.esc(resType) + '</span>';
+                        resourcesHtml += '<span class="flex-grow-1 small" style="color:var(--cui-body-color);">' + self.esc(res.title || res.url) + '</span>';
+                        if (res.source) resourcesHtml += '<span class="text-body-secondary" style="font-size:0.65rem;">' + self.esc(res.source) + '</span>';
+                        resourcesHtml += '</a>';
                     });
-                    html += '</div></div>';
+                    resourcesHtml += '</div>';
                 }
 
-                bodyEl.innerHTML = html || '<p class="text-body-secondary">Content not yet generated for this item.</p>';
+                if (!content) {
+                    bodyEl.innerHTML = subtitleHtml + '<p class="text-body-secondary small">No content generated yet.</p>' + resourcesHtml;
+                    return;
+                }
+
+                // Show subtitle + empty content div + resources (hidden)
+                bodyEl.innerHTML = subtitleHtml +
+                    '<div class="mb-3 rm-typewriter" style="font-size:0.88rem;line-height:1.7;color:var(--cui-body-color);"></div>' +
+                    '<div class="rm-resources-wrap" style="display:none;">' + resourcesHtml + '</div>';
+
+                // Typewriter effect: append words one by one
+                var contentEl = bodyEl.querySelector('.rm-typewriter');
+                var resourcesWrap = bodyEl.querySelector('.rm-resources-wrap');
+                var tempDiv = document.createElement('div');
+                tempDiv.innerHTML = content;
+
+                // Extract text nodes and tags as tokens
+                var tokens = [];
+                function extractTokens(node) {
+                    if (node.nodeType === 3) {
+                        var words = node.textContent.split(/(\s+)/);
+                        words.forEach(function(w) { if (w) tokens.push({ type: 'text', value: w }); });
+                    } else if (node.nodeType === 1) {
+                        tokens.push({ type: 'open', tag: node.tagName.toLowerCase(), attrs: node.attributes });
+                        node.childNodes.forEach(function(c) { extractTokens(c); });
+                        tokens.push({ type: 'close', tag: node.tagName.toLowerCase() });
+                    }
+                }
+                tempDiv.childNodes.forEach(function(c) { extractTokens(c); });
+
+                var idx = 0;
+                var buf = '';
+                var isTag = false;
+                var tagBuf = '';
+
+                function typeNext() {
+                    if (idx >= tokens.length) {
+                        // Done — remove cursor
+                        contentEl.classList.add('rm-typewriter-done');
+                        // Show resources with loading delay
+                        if (resourcesWrap && resources.length > 0) {
+                            var loaderDiv = document.createElement('div');
+                            loaderDiv.className = 'rm-resources-loader';
+                            loaderDiv.innerHTML = '<span class="text-body-secondary small" style="font-size:0.8rem;"><i class="bx bx-link-alt me-1"></i>Loading resources<span class="rm-dots"></span></span>';
+                            bodyEl.appendChild(loaderDiv);
+
+                            setTimeout(function() {
+                                loaderDiv.remove();
+                                resourcesWrap.style.display = '';
+                                resourcesWrap.style.opacity = '0';
+                                resourcesWrap.style.transition = 'opacity 0.3s ease';
+                                requestAnimationFrame(function() {
+                                    requestAnimationFrame(function() {
+                                        resourcesWrap.style.opacity = '1';
+                                    });
+                                });
+                            }, 500);
+                        }
+                        return;
+                    }
+                    var tok = tokens[idx++];
+                    if (tok.type === 'open') {
+                        var attrStr = '';
+                        for (var i = 0; i < tok.attrs.length; i++) {
+                            attrStr += ' ' + tok.attrs[i].name + '="' + tok.attrs[i].value + '"';
+                        }
+                        buf += '<' + tok.tag + attrStr + '>';
+                        contentEl.innerHTML = buf;
+                        typeNext();
+                    } else if (tok.type === 'close') {
+                        buf += '</' + tok.tag + '>';
+                        contentEl.innerHTML = buf;
+                        typeNext();
+                    } else {
+                        buf += tok.value;
+                        contentEl.innerHTML = buf;
+                        // Speed: faster for spaces, slower for words
+                        var delay = tok.value.trim() ? 18 : 6;
+                        setTimeout(typeNext, delay);
+                    }
+                }
+
+                typeNext();
+
+                // Regenerate button handlers
+                bodyEl.querySelectorAll('.rm-regen-btn').forEach(function(btn) {
+                    btn.addEventListener('mouseenter', function() { btn.style.opacity = '1'; });
+                    btn.addEventListener('mouseleave', function() { btn.style.opacity = '0.6'; });
+                    btn.addEventListener('click', function() {
+                        var section = btn.getAttribute('data-section');
+                        btn.style.pointerEvents = 'none';
+                        btn.classList.add('rm-spin');
+
+                        fetch('/api/roadmaps/topic_generate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ roadmap_id: self.data.roadmap.id, topic_id: topicId, item_id: itemId, regenerate: true, regen_section: section })
+                        })
+                        .then(function(r) { return r.json(); })
+                        .then(function(nj) {
+                            btn.classList.remove('rm-spin');
+                            btn.style.pointerEvents = '';
+                            if (nj.error) return;
+
+                            if (section === 'content') {
+                                // Update regenerate count tag
+                                var regenTag = bodyEl.querySelector('.rm-regen-tag');
+                                if (regenTag) regenTag.innerHTML = '(regenerated ' + (nj.regenerate_count || 0) + 'x)';
+                                // Typewrite new content in place
+                                var newContent = nj.content_html || nj.content || '';
+                                contentEl.classList.remove('rm-typewriter-done');
+                                contentEl.innerHTML = '';
+                                var newTokens = [];
+                                var tmp = document.createElement('div');
+                                tmp.innerHTML = newContent;
+                                function extractNew(n) {
+                                    if (n.nodeType === 3) { n.textContent.split(/(\s+)/).forEach(function(w) { if (w) newTokens.push({type:'text',value:w}); }); }
+                                    else if (n.nodeType === 1) {
+                                        newTokens.push({type:'open',tag:n.tagName.toLowerCase(),attrs:n.attributes});
+                                        n.childNodes.forEach(function(c){extractNew(c);});
+                                        newTokens.push({type:'close',tag:n.tagName.toLowerCase()});
+                                    }
+                                }
+                                tmp.childNodes.forEach(function(c){extractNew(c);});
+                                var ni = 0, nbuf = '';
+                                function typeNew() {
+                                    if (ni >= newTokens.length) { contentEl.classList.add('rm-typewriter-done'); return; }
+                                    var t = newTokens[ni++];
+                                    if (t.type === 'open') { var a=''; for(var k=0;k<t.attrs.length;k++) a+=' '+t.attrs[k].name+'="'+t.attrs[k].value+'"'; nbuf+='<'+t.tag+a+'>'; contentEl.innerHTML=nbuf; typeNew(); }
+                                    else if (t.type === 'close') { nbuf+='</'+t.tag+'>'; contentEl.innerHTML=nbuf; typeNew(); }
+                                    else { nbuf+=t.value; contentEl.innerHTML=nbuf; setTimeout(typeNew, t.value.trim()?18:6); }
+                                }
+                                typeNew();
+                            } else if (section === 'resources') {
+                                // Rebuild resources section in place
+                                var rw = bodyEl.querySelector('.rm-resources-wrap');
+                                if (rw && nj.resources && nj.resources.length > 0) {
+                                    var rh = '<div class="d-flex flex-column gap-1">';
+                                    nj.resources.forEach(function(res) {
+                                        var rt=(res.type||'Article'), rc=rt.toLowerCase()==='video'?'badge-soft-danger':'badge-soft-success';
+                                        rh+='<a href="'+self.esc(res.url)+'" target="_blank" rel="noopener noreferrer" class="d-flex align-items-center gap-2 text-decoration-none p-2 rounded" style="background:rgba(var(--cui-body-color-rgb),0.03);border:1px solid rgba(var(--cui-body-color-rgb),0.06);">';
+                                        rh+='<span class="badge '+rc+'" style="font-size:0.6rem;min-width:50px;">'+self.esc(rt)+'</span>';
+                                        rh+='<span class="flex-grow-1 small" style="color:var(--cui-body-color);">'+self.esc(res.title||res.url)+'</span>';
+                                        if(res.source) rh+='<span class="text-body-secondary" style="font-size:0.65rem;">'+self.esc(res.source)+'</span>';
+                                        rh+='</a>';
+                                    });
+                                    rh+='</div>';
+                                    rw.style.opacity = '0';
+                                    setTimeout(function() {
+                                        rw.innerHTML = rh;
+                                        rw.style.opacity = '1';
+                                    }, 200);
+                                }
+                            }
+                        })
+                        .catch(function() { btn.classList.remove('rm-spin'); btn.style.pointerEvents = ''; });
+                    });
+                });
 
                 // Footer buttons — rounded pill style
                 footerEl.innerHTML =

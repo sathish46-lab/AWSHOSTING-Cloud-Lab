@@ -17548,6 +17548,37 @@ var TomBG = {
             if (typeof TomBG.updateCustomSlotsUI === 'function') {
               TomBG.updateCustomSlotsUI();
             }
+            var currentMode = localStorage.getItem('tom-labs-bg-mode') || 'spiderman';
+            document.querySelectorAll('.theme-template-card').forEach(function(card) {
+              if (card.getAttribute('data-mode') === currentMode) {
+                card.style.borderColor = 'var(--cui-primary)';
+                card.style.boxShadow = '0 0 12px rgba(var(--cui-primary-rgb), 0.35)';
+                var src = card.getAttribute('data-bg-src');
+                if (src) card.style.backgroundImage = "linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('" + src + "')";
+              }
+            });
+            if ('IntersectionObserver' in window) {
+              var observer = new IntersectionObserver(function(entries) {
+                entries.forEach(function(entry) {
+                  if (entry.isIntersecting) {
+                    var card = entry.target;
+                    var src = card.getAttribute('data-bg-src');
+                    if (src && !card.style.backgroundImage.includes(src)) {
+                      card.style.backgroundImage = "linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('" + src + "')";
+                    }
+                    observer.unobserve(card);
+                  }
+                });
+              }, { rootMargin: '200px' });
+              document.querySelectorAll('.theme-template-card').forEach(function(card) {
+                if (card.getAttribute('data-mode') !== currentMode) observer.observe(card);
+              });
+            } else {
+              document.querySelectorAll('.theme-template-card').forEach(function(card) {
+                var src = card.getAttribute('data-bg-src');
+                if (src) card.style.backgroundImage = "linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('" + src + "')";
+              });
+            }
           })
           .catch(function(err) {
             console.error("Failed to load background modal", err);
@@ -23289,12 +23320,12 @@ try {
             }
 
             if (currentFilterTab !== 'all') {
+                var inactiveStyle = 'color: var(--cui-body-color); opacity: 0.65; border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.2);';
+                var activeStyle = 'background: rgba(var(--cui-primary-rgb), 0.15); color: var(--cui-primary); border: 1px solid rgba(var(--cui-primary-rgb), 0.25);';
                 document.querySelectorAll('.lesson-filter-btn').forEach(b => {
-                    b.classList.remove('active', 'text-white');
-                    b.classList.add('text-secondary');
+                    b.style.cssText = 'font-size: 0.82rem; ' + inactiveStyle;
                     if (b.getAttribute('data-filter') === currentFilterTab) {
-                        b.classList.add('active', 'text-white');
-                        b.classList.remove('text-secondary');
+                        b.style.cssText = 'font-size: 0.82rem; ' + activeStyle;
                     }
                 });
             }
@@ -23424,12 +23455,12 @@ try {
             document.querySelectorAll('.lesson-filter-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.preventDefault();
+                    var inactiveStyle = 'color: var(--cui-body-color); opacity: 0.65; border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.2);';
+                    var activeStyle = 'background: rgba(var(--cui-primary-rgb), 0.15); color: var(--cui-primary); border: 1px solid rgba(var(--cui-primary-rgb), 0.25);';
                     document.querySelectorAll('.lesson-filter-btn').forEach(b => {
-                        b.classList.remove('active', 'text-white');
-                        b.classList.add('text-secondary');
+                        b.style.cssText = 'font-size: 0.82rem; ' + inactiveStyle;
                     });
-                    btn.classList.add('active', 'text-white');
-                    btn.classList.remove('text-secondary');
+                    btn.style.cssText = 'font-size: 0.82rem; ' + activeStyle;
 
                     currentFilterTab = btn.getAttribute('data-filter') || 'all';
                     fetchLessonsGrid();
@@ -23549,13 +23580,7 @@ try {
                         return;
                     }
 
-                    const card = e.target.closest('.lesson-card');
-                    if (card && !e.target.closest('a, button, .dropdown, input, textarea')) {
-                        const lessonId = card.getAttribute('data-lesson-id');
-                        if (lessonId && !(window.getSelection() && window.getSelection().toString())) {
-                            window.location.href = '/learn/lesson/' + lessonId;
-                        }
-                    }
+                    // Card click navigation removed — only "Start Learning" button opens lesson
                 });
 
                 document.addEventListener('click', function (e) {
