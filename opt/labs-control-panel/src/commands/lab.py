@@ -124,7 +124,7 @@ class LabCmd(Command):
         return int(hashlib.md5(username.encode()).hexdigest()[:8], 16) % 100000 + 1000
 
     def _set_user_quota(self, username, storage_path):
-        storage_base = self.cfg.storage_base
+        storage_base = self.cfg.get("storage_base", "/var/tomlabs/storage")
         limit_gb = self.cfg.storage_limit_gb
         limit_soft = limit_gb - 1
 
@@ -146,7 +146,7 @@ class LabCmd(Command):
         self.log(f"Quota set: {limit_gb}GB limit for {username} (project {proj_id})", "success")
 
     def _release_user_quota(self, username):
-        storage_base = self.cfg.storage_base
+        storage_base = self.cfg.get("storage_base", "/var/tomlabs/storage")
         code, _ = self.run("which xfs_quota 2>/dev/null", capture=True)
         if code != 0:
             return
@@ -381,7 +381,7 @@ class LabCmd(Command):
 
         # Phase: STORAGE — create SNA-style structure on first deploy, preserve on redeploy
         import hashlib
-        storage_base = self.cfg.storage_base
+        storage_base = self.cfg.get("storage_base", "/var/tomlabs/storage")
         user_email = lab_data.get("email", "")
         user_hash = hashlib.md5(user_email.encode()).hexdigest() if user_email else username
         # SNA-style: storage/{hash}/home/{username}/ + cron/ + usr/
@@ -497,8 +497,8 @@ class LabCmd(Command):
         self.log(f"Assigned Docker IP (eth0): {docker_ip}", "info")
 
         docker_cmd = self.cfg.get("docker_run", "")
-        # Host-side base path (Mac) for Docker volume mount
-        STORAGE_HOST_BASE = "/Users/sathish/Development/Dev_lab/tomlabs/storage"
+        # Host-side base path for Docker volume mount
+        storage_base = self.cfg.get("storage_base", "/var/tomlabs/storage")
         mapping = {
             "lab_name": instance_id,
             "memory": mem,
@@ -506,7 +506,7 @@ class LabCmd(Command):
             "pids": pids,
             "storage": user_storage,
             "storage_path": user_storage,
-            "storage_host_path": f"{STORAGE_HOST_BASE}/{user_hash}",
+            "storage_host_path": f"{storage_base}/{user_hash}",
             "mount_target": mount_target,
             "user": username,
             "image": lab_data.get("image", f"{template_name}:lab"),

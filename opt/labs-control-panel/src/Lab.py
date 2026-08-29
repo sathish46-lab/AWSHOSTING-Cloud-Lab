@@ -398,7 +398,6 @@ class Lab(BaseOrchestrator):
         import hashlib
         user_email = lab_data.get("email", "")
         user_hash = hashlib.md5(user_email.encode()).hexdigest() if user_email else username
-        storage_host_base = "/Users/sathish/Development/Dev_lab/tomlabs/storage"
         
         mapping = {
             "lab_name": instance_id, 
@@ -407,7 +406,7 @@ class Lab(BaseOrchestrator):
             "pids": pids,
             "storage": storage_path, 
             "storage_path": storage_path,
-            "storage_host_path": f"{storage_host_base}/{user_hash}",
+            "storage_host_path": f"{self.config.get('storage_base', '/var/tomlabs/storage')}/{user_hash}",
             "mount_target": mount_target,
             "user": username, 
             "image": lab_data.get('image', f"{template_name}:lab"), 
