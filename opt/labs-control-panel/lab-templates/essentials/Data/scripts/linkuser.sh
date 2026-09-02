@@ -29,8 +29,18 @@ echo "[*] Tunnel IP: $TUNNEL_IP"
 
 # ── 1. User Setup ─────────────────────────────────────────────
 if ! id "$USER_NAME" &>/dev/null; then
-    if id -u ubuntu >/dev/null 2>&1; then userdel -r ubuntu || true; fi
-    useradd -m -s /bin/bash -u 1000 "$USER_NAME" 2>/dev/null || useradd -m -s /bin/bash "$USER_NAME"
+    # Remove any existing user with uid 1000 (e.g. ubuntu from base image)
+    EXISTING_USER=$(getent passwd 1000 2>/dev/null | cut -d: -f1)
+    if [ -n "$EXISTING_USER" ]; then
+        echo "[*] Removing existing user $EXISTING_USER (uid 1000)..."
+        killall -u "$EXISTING_USER" 2>/dev/null || true
+        sleep 1
+        userdel -rf "$EXISTING_USER" 2>/dev/null || true
+        rm -rf "/home/$EXISTING_USER" 2>/dev/null || true
+    fi
+    # Ensure /home symlink target exists (Dockerfile creates /home -> /var/labsstorage/home)
+    mkdir -p /var/labsstorage/home
+    useradd -m -s /bin/bash -u 1000 "$USER_NAME" || useradd -m -s /bin/bash "$USER_NAME"
     usermod -aG sudo "$USER_NAME"
     echo "[*] User $USER_NAME created"
 else

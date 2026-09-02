@@ -444,6 +444,89 @@ $classString = implode(' ', $htmlClasses);
     <div class="body flex-grow-1 bg-transparent d-flex flex-column <?= Session::get('show_session_expired', false) ? 'align-items-center justify-content-center p-0 m-0' : '' ?>"> 
         <div id="main-content" class="bg-transparent" style="display: contents;">
                 <?php
+                // Build htmx-page-bootstrap JSON for breadcrumb + page metadata
+                $pageTitle = Session::$pageTitle ?? 'Dashboard';
+                $titleParts = array_map('trim', explode(' / ', $pageTitle));
+                $labHash = Session::get('full_instance_hash');
+                $challengeHash = Session::get('challenge_instance_hash');
+                $breadcrumbs = [];
+                $pathSoFar = '';
+                $hasLabsContext = false;
+                $hasChallengesContext = false;
+
+                foreach ($titleParts as $index => $part) {
+                    $lowerPart = strtolower($part);
+                    $url = null;
+
+                    if (stripos($lowerPart, 'lab') !== false) $hasLabsContext = true;
+                    if (stripos($lowerPart, 'challenge') !== false) $hasChallengesContext = true;
+
+                    $quizParent = Session::get('parent_topic');
+                    $quizSubtopic = Session::get('current_subtopic');
+                    $quizCategory = Session::get('current_topic');
+
+                    if (strcasecmp($lowerPart, 'quiz') === 0) {
+                        $url = '/quiz';
+                    } elseif (strcasecmp($lowerPart, 'spot quiz') === 0) {
+                        $quiz = Session::get('current_quiz');
+                        $url = $quiz ? "/quiz/v/" . $quiz['hash'] : '/quiz';
+                    } elseif (($quizParent && strcasecmp($part, trim($quizParent['title'])) === 0) ||
+                              ($quizCategory && strcasecmp($part, trim($quizCategory['title'])) === 0)) {
+                        $cat = $quizParent ?? $quizCategory;
+                        $url = "/quiz/" . ($cat['id'] ?? $cat['_id']);
+                    } elseif ($quizSubtopic && strcasecmp($part, trim($quizSubtopic['title'])) === 0) {
+                        $catId = $quizParent ? ($quizParent['id'] ?? $quizParent['_id']) : ($quizCategory ? ($quizCategory['id'] ?? $quizCategory['_id']) : 'all');
+                        $url = "/quiz/$catId/Recent/" . ($quizSubtopic['id'] ?? $quizSubtopic['_id']);
+                    } elseif (stripos($lowerPart, 'home') !== false) {
+                        $url = '/';
+                    } elseif (stripos($lowerPart, 'dashboard') !== false) {
+                        if ($hasLabsContext && $labHash) $url = "/labs/dashboard/$labHash";
+                        elseif ($hasChallengesContext && $challengeHash) $url = "/challenges/dashboard/$challengeHash";
+                        else $url = '/dashboard';
+                    } elseif ($lowerPart === 'lab' || $lowerPart === 'labs') {
+                        $url = '/labs';
+                    } elseif ($lowerPart === 'challenge' || $lowerPart === 'challenges') {
+                        $url = '/challenges';
+                    } elseif ($lowerPart === 'service' || $lowerPart === 'services') {
+                        $url = '/services';
+                    } elseif (stripos($lowerPart, 'mysql server') !== false) { $url = '/services/mysql';
+                    } elseif (stripos($lowerPart, 'mariadb server') !== false) { $url = '/services/mariadb';
+                    } elseif (stripos($lowerPart, 'postgresql server') !== false) { $url = '/services/postgresql';
+                    } elseif (stripos($lowerPart, 'mongodb server') !== false) { $url = '/services/mongodb';
+                    } elseif (stripos($lowerPart, 'rabbitmq server') !== false) { $url = '/services/rabbitmq';
+                    } elseif (stripos($lowerPart, 'redis server') !== false) { $url = '/services/redis';
+                    } elseif (stripos($lowerPart, 'device') !== false) { $url = '/devices';
+                    } elseif (stripos($lowerPart, 'network') !== false) { $url = '/network';
+                    } elseif (stripos($lowerPart, 'domain') !== false) {
+                        if ($hasLabsContext && $labHash) $url = "/labs/domains/$labHash";
+                        else $url = '/domains';
+                    } elseif (stripos($lowerPart, 'pref') !== false && $hasLabsContext && $labHash) {
+                        $url = "/labs/preferences/$labHash";
+                    } elseif (stripos($lowerPart, 'account') !== false) { $url = '/account';
+                    } elseif (stripos($lowerPart, 'ssl') !== false) { $url = '/ssl';
+                    } elseif (stripos($lowerPart, 'achieve') !== false && $challengeHash) {
+                        $url = "/challenges/achievements/$challengeHash";
+                    } elseif (stripos($lowerPart, 'leader') !== false && $challengeHash) {
+                        $url = "/challenges/leaderboard/$challengeHash";
+                    }
+
+                    if ($url === null) {
+                        $pathSoFar .= '/' . $lowerPart;
+                        $url = $pathSoFar;
+                    }
+
+                    $breadcrumbs[] = ['name' => $part, 'uri' => $url];
+                }
+
+                $pageBootstrap = [
+                    'breadcrumbs' => $breadcrumbs,
+                    'title' => $pageTitle,
+                    'uri' => $_SERVER['REQUEST_URI'] ?? '/',
+                    'pageInit' => false,
+                ];
+                ?>
+                <script id="htmx-page-bootstrap" type="application/json"><?= json_encode($pageBootstrap, JSON_UNESCAPED_SLASHES) ?></script>
+                <?php
                     if (!Session::get('brokenPage', false)) {
                         echo Session::generatePageBody();
                     } else {

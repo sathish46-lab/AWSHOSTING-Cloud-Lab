@@ -1,5 +1,5 @@
 <div class="blur banner mb-3 rounded-0 border-bottom border-secondary border-opacity-10">
-    <div class="card-body p-0" style="margin-left: 1rem; margin-right: 1rem;">
+    <div class="card-body p-0">
         <div class="container-fluid pt-3 pb-1">
         <div class="d-flex justify-content-between align-items-center mb-3">
             <!-- Avatar + Info Section -->
@@ -23,66 +23,46 @@
                     <!-- Title -->
                     <h3 class="fw-bold mb-0 ls-tight lab-header-title"><?= $cfg['title'] ?></h3>
                     
-                    <!-- Meta Info (ID, Instance & Share Group) -->
-                    <div class="d-flex flex-wrap align-items-center gap-2 small">
-                        <?php 
-                            // Determine the best "Share" URL (Professional Dashboard Path)
-                            $shareUrl = "https://" . $_SERVER['HTTP_HOST'] . "/labs/dashboard/" . $labType;
-                        ?>
-                        
-                        <!-- Lab ID Display -->
-                        <div class="d-flex align-items-center text-secondary">
-                            <span class="me-1 opacity-75">Lab ID:</span>
-                            <code class="text-info fw-bold me-2"><?= $labType ?></code>
-                        </div>
-
-                        <!-- Action Button Group -->
-                        <div class="d-flex align-items-center gap-3 border-start border-white border-opacity-10 ps-2">
-                            <!-- Copy Lab ID -->
-                            <button class="btn btn-link btn-sm p-0 btn-copy-utility clipboard transition-all" 
-                                    data-clipboard-text="<?= $labType ?>"
-                                    data-tooltip="Copy Lab ID">
-                                <i class='bx bx-copy fs-6' style="color: #fff;"></i>
-                            </button>
-
-                            <!-- Copy Instance Hash (Icon only) -->
-                            <button class="btn btn-link btn-sm p-0 btn-copy-utility clipboard transition-all" 
-                                    data-clipboard-text="<?= $fullHash ?>"
-                                    data-tooltip="Copy Instance ID">
-                                <i class='bx bx-fingerprint fs-6' style="color: #fff;"></i>
-                            </button>
-                            
-                            <!-- Share Dashboard Link -->
-                            <button class="btn btn-link btn-sm p-0 btn-copy-utility clipboard text-decoration-none d-flex align-items-center transition-all" 
-                                    data-clipboard-text="<?= $shareUrl ?>"
-                                    data-tooltip="Copy Shareable Dashboard URL">
-                                <i class='bx bx-share-alt fs-6' style="color: #fff;"></i>
-                            </button>
-                        </div>
-                    </div>
-
                     <!-- Description -->
-                    <p class="small lab-header-desc">
+                    <p class="small lab-header-desc mb-1">
                         <?= $cfg['desc'] ?>
                     </p>
 
-                    <!-- Badges -->
-                    <div class="d-flex flex-wrap align-items-center gap-2">
-                        <span class="badge bg-primary rounded-pill px-3 py-1">beta</span>
-                        <span class="badge bg-warning rounded-pill px-3 py-1">public</span>
-                        <?php
+                    <!-- Badges + Meta Info -->
+                    <div class="d-flex flex-wrap align-items-center column-gap-1 row-gap-1 small">
+                        <?php 
                             $badgeClass = 'bg-danger';
                             if ($status === 'running') $badgeClass = 'bg-success';
                             elseif ($status === 'paused') $badgeClass = 'bg-warning';
                             elseif ($status === 'deploying') $badgeClass = 'bg-info';
+                            $shareUrl = "https://" . $_SERVER['HTTP_HOST'] . "/labs/dashboard/" . $labType;
                         ?>
-                        <span class="badge <?= $badgeClass ?> rounded-pill px-3 py-1"><?= strtoupper($status) ?></span>
+                        <span class="badge bg-primary rounded-pill">beta</span>
+                        <span class="badge bg-warning rounded-pill">public</span>
+                        <span class="badge <?= $badgeClass ?> rounded-pill"><?= $status === 'not_deployed' ? 'NOT RUNNING' : strtoupper($status) ?></span>
+                        <span class="text-body-secondary mx-1">&middot;</span>
+                        <span class="text-body-secondary">
+                            Instance <code><?= substr($fullHash, 0, 6) ?>…</code>
+                        </span>
+                        <button class="btn btn-link btn-sm clipboard p-0" data-clipboard-text="<?= $fullHash ?>" data-tooltip="Copy Instance ID" style="text-decoration:none;">
+                            <i class='bx bx-copy text-body-secondary'></i>
+                        </button>
+                        <span class="text-body-secondary mx-1">&middot;</span>
+                        <span class="text-body-secondary">
+                            Lab ID: <code><?= $labType ?></code>
+                        </span>
+                        <button class="btn btn-link btn-sm clipboard p-0" data-clipboard-text="<?= $labType ?>" data-tooltip="Copy Lab ID" style="text-decoration:none;">
+                            <i class='bx bx-copy text-body-secondary'></i>
+                        </button>
+                        <button class="btn btn-link btn-sm clipboard p-0" data-clipboard-text="<?= $shareUrl ?>" data-tooltip="Copy Shareable URL" style="text-decoration:none;">
+                            <i class='bx bx-link-alt text-body-secondary'></i>
+                        </button>
                     </div>
                 </div>
             </div>
             
             <!-- Action Buttons + Progress -->
-            <div class="d-flex flex-column align-items-end gap-2 me-5">
+            <div class="d-flex flex-column align-items-end gap-2 me-3">
                 <!-- Button Group -->
                 <div class="btn-group shadow-sm rounded-pill overflow-hidden lab-btn-group" role="group">
                     <?php if($isRunning): ?>
@@ -91,14 +71,14 @@
                                 onclick="<?= $labType === 'gui_essentials' ? 'launchGui(this)' : "launchService(this, '$labType')" ?>"
                                 data-tooltip="<?= $labType === 'gui_essentials' ? 'Launch VNC Desktop' : 'Launch Cloud IDE / Code Server' ?>"
                                 data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
-                            <i class='bx <?= $labType === 'gui_essentials' ? 'bx-desktop' : 'bx-code-alt' ?> fs-6'></i>
+                            <svg class="icon" viewBox="0 0 256 256" width="18" height="18"><use href="/assets/icons/duotone.svg#<?= $labType === 'gui_essentials' ? 'tom-desktop' : 'tom-terminal-window' ?>"></use></svg>
                             <span class="small"><?= $cfg['action'] ?></span>
                         </button>
                         <button id="btn-deploy-action" class="btn btn-lab-deploy"
                                 onclick="handleDeploy(this, '<?= $labType ?>')"
                                 data-tooltip="Redeploy for a fresh instance"
                                 data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
-                            <i class='bx bx-refresh fs-6 text-dark'></i>
+                            <svg class="icon" viewBox="0 0 256 256" width="18" height="18"><use href="/assets/icons/duotone.svg#tom-fiber-new"></use></svg>
                             <span class="small text-dark">Redeploy</span>
                         </button>
                         <button id="btn-pause-action" class="btn btn-lab-pause"
@@ -127,7 +107,7 @@
                                 onclick="handleDeploy(this, '<?= $labType ?>')"
                                 data-tooltip="Redeploy for a fresh instance"
                                 data-coreui-toggle="loading-button" data-coreui-spinner-type="grow">
-                            <i class='bx bx-refresh fs-6 text-dark'></i>
+                            <svg class="icon" viewBox="0 0 256 256" width="18" height="18"><use href="/assets/icons/duotone.svg#tom-fiber-new"></use></svg>
                             <span class="small text-dark">Redeploy</span>
                         </button>
 

@@ -26,6 +26,8 @@ echo "[*] Initializing Professional MinIO Environment for $USER_NAME..."
 if ! id "$USER_NAME" &>/dev/null; then
     # Delete default ubuntu user that steals UID 1000 in newer Ubuntu images
     if id -u ubuntu >/dev/null 2>&1; then userdel -r ubuntu || true; fi
+    # Ensure /home symlink target exists
+    mkdir -p /var/labsstorage/home
     useradd -m -s /bin/bash -u 1000 "$USER_NAME" 2>/dev/null || useradd -m -s /bin/bash "$USER_NAME"
     usermod -aG sudo "$USER_NAME"
 fi

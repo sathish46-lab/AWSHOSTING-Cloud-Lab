@@ -21972,6 +21972,11 @@ body.hwa-enabled[data-coreui-theme=light] .sidebar-inner-layer {
   color: var(--glass-text-muted) !important;
 }
 
+html[data-coreui-theme=dark] .banner code {
+  color: cyan !important;
+  font-weight: bold;
+}
+
 /* Lab Button Group */
 .lab-btn-group .btn {
   display: inline-flex !important;
@@ -28649,4 +28654,14 @@ body {
 body.hwa-enabled .stable-app-view {
   backdrop-filter: saturate(200%) blur(18px);
   -webkit-backdrop-filter: saturate(200%) blur(18px);
+}
+
+/* Phosphor SVG Icons */
+svg.icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.125em;
+  fill: currentColor;
+  flex-shrink: 0;
+  display: inline-block;
 }

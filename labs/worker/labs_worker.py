@@ -122,6 +122,55 @@ def log_to_user(channel, exchange_name, routing_key, message):
     except Exception as e:
         print(f"Failed to log to user: {e}")
 
+def progress_to_user(channel, exchange_name, routing_key, pct, label):
+    """Send structured progress update to the browser via AMQP."""
+    try:
+        payload = json.dumps({'progress': pct, 'label': label})
+        channel.basic_publish(exchange=exchange_name, routing_key=routing_key, body=payload)
+    except Exception as e:
+        print(f"Failed to send progress: {e}")
+
+# Deploy progress steps: (regex, percentage, label)
+# These match labsctl output lines and report actual progress to the browser.
+DEPLOY_PROGRESS_STEPS = [
+    (r'Deployment initiated',                  5,  'Initializing'),
+    (r'Fetching lab metadata',                 8,  'Loading metadata'),
+    (r'Starting deployment for user',          10, 'Starting'),
+    (r'Instance ID:',                          12, 'Preparing'),
+    (r'Reusing existing lab IP|Assigned Docker IP', 15, 'Assigning IP'),
+    (r'Checking for conflicting containers',   18, 'Checking containers'),
+    (r'No existing container|Removing existing container', 20, 'Cleaning up'),
+    (r'Storage preserved',                     25, 'Preserving storage'),
+    (r'Clearing stale VPN',                    28, 'Clearing VPN'),
+    (r'Removing stale WireGuard',              30, 'Removing old peer'),
+    (r'Peer removed',                          32, 'Peer removed'),
+    (r'Reusing existing keys|Generating new',  35, 'Configuring keys'),
+    (r'Peer re-registered',                    38, 'Peer registered'),
+    (r'Provisioning',                          40, 'Provisioning'),
+    (r'Waiting for container',                 45, 'Starting container'),
+    (r'Configuring network routing',           50, 'Configuring network'),
+    (r'Routing and firewall configured',       55, 'Firewall ready'),
+    (r'Optimizing Apache',                     58, 'Configuring Apache'),
+    (r'Configuring user environment',          60, 'Setting up user'),
+    (r'Syncing ssh',                           62, 'Syncing SSH'),
+    (r'Starting user configuration',           65, 'Creating user'),
+    (r'User .* created',                       68, 'User created'),
+    (r'System password set',                   70, 'Password set'),
+    (r'SSH configured',                        72, 'SSH ready'),
+    (r'Bash environment',                      74, 'Shell ready'),
+    (r'Configuring WireGuard tunnel',          76, 'Setting up VPN'),
+    (r'WireGuard configured',                  80, 'VPN ready'),
+    (r'Configuring persistent storage',        82, 'Linking storage'),
+    (r'Storage links configured',              85, 'Storage ready'),
+    (r'Setting up Code-Server',                88, 'Starting Code-Server'),
+    (r'Code-server started',                   90, 'Code-Server ready'),
+    (r'Applying firewall rules',               92, 'Applying firewall'),
+    (r'Firewall rules applied',                94, 'Firewall ready'),
+    (r'Finalizing Traefik',                    96, 'Configuring proxy'),
+    (r'Traefik config written',                98, 'Proxy configured'),
+    (r'Deployment Complete|Deploy complete|Access URL:', 100, 'Complete'),
+]
+
 def _save_deploy_logs(instance_hash, logs, error_msg, is_build=False, action='deploy', duration=None, exit_code=None, user=None):
     try:
         db = _get_mongo_client('tom_labs_instances_db')
@@ -236,12 +285,20 @@ def _run_job(job_data):
 
         error_lines = []
         all_logs = []
+        last_progress = 0
+        import re
         for line in process.stdout:
             clean_line = line.strip()
             if clean_line:
                 log_to_user(ch, "amq.topic", routing_key, clean_line)
                 _file_log(f"  {clean_line}")
                 all_logs.append(clean_line)
+                # Detect progress from log lines and send structured progress to browser
+                for pattern, pct, label in DEPLOY_PROGRESS_STEPS:
+                    if re.search(pattern, clean_line, re.IGNORECASE) and pct > last_progress:
+                        progress_to_user(ch, "amq.topic", routing_key, pct, label)
+                        last_progress = pct
+                        break
                 if clean_line.startswith('[!]') or 'error' in clean_line.lower() or 'failed' in clean_line.lower():
                     error_lines.append(clean_line)
 

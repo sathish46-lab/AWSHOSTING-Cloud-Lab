@@ -2,11 +2,35 @@
 """
 labsctl — Tom Labs Orchestrator CLI
 
-New modular structure:
+Usage:
   labsctl <group> <action> [options]
 
-Legacy flat commands are preserved for backward compatibility:
-  labsctl build, labsctl deploy, labsctl stop, etc.
+Command Groups:
+  lab         Lab operations (build, deploy, stop, start, restart, remove, status)
+  instance    Instance operations (single + bulk deploy, health, reconcile, queue)
+  network     Network operations (WireGuard, routing)
+  proxy       Proxy operations (Traefik, domains)
+  container   Container operations (Docker management)
+  system      System operations (status, workers, images, db, clean)
+  user        User operations (quota, SSH keys)
+
+Instance Bulk Deploy:
+  labsctl instance bulk                 Bulk deploy instances
+  labsctl instance bulk --status=STATUS Filter by status (default: not_deployed)
+  labsctl instance bulk --user=USER     Filter by user
+  labsctl instance bulk --throttle=N    Concurrent deploys (default: 3)
+  labsctl instance bulk --dry-run       Preview only
+
+Instance Health & Reconcile:
+  labsctl instance health               Check DB vs actual container state
+  labsctl instance reconcile            Fix mismatched states
+  labsctl instance reconcile --apply    Apply fixes
+  labsctl instance queue                Show queue status
+  labsctl instance cancel               Cancel pending jobs
+  labsctl instance cleanup              Remove old queue entries
+
+Legacy Commands (backward compat):
+  labsctl build, labsctl deploy, labsctl stop, labsctl start, etc.
 """
 
 import sys
@@ -39,10 +63,8 @@ def build_router():
     router.register("user", UserCmd)
 
     # ── Legacy flat commands (backward compat) ──────────────────
-    # These call the old Lab() class directly so existing workflows don't break
     def legacy_handler(cmd_name):
         def handler(args):
-            # Import old labsctl logic
             from src.Lab import Lab
             from src.Arguments import Arguments as OldArgs
 

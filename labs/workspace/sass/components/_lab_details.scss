@@ -34,6 +34,11 @@
   color: var(--glass-text-muted) !important;
 }
 
+html[data-coreui-theme="dark"] .banner code {
+  color: cyan !important;
+  font-weight: bold;
+}
+
 /* Lab Button Group */
 .lab-btn-group {
   .btn {

@@ -145,7 +145,6 @@
     window.LAB_USER = "<?= htmlspecialchars($currentUsername) ?>";
     window.CODE_SERVER_URL = "<?= $creds['code_server_url'] ?? '' ?>";
     window.LAB_TYPE = "<?= $labType ?>";
-    window.LAB_STATUS = "<?= $status ?>";
 </script>
 <!-- DOMAIN_USAGE_MAP embedded in data attribute — not exposed as JS variable -->
 <div id="lab-data-root"
@@ -278,7 +277,7 @@
                                 <div class="p-3 rounded-4 bg-dark bg-opacity-25 border border-white border-opacity-10 text-start stat-card-inner">
                                     <div class="mb-1">
                                         <span class="small fw-bold text-white text-start">
-                                            <span id="stat-mem-perc">0.00%</span> <small class="text-muted ms-1">MEMORY USAGE</small>
+                                            <span id="stat-mem-perc">0.00%</span> <small class="text-muted ms-1">Memory Usage</small>
                                         </span>
                                     </div>
                                     <div class="progress stat-progress-bar">

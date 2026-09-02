@@ -45,6 +45,8 @@ if ! id "$USER_NAME" &>/dev/null; then
     rm -rf /home/kasm-user /home/kasm-default-profile 2>/dev/null || true
     id -u ubuntu >/dev/null 2>&1 && userdel -r ubuntu 2>/dev/null || true
     id -u kasm-user >/dev/null 2>&1 && userdel kasm-user 2>/dev/null || true
+    # Ensure /home symlink target exists
+    mkdir -p /var/labsstorage/home
     useradd -m -s /bin/bash -u 1000 "$USER_NAME" 2>/dev/null || useradd -m -s /bin/bash "$USER_NAME" 2>/dev/null || true
     usermod -aG sudo "$USER_NAME" 2>/dev/null || true
     usermod -aG video "$USER_NAME" 2>/dev/null || true

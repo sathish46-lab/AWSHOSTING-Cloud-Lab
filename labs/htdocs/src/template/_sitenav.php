@@ -1,27 +1,30 @@
 <header class="header header-sticky blur rounded-0 mb-0" style="border-bottom: none; height: 4rem; min-height: 4rem;">
     <div class="container-fluid px-4 h-100">
-        <!-- Left: Back + Greeting -->
+        <!-- Left: Home + Back + Page Title -->
         <div class="d-flex align-items-center gap-2 flex-shrink-0" style="z-index: 2;">
             <!-- Mobile Sidebar Toggle -->
             <button class="btn btn-link p-0 text-secondary hover-text-white d-flex d-md-none align-items-center justify-content-center rounded-circle border border-white border-opacity-10 text-decoration-none shadow-none" 
                     type="button" 
                     onclick="coreui.Sidebar.getInstance(document.querySelector('#sidebar')).toggle()"
                     style="width: 32px; height: 32px; transition: all 0.2s;">
-                <i class="bx bx-menu fs-4"></i>
+                <svg class="icon" viewBox="0 0 256 256" width="18" height="18"><use href="/assets/icons/duotone.svg#tom-list"></use></svg>
             </button>
 
-            <!-- Back Button -->
-            <a class="d-flex align-items-center justify-content-center text-secondary text-decoration-none rounded-circle" 
-                    onclick="if (window.history.length > 1) { window.history.back(); } else { window.location.href = '/home'; }" 
-                    style="width: 36px; height: 36px; background: rgba(255,255,255,0.06) !important; border: 1px solid rgba(255,255,255,0.1) !important; transition: all 0.2s; cursor: pointer;" title="Go Back">
-                <i class="bx bx-left-arrow-alt" style="font-size: 1.2rem;"></i>
+            <!-- Home Button -->
+            <a href="/home" hx-boost="false" data-no-boost="true" class="d-flex align-items-center justify-content-center text-secondary text-decoration-none rounded-circle" 
+                    style="width: 32px; height: 32px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s; cursor: pointer;" title="Home">
+                <svg class="icon" viewBox="0 0 256 256" width="18" height="18"><use href="/assets/icons/duotone.svg#tom-house"></use></svg>
             </a>
-            <div class="d-none d-lg-flex flex-column ms-2">
-                <span style="font-size: 0.85rem; font-weight: 600; color: var(--cui-body-color); line-height: 1.2;">Hi, <?= Session::getUser()?->getUsername() ?? 'Guest' ?>!</span>
-                <span style="font-size: 0.7rem; color: var(--cui-secondary-color); line-height: 1.2;">Let's take a look at your activity today</span>
-            </div>
-            <nav aria-label="breadcrumb" class="d-none">
-                <ol id="main-breadcrumb" class="breadcrumb my-0 py-0" style="background: transparent; gap: 4px;">
+
+            <!-- Back Button -->
+            <button type="button" onclick="history.back(); return false;" class="btn p-0 d-flex align-items-center justify-content-center text-secondary rounded-circle"
+                    style="width: 32px; height: 32px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); transition: all 0.2s; cursor: pointer;" title="Go Back">
+                <svg class="icon" viewBox="0 0 256 256" width="18" height="18"><use href="/assets/icons/duotone.svg#tom-arrow-circle-left"></use></svg>
+            </button>
+
+            <!-- Page Title / Breadcrumb -->
+            <nav aria-label="breadcrumb" class="ms-1">
+                <ol id="main-breadcrumb" class="breadcrumb my-0 py-0 mb-0">
                     <?php include __DIR__ . '/partials/_breadcrumb.php'; ?>
                 </ol>
             </nav>
@@ -35,8 +38,6 @@
                     <input type="text" class="search-input" 
                         placeholder="Search labs, apps and pages..." 
                         id="globalSearch" readonly autocomplete="off" style="cursor:pointer;">
-                    <span class="search-page-text d-none d-md-inline text-truncate" id="searchPageBadge" data-tip="curr: Dashboard" style="max-width: 140px;">curr: Dashboard</span>
-                    <span class="page-title-tooltip" id="pageTitleTooltip">curr: Dashboard</span>
                     <span class="badge bg-secondary d-none d-sm-inline" style="font-size: 0.6rem; padding: 2px 6px; opacity: 0.7;">⌘K</span>
                 </div>
             </div>
@@ -474,3 +475,30 @@ document.addEventListener('keydown', function(e) {
     });
 })();
 </script>
+
+<script>
+document.body.addEventListener('htmx:afterSettle', function(e) {
+    if (!e.detail || !e.detail.xhr) return;
+    var bc = document.getElementById('main-breadcrumb');
+    if (!bc) return;
+    try {
+        var resp = e.detail.xhr.responseText;
+        var match = resp.match(/<script[^>]*id="htmx-page-bootstrap"[^>]*type="application\/json"[^>]*>([\s\S]*?)<\/script>/);
+        if (!match) return;
+        var data = JSON.parse(match[1]);
+        if (!data.breadcrumbs || !data.breadcrumbs.length) return;
+        var html = '';
+        data.breadcrumbs.forEach(function(crumb, i) {
+            var isLast = (i === data.breadcrumbs.length - 1);
+            if (isLast) {
+                html += '<li class="breadcrumb-item active" aria-current="page"><span class="fw-semibold" style="color: var(--cui-body-color); font-size: 0.85rem;">' + crumb.name + '</span></li>';
+            } else {
+                html += '<li class="breadcrumb-item"><a href="' + crumb.uri + '" class="text-decoration-none fw-medium" style="color: var(--cui-secondary-color); font-size: 0.85rem;">' + crumb.name + '</a></li>';
+            }
+        });
+        bc.innerHTML = html;
+        document.title = data.title || data.breadcrumbs[data.breadcrumbs.length - 1].name;
+    } catch(ex) {}
+});
+</script>
+

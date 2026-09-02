@@ -3,11 +3,7 @@ $titleParts = explode(' / ', Session::$pageTitle);
 $labHash = Session::get('full_instance_hash');
 $challengeHash = Session::get('challenge_instance_hash');
 
-// Always prepend Home if it's not there
-if (strtolower(trim($titleParts[0])) !== 'home') {
-    array_unshift($titleParts, 'Home');
-}
-
+// Don't add Home automatically - just use the page title as-is
 $count = count($titleParts);
 $hasLabsContext = false;
 $hasChallengesContext = false;

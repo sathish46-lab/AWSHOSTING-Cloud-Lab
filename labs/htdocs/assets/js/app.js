@@ -21441,10 +21441,23 @@ const Dashboard = {
     const container = document.getElementById("live-logs-container");
     if (!container) return;
 
+    // Handle structured progress from backend: {progress: pct, label: label}
+    if (data && typeof data.progress === 'number') {
+      if (typeof DeployProgress !== 'undefined') {
+        const status = data.progress >= 100 ? 'completed' : 'running';
+        DeployProgress.smoothUpdate(data.progress, data.label, status);
+        if (data.progress >= 100) {
+          DeployProgress.active = false;
+          setTimeout(() => window.location.reload(), 2000);
+        }
+      }
+      return; // Progress messages don't go into the log panel
+    }
+
     // Extract message
     let msg = data.log || data.message || data;
 
-    // Parse for deploy progress
+    // Parse for deploy progress (fallback: log-pattern matching)
     if (typeof DeployProgress !== 'undefined') {
       DeployProgress.parseLog(msg);
     }
@@ -21879,6 +21892,28 @@ const DeployProgress = {
       this.update(this.progress, 'Failed', 'failed');
       this.active = false;
     }
+  },
+  
+  // Smooth progress animation — interpolates between current and target
+  _animFrame: null,
+  _targetPct: 0,
+  
+  smoothUpdate(targetPct, label, status) {
+    this._targetPct = targetPct;
+    if (this._animFrame) cancelAnimationFrame(this._animFrame);
+    
+    const animate = () => {
+      const diff = this._targetPct - this.progress;
+      if (Math.abs(diff) < 0.5) {
+        this.update(this._targetPct, label, status);
+        return;
+      }
+      // Ease towards target (speed proportional to distance)
+      this.progress += diff * 0.15;
+      this.update(Math.round(this.progress), label, status);
+      this._animFrame = requestAnimationFrame(animate);
+    };
+    animate();
   },
   
   start() {
