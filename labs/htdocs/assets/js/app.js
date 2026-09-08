@@ -21218,9 +21218,8 @@ const Dashboard = {
    * Start polling instance stats from API
    */
   startStatsPolling: function () {
-    // 1. Only poll if we have a valid session hash (Dashboard Page)
-    if (!window.SESSION_HASH) {
-      // console.log("[Dashboard] No active session hash found. Stats polling disabled.");
+    // 1. Only poll on Dashboard page (check URL path)
+    if (!window.SESSION_HASH || !window.location.pathname.includes('/labs/dashboard/')) {
       return;
     }
 
@@ -21365,17 +21364,18 @@ const Dashboard = {
    */
   updateUIIdle: function () {
     const resets = {
-      "stat-cpu-usage": "0.00%",
-      "stat-cpu-throttled": "0%",
-      "stat-mem-perc": "0.00%",
-      "stat-load-1": "0.0000",
-      "stat-load-5": "0.0000",
-      "stat-load-15": "0.0000",
-      "stat-peak-cpu": "0.00%",
-      "stat-net-io": "0B / 0B",
-      "stat-block-io": "0B / 0B",
-      "stat-max-pid": "0",
-      "stat-high-mem": "0.00 MB",
+      "stat-cpu-usage": "",
+      "stat-cpu-throttled": "",
+      "stat-mem-perc": "",
+      "stat-mem-info": "",
+      "stat-load-1": "0",
+      "stat-load-5": "0",
+      "stat-load-15": "0",
+      "stat-peak-cpu": "",
+      "stat-net-io": "",
+      "stat-block-io": "",
+      "stat-max-pid": "",
+      "stat-high-mem": "",
     };
 
     for (let id in resets) {
@@ -21527,23 +21527,51 @@ const Dashboard = {
  * ON-DEMAND DATA FETCHING (security: no credentials in page source)
  * ========================================================================== */
 const LabData = {
-  _root: null,
+  _config: null,
+  _domains: null,
+  _fetching: { config: null, domains: null },
 
-  getRoot() {
-    if (!this._root) this._root = document.getElementById('lab-data-root');
-    return this._root;
+  async fetch(type = 'all') {
+    if (!window.SESSION_HASH) return {};
+    
+    // Return cached if available
+    if (type === 'config' && this._config) return this._config;
+    if (type === 'domains' && this._domains) return this._domains;
+    
+    // Avoid duplicate fetches
+    if (this._fetching[type]) return this._fetching[type];
+    
+    this._fetching[type] = fetch(`/api/labs/lab_data?hash=${window.SESSION_HASH}&type=${type}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        if (data.config) this._config = data.config;
+        if (data.domains) this._domains = data.domains;
+        this._fetching[type] = null;
+        return data;
+      })
+      .catch(err => {
+        console.warn('LabData fetch error:', err);
+        this._fetching[type] = null;
+        return {};
+      });
+    
+    return this._fetching[type];
   },
 
-  getDomainUsage() {
-    const el = this.getRoot();
-    if (!el) return {};
-    try { return JSON.parse(el.dataset.domainUsage || '{}'); } catch (e) { return {}; }
+  async getConfig() {
+    const data = await this.fetch('config');
+    return data.config || null;
   },
 
-  getConfig() {
-    const el = this.getRoot();
-    if (!el) return null;
-    try { return JSON.parse(el.dataset.labConfig || 'null'); } catch (e) { return null; }
+  async getDomainUsage() {
+    const data = await this.fetch('domains');
+    return data.domains || {};
+  },
+
+  clearCache() {
+    this._config = null;
+    this._domains = null;
   }
 };
 
@@ -22161,7 +22189,7 @@ async function launchCodeIDE(event, targetUrl = null) {
     // However currently MinIO doesn't have an "idle timeout" feature planned yet.
     // So we just open the URL.
     if (!targetUrl) {
-      const labConfig = LabData.getConfig();
+      const labConfig = await LabData.getConfig();
       if (labConfig && labConfig.fields) {
         const consoleField = labConfig.fields.find(f => f.label === 'MinIO Console Endpoint');
         if (consoleField) url = consoleField.value;
@@ -22465,9 +22493,9 @@ function toggleDomainSection() {
  * Ensures a domain can only be used in ONE place at a time
  * Uses database-backed DOMAIN_USAGE_MAP for cross-lab checking
  */
-function updateDomainAvailability() {
+async function updateDomainAvailability() {
   // 1. Use the database-backed usage map (already includes ALL labs)
-  const usageMap = LabData.getDomainUsage();
+  const usageMap = await LabData.getDomainUsage();
 
   // Also check currently selected domains in THIS modal (not yet saved to DB)
   const currentSelections = {};
@@ -22601,12 +22629,12 @@ function updateDomainAvailability() {
 function launchService(btn, type) {
   Dashboard.toggleLoading(btn, true);
 
-  setTimeout(() => {
+  setTimeout(async () => {
     const action = LAB_ACTION_CONFIG[type] || LAB_ACTION_CONFIG.default;
 
     if (action.launch === 'n8n_url') {
       let url = "";
-      const labConfig = LabData.getConfig();
+      const labConfig = await LabData.getConfig();
       if (labConfig && labConfig.fields) {
         const urlField = labConfig.fields.find(f => f.label === 'Public URL');
         if (urlField) url = urlField.value;
@@ -22634,9 +22662,9 @@ function launchService(btn, type) {
  */
 function launchGui(btn) {
   Dashboard.toggleLoading(btn, true);
-  setTimeout(() => {
+  setTimeout(async () => {
     let guiUrl = "";
-    const labConfig = LabData.getConfig();
+    const labConfig = await LabData.getConfig();
     if (labConfig && labConfig.fields) {
       const urlField = labConfig.fields.find(f => f.label === 'GUI URL');
       if (urlField) guiUrl = urlField.value;
@@ -27294,11 +27322,11 @@ function updateProxyDomainOptions() {
 /**
  * Check if selected domain is already exposed on port 80/443 (public web exposure)
  */
-function checkProxyDomainConflict(selectEl) {
+async function checkProxyDomainConflict(selectEl) {
     updateProxyDomainOptions();
     const domain = selectEl.value;
     if (!domain) return;
-    const usageMap = (typeof LabData !== 'undefined' && LabData.getDomainUsage) ? LabData.getDomainUsage() : {};
+    const usageMap = (typeof LabData !== 'undefined' && LabData.getDomainUsage) ? await LabData.getDomainUsage() : {};
     const usage = usageMap[domain];
     if (usage && usage.usage === 'Public Exposure') {
         if (window.TomNotify) {

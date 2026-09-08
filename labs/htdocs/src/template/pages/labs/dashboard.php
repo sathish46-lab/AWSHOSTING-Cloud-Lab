@@ -141,15 +141,8 @@
 ?>
 
 <script>
-    window.SESSION_HASH = "<?= $fullHash ?>";
-    window.LAB_USER = "<?= htmlspecialchars($currentUsername) ?>";
     window.CODE_SERVER_URL = "<?= $creds['code_server_url'] ?? '' ?>";
-    window.LAB_TYPE = "<?= $labType ?>";
 </script>
-<!-- DOMAIN_USAGE_MAP embedded in data attribute — not exposed as JS variable -->
-<div id="lab-data-root"
-     data-domain-usage="<?= htmlspecialchars(json_encode($domainUsageMap)) ?>"
-     data-lab-config="<?= htmlspecialchars(json_encode($labConfig)) ?>"></div>
 
 <?php 
     $current_page = 'dashboard';
@@ -224,7 +217,7 @@
                             <div class="col-6">
                                 <div class="p-3 rounded-4 bg-dark bg-opacity-25 border border-white border-opacity-10 h-100 text-center stat-card-inner">
                                     <div class="text-muted small text-uppercase fw-bold mb-2">Net IO</div>
-                                    <div class="fw-bold text-white mb-2" id="stat-net-io">0B / 0B</div>
+                                    <div class="fw-bold text-white mb-2" id="stat-net-io"><?= $isRunning ? '0B / 0B' : '' ?></div>
                                     <div class="chart-container-40">
                                         <canvas id="chart-net-io"></canvas>
                                     </div>
@@ -233,7 +226,7 @@
                             <div class="col-6">
                                 <div class="p-3 rounded-4 bg-dark bg-opacity-25 border border-white border-opacity-10 h-100 text-center stat-card-inner">
                                     <div class="text-muted small text-uppercase fw-bold mb-2">Block IO</div>
-                                    <div class="fw-bold text-white mb-2" id="stat-block-io">0B / 0B</div>
+                                    <div class="fw-bold text-white mb-2" id="stat-block-io"><?= $isRunning ? '0B / 0B' : '' ?></div>
                                     <div class="chart-container-40">
                                         <canvas id="chart-block-io"></canvas>
                                     </div>
@@ -264,7 +257,7 @@
                                 <div class="p-3 rounded-4 bg-dark bg-opacity-25 border border-white border-opacity-10 text-start stat-card-inner">
                                     <div class="mb-1">
                                         <span class="small fw-bold text-white text-start">
-                                            <span id="stat-cpu-usage"></span> <small class="text-muted ms-1">CPU LOAD</small>
+                                            <span id="stat-cpu-usage"><?= $isRunning ? '' : '' ?></span> <small class="text-muted ms-1">CPU Load</small>
                                         </span>
                                     </div>
                                     <div class="progress stat-progress-bar">
@@ -277,13 +270,13 @@
                                 <div class="p-3 rounded-4 bg-dark bg-opacity-25 border border-white border-opacity-10 text-start stat-card-inner">
                                     <div class="mb-1">
                                         <span class="small fw-bold text-white text-start">
-                                            <span id="stat-mem-perc">0.00%</span> <small class="text-muted ms-1">Memory Usage</small>
+                                            <span id="stat-mem-perc"><?= $isRunning ? '0.00%' : '' ?></span> <small class="text-muted ms-1">Memory Usage</small>
                                         </span>
                                     </div>
                                     <div class="progress stat-progress-bar">
                                         <div class="progress-bar bg-warning" id="stat-mem-bar" style="width: 0%"></div>
                                     </div>
-                                    <div class="small text-muted mt-2 text-start"><span id="stat-mem-info">0MiB / 0GiB</span></div>
+                                    <div class="small text-muted mt-2 text-start" style="display: <?= $isRunning ? 'block' : 'none' ?>;"><span id="stat-mem-info"></span></div>
                                 </div>
                             </div>
                         </div>
@@ -292,7 +285,7 @@
                                 <div class="p-3 rounded-4 bg-dark bg-opacity-25 border border-white border-opacity-10 h-100 text-center stat-card-inner">
                                     <div class="text-muted small text-uppercase fw-bold mb-1 stat-label-micro">1 Min Avg
                                     </div>
-                                    <div class="fw-bold text-white small" id="stat-load-1">0.0000</div>
+                                    <div class="fw-bold text-white small" id="stat-load-1"><?= $isRunning ? '0.0000' : '0' ?></div>
                                     <div class="chart-container-35">
                                         <canvas id="chart-avg-1"></canvas>
                                     </div>
@@ -302,7 +295,7 @@
                                 <div class="p-3 rounded-4 bg-dark bg-opacity-25 border border-white border-opacity-10 h-100 text-center stat-card-inner">
                                     <div class="text-muted small text-uppercase fw-bold mb-1 stat-label-micro">5 Min Avg
                                     </div>
-                                    <div class="fw-bold text-white small" id="stat-load-5">0.0000</div>
+                                    <div class="fw-bold text-white small" id="stat-load-5"><?= $isRunning ? '0.0000' : '0' ?></div>
                                     <div class="chart-container-35">
                                         <canvas id="chart-avg-5"></canvas>
                                     </div>
@@ -312,7 +305,7 @@
                                 <div class="p-3 rounded-4 bg-dark bg-opacity-25 border border-white border-opacity-10 h-100 text-center stat-card-inner">
                                     <div class="text-muted small text-uppercase fw-bold mb-1 stat-label-micro">15 Min Avg
                                     </div>
-                                    <div class="fw-bold text-white small" id="stat-load-15">0.0000</div>
+                                    <div class="fw-bold text-white small" id="stat-load-15"><?= $isRunning ? '0.0000' : '0' ?></div>
                                     <div class="chart-container-35">
                                         <canvas id="chart-avg-15"></canvas>
                                     </div>
@@ -331,7 +324,7 @@
                                 <div class="p-3 rounded-4 bg-dark bg-opacity-25 border border-white border-opacity-10 h-100 text-center stat-card-inner">
                                     <div class="text-muted small text-uppercase fw-bold mb-1 stat-label-micro">CPU Peak
                                     </div>
-                                    <div class="fw-bold text-white" id="stat-peak-cpu">0.00%</div>
+                                    <div class="fw-bold text-white" id="stat-peak-cpu"><?= $isRunning ? '0.00%' : '' ?></div>
                                     <div class="mt-2 chart-container-40">
                                         <canvas id="chart-peak-cpu"></canvas>
                                     </div>
@@ -341,7 +334,7 @@
                                 <div class="p-3 rounded-4 bg-dark bg-opacity-25 border border-white border-opacity-10 h-100 text-center stat-card-inner">
                                     <div class="text-muted small text-uppercase fw-bold mb-1 stat-label-micro">PID Max
                                     </div>
-                                    <div class="fw-bold text-white" id="stat-max-pid">0</div>
+                                    <div class="fw-bold text-white" id="stat-max-pid"><?= $isRunning ? '0' : '' ?></div>
                                     <div class="mt-2 chart-container-40">
                                         <canvas id="chart-max-pid"></canvas>
                                     </div>
@@ -351,7 +344,7 @@
                                 <div class="p-3 rounded-4 bg-dark bg-opacity-25 border border-white border-opacity-10 h-100 text-center stat-card-inner">
                                     <div class="text-muted small text-uppercase fw-bold mb-1 stat-label-micro">Memory High
                                     </div>
-                                    <div class="fw-bold text-white" id="stat-high-mem">0.00 MB</div>
+                                    <div class="fw-bold text-white" id="stat-high-mem"><?= $isRunning ? '0.00 MB' : '' ?></div>
                                     <div class="mt-2 chart-container-40">
                                         <canvas id="chart-high-mem"></canvas>
                                     </div>

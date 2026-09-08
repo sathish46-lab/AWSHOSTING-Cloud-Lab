@@ -61,7 +61,7 @@ new RabbitClient("logs_" . $instanceHash);
 Session::set('full_instance_hash', $instanceHash);
 Session::set('current_lab_status', $labData['status'] ?? 'not_deployed');
 
-Session::$pageTitle = "Labs / Domains / " . ucfirst($labType); 
+Session::$pageTitle = "Tom Cloud Lab"; 
 // error_log("DEBUG: instanceHash=$instanceHash, labType=$labType, status=" . ($labData['status'] ?? 'none'));
 
 Session::loadMaster();

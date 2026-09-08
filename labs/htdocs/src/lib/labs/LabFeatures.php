@@ -164,6 +164,37 @@ class LabFeatures {
     }
 
     /**
+     * Check if Account Service (Activity Analytics) is enabled.
+     * Master switch OFF = disabled for everyone.
+     * Global override ON = enabled for everyone.
+     * Default = enabled.
+     */
+    public static function isAccountEnabled(): bool {
+        // Admin bypass — admin/superuser always has access
+        if (class_exists('\Session') && \Session::getAuthStatus() === \Constants::STATUS_LOGGEDIN) {
+            $user = \Session::getUser();
+            if ($user && in_array($user->getRole(), [\Constants::GROUP_ADMIN, \Constants::GROUP_SUPERUSER])) {
+                return true;
+            }
+        }
+
+        self::loadConfig();
+
+        // 1. Master kill switch — if explicitly false, Account is off
+        if (isset(self::$cache['master_switches']['account']) && self::$cache['master_switches']['account'] === false) {
+            return false;
+        }
+
+        // 2. Global override — if explicitly true, Account is on
+        if (isset(self::$cache['global_overrides']['account']) && self::$cache['global_overrides']['account'] === true) {
+            return true;
+        }
+
+        // 3. Default: enabled for all authenticated users
+        return true;
+    }
+
+    /**
      * Get the supported feature list for a lab type.
      */
     public static function getSupportedFeatures(string $labType): array {

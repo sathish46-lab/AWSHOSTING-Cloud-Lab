@@ -80,6 +80,18 @@
 ?>
 
 <?php
+    $configData = [
+        'ip' => $labData['internal_ip'] ?? null,
+        'domains' => $labData['domains'] ?? [],
+        'code_domain' => $labData['code_domain'] ?? null,
+        'gui_domain' => $labData['gui_domain'] ?? null,
+        'expose_web' => $labData['expose_web'] ?? [],
+        'http_proxies' => $labData['http_proxies'] ?? [],
+    ];
+    $labConfig = \TomLabs\Labs\LabTemplateConfig::getTemplate($labType, $configData, $currentUsername);
+    $dm = new DomainManager();
+    $domainUsageMap = $dm->getDomainUsageMap($user->getUserId());
+
     $current_page = 'activity';
     include __DIR__ . '/partials/lab_header.php';
 ?>
@@ -87,11 +99,11 @@
 <div class="container-fluid py-3 px-3">
     <!-- Deploy Attempts Card -->
     <div class="card border-0 shadow-sm blur rounded-4 mb-4">
-        <div class="card-header bg-transparent border-0 p-4 d-flex justify-content-between align-items-center" role="button" data-coreui-toggle="collapse" data-coreui-target="#collapseDeployAttempts" aria-expanded="true" aria-controls="collapseDeployAttempts">
+        <div class="card-header bg-transparent border-0 p-4 d-flex justify-content-between align-items-center" role="button" data-coreui-toggle="collapse" data-coreui-target="#collapseDeployAttempts" aria-expanded="false" aria-controls="collapseDeployAttempts">
             <h6 class="fw-bold mb-0">Deploy attempts <span class="small text-muted fw-normal ms-1">Outcome of each deploy</span></h6>
             <i class='bx bx-chevron-down fs-4 text-muted'></i>
         </div>
-        <div id="collapseDeployAttempts" class="collapse show">
+        <div id="collapseDeployAttempts" class="collapse">
             <div class="card-body p-0">
                 <?php if (empty($deployHistory)): ?>
                     <div class="p-4 text-center text-muted small">No deploy attempts recorded yet.</div>

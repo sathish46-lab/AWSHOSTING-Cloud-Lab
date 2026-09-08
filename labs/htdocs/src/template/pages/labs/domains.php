@@ -284,7 +284,6 @@
 <?php include __DIR__ . '/partials/server_logs.php'; ?>
 
 <script>
-    window.SESSION_HASH = "<?= $fullHash ?>";
     window.onPageLoad(function() {
         var grid = document.querySelector('#masonry-area');
         if (grid && typeof Masonry !== 'undefined') {

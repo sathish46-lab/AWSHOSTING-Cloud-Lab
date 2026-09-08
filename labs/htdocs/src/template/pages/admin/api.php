@@ -22,7 +22,8 @@ $featuresList = [
     'http_proxies' => 'HTTP Proxies',
     'startup_script' => 'Startup Script',
     'expose_web' => 'Expose Web',
-    'mcp' => 'MCP Inspector'
+    'mcp' => 'MCP Inspector',
+    'account' => 'Account Service'
 ];
 
 // MCP-specific settings

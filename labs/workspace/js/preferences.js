@@ -85,11 +85,11 @@ function updateProxyDomainOptions() {
 /**
  * Check if selected domain is already exposed on port 80/443 (public web exposure)
  */
-function checkProxyDomainConflict(selectEl) {
+async function checkProxyDomainConflict(selectEl) {
     updateProxyDomainOptions();
     const domain = selectEl.value;
     if (!domain) return;
-    const usageMap = (typeof LabData !== 'undefined' && LabData.getDomainUsage) ? LabData.getDomainUsage() : {};
+    const usageMap = (typeof LabData !== 'undefined' && LabData.getDomainUsage) ? await LabData.getDomainUsage() : {};
     const usage = usageMap[domain];
     if (usage && usage.usage === 'Public Exposure') {
         if (window.TomNotify) {

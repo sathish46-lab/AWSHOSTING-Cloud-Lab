@@ -635,3 +635,95 @@
         }
     }
 }
+
+// ========================================================================
+// Home App Card — Grid icon cards (Ninja Labs style)
+// ========================================================================
+.home-app-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    width: 90px;
+    transition: transform 0.2s ease;
+
+    &:hover {
+        transform: translateY(-3px);
+    }
+}
+
+.home-app-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: box-shadow 0.2s ease;
+
+    &:hover {
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+}
+
+.home-app-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    text-align: center;
+    line-height: 1.2;
+    max-width: 80px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+[data-coreui-theme="light"] {
+    .home-app-label {
+        color: rgba(26, 26, 46, 0.85);
+    }
+}
+
+// Tab buttons for home
+.tab-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.6);
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    &.active {
+        background: rgba(139, 145, 249, 0.2);
+        border-color: rgba(139, 145, 249, 0.4);
+        color: #8b91f9;
+    }
+}
+
+[data-coreui-theme="light"] {
+    .tab-btn {
+        background: rgba(0, 0, 0, 0.03);
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        color: rgba(26, 26, 46, 0.6);
+
+        &:hover {
+            background: rgba(0, 0, 0, 0.06);
+            color: rgba(26, 26, 46, 0.9);
+        }
+
+        &.active {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: rgba(99, 102, 241, 0.3);
+            color: #6366f1;
+        }
+    }
+}
+
+.letter-spacing-1 {
+    letter-spacing: 1px;
+}

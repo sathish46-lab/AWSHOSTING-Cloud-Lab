@@ -45,26 +45,31 @@ $current = Session::getCurrentFile();
                 Dashboard
             </a>
         </li>
+        <li class="nav-item">
+            <a class="nav-link <?= (str_contains($current, 'events')) ? 'active' : '' ?>" href="/events">
+                <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-calendar-event"></use></svg> Events
+            </a>
+        </li>
         <li class="nav-group <?= (str_contains($current, 'learn') || str_contains($current, 'roadmap')) ? 'show' : '' ?>">
             <a class="nav-link nav-group-toggle" href="javascript:void(0);">
-                <i class="nav-icon bx bxs-graduation"></i> Learn
+                <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-book-bookmark"></use></svg> Learn
             </a>
             <ul class="nav-group-items">
                 <li class="nav-item">
                     <a class="nav-link <?= (str_contains($current, 'learn')) ? 'active' : '' ?>" href="/learn">
-                        <i class="nav-icon bx bx-bot text-info"></i> Learn AI
+                        <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-book-bookmark"></use></svg> Learn AI
                     </a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?= (str_contains($current, 'roadmap')) ? 'active' : '' ?>" href="/roadmaps">
-                        <i class="nav-icon bx bx-map text-success"></i> Roadmaps
+                        <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-map-trifold"></use></svg> Roadmaps
                     </a>
                 </li>
             </ul>
         </li>
         <li class="nav-group <?= $current == 'quiz' ? 'show' : '' ?>">
             <a class="nav-link nav-group-toggle" href="javascript:void(0);">
-                <i class="nav-icon bx bx-spreadsheet"></i> Evaluate
+                <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-notepad"></use></svg> Evaluate
             </a>
             <ul class="nav-group-items">
                 <li class="nav-item">
@@ -79,36 +84,75 @@ $current = Session::getCurrentFile();
                 </li>
             </ul>
         </li>
+        <li class="nav-group <?= (str_contains($current, 'discuss') || str_contains($current, 'clubs')) ? 'show' : '' ?>">
+            <a class="nav-link nav-group-toggle" href="javascript:void(0);">
+                <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-chat-dots"></use></svg> Discuss
+            </a>
+            <ul class="nav-group-items">
+                <li class="nav-item">
+                    <a class="nav-link <?= (str_contains($current, 'recent')) ? 'active' : '' ?>" href="/recent">
+                        <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-clock-history"></use></svg> Recent
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= (str_contains($current, 'clubs')) ? 'active' : '' ?>" href="/clubs">
+                        <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-users-group"></use></svg> Clubs 🌱
+                    </a>
+                </li>
+            </ul>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link <?= (str_contains($current, 'lucky')) ? 'active' : '' ?>" href="/lucky">
+                <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-sparkles"></use></svg> Feeling Lucky ✨
+            </a>
+        </li>
         <li class="nav-title">Tom Labs</li>
-        <li class="nav-item">
-            <a class="nav-link <?= $current == 'devices' ? 'active' : '' ?>" href="/devices">
-                <svg class="nav-icon">
-                    <use xlink:href="/assets/icons/sprites/free.svg#cil-devices"></use>
-                </svg> Devices
+        <li class="nav-group <?= (str_contains($current, 'devices') || str_contains($current, 'network') || str_contains($current, 'domains')) ? 'show' : '' ?>">
+            <a class="nav-link nav-group-toggle" href="javascript:void(0);">
+                <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-cell-tower"></use></svg> Connectivity
             </a>
+            <ul class="nav-group-items">
+                <li class="nav-item">
+                    <a class="nav-link <?= $current == 'devices' ? 'active' : '' ?>" href="/devices">
+                        <svg class="nav-icon">
+                            <use xlink:href="/assets/icons/sprites/free.svg#cil-devices"></use>
+                        </svg> My Device
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= $current == 'network' ? 'active' : '' ?>" href="/network">
+                        <svg class="nav-icon">
+                            <use xlink:href="/assets/icons/sprites/free.svg#cil-sitemap"></use>
+                        </svg> My Network
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= $current == 'domains' ? 'active' : '' ?>" href="/domains">
+                        <i class="nav-icon bx bx-globe"></i> My Domain
+                    </a>
+                </li>
+            </ul>
         </li>
-        <li class="nav-item">
-            <a class="nav-link <?= $current == 'network' ? 'active' : '' ?>" href="/network">
-                <svg class="nav-icon">
-                    <use xlink:href="/assets/icons/sprites/free.svg#cil-sitemap"></use>
-                </svg> Network
+        <li class="nav-group <?= (str_contains($current, 'labs') || str_contains($current, 'challenges')) ? 'show' : '' ?>">
+            <a class="nav-link nav-group-toggle" href="javascript:void(0);">
+                <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-desktop-tower"></use></svg> My Labs
             </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link <?= $current == 'domains' ? 'active' : '' ?>" href="/domains">
-                <i class="nav-icon bx bx-globe"></i> Domains
-            </a>
+            <ul class="nav-group-items">
+                <li class="nav-item">
+                    <a class="nav-link <?= (str_contains($current, 'labs')) ? 'active' : '' ?>" href="/labs">
+                        <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-desktop"></use></svg> Machine Labs
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= $current == 'challenges' ? 'active' : '' ?>" href="<?= Session::url('challenges') ?>">
+                        <svg class="nav-icon" viewBox="0 0 256 256"><use href="/assets/icons/duotone.svg#tom-shield-checkered"></use></svg> Challenge Labs
+                    </a>
+                </li>
+            </ul>
         </li>
         <li class="nav-item">
             <a class="nav-link <?= (str_contains($current, 'instances')) ? 'active' : '' ?>" href="/instances">
                 <i class="nav-icon bx bx-cube-alt"></i> Instances
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link <?= (str_contains($current, 'labs')) ? 'active' : '' ?>" href="/labs">
-                <svg class="nav-icon">
-                    <use xlink:href="/assets/icons/sprites/free.svg#cil-memory"></use>
-                </svg> Labs
             </a>
         </li>
         <li class="nav-item">
@@ -123,11 +167,6 @@ $current = Session::getCurrentFile();
             </a>
         </li>
         <?php endif; ?>
-        <li class="nav-item">
-            <a class="nav-link <?= $current == 'challenges' ? 'active' : '' ?>" href="<?= Session::url('challenges') ?>">
-                <i class="nav-icon bx bxs-flag-alt"></i> Challenges
-            </a>
-        </li>
         <li class="nav-item">
             <a class="nav-link <?= $current == 'test' ? 'active' : '' ?>" href="/test">
                 <svg class="nav-icon">

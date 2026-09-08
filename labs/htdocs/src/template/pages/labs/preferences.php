@@ -129,15 +129,7 @@
 ?>
 
 <script>
-    window.SESSION_HASH = "<?= $fullHash ?>";
-    window.LAB_USER = "<?= htmlspecialchars($currentUsername) ?>";
     window.CODE_SERVER_URL = "<?= $creds['code_server_url'] ?? '' ?>";
-    // CRITICAL: Set the global lab type
-    window.LAB_TYPE = "<?= $labType ?>"; 
-    // Inject Lab Config for JS Access
-    window.LAB_CONFIG = <?= json_encode($labConfig) ?>;
-    // CRITICAL: Inject cross-lab domain usage map
-    window.DOMAIN_USAGE_MAP = <?= json_encode($domainUsageMap) ?>;
 </script>
 
 <?php 

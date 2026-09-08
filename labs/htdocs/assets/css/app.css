@@ -16714,6 +16714,37 @@ body.hwa-disabled .blur {
   box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
 }
 
+.deep-blur-modal-content {
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.1) !important;
+}
+
+.modal-close-btn {
+  filter: var(--cui-btn-close-white-filter, none);
+}
+
+.modal-loading-spinner {
+  font-size: 3rem;
+}
+
+.modal-loading-text {
+  font-size: 0.8rem;
+}
+
+.gpu-info-table {
+  border: 1px solid var(--cui-border-color) !important;
+}
+.gpu-info-table tr:not(:last-child) {
+  border-bottom: 1px solid var(--cui-border-color);
+}
+
+.notification-container {
+  margin-top: 4rem;
+  z-index: 100000 !important;
+  pointer-events: none;
+}
+
 .glass-effect-premium {
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(12px);
@@ -19244,6 +19275,65 @@ body.hwa-enabled .difficulty-modes {
   box-shadow: none !important;
 }
 
+.session-expired-page {
+  background-color: #0f172a;
+  background-image: radial-gradient(circle at top right, rgba(56, 189, 248, 0.15), transparent 500px), radial-gradient(circle at bottom left, rgba(251, 146, 60, 0.15), transparent 500px) !important;
+}
+.session-expired-page .branding-section {
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+.session-expired-page .logo-img {
+  filter: drop-shadow(0 0 10px rgba(15, 159, 248, 0.5));
+}
+.session-expired-page .branding-heading {
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+.session-expired-page .branding-heading .text-orange {
+  color: #fb923c;
+}
+.session-expired-page .branding-heading .text-blue {
+  color: #38bdf8;
+}
+.session-expired-page .branding-info-panel {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+}
+.session-expired-page .branding-info-panel i {
+  color: #38bdf8;
+}
+.session-expired-page .branding-info-panel p {
+  line-height: 1.6;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+.session-expired-page .login-card {
+  background: rgba(30, 41, 59, 0.85);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5) !important;
+}
+.session-expired-page .lock-icon-ring {
+  width: 80px;
+  height: 80px;
+  border: 1px solid rgba(251, 146, 60, 0.3);
+}
+.session-expired-page .lock-icon {
+  color: #fb923c;
+}
+.session-expired-page .btn-signin-gradient {
+  background: linear-gradient(135deg, #fb923c, #f97316);
+  border: none;
+  color: #fff;
+}
+.session-expired-page .btn-signin-gradient:hover {
+  color: #fff;
+}
+.session-expired-page .btn-outline-glass {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
 #session-expired-overlay {
   position: fixed;
   top: 0;
@@ -20051,6 +20141,84 @@ html[data-coreui-theme=light] .glass-inner-card {
 html[data-coreui-theme=light] .glass-inner-card:hover {
   border-color: rgba(0, 0, 0, 0.15) !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+}
+
+.home-app-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  width: 90px;
+  transition: transform 0.2s ease;
+}
+.home-app-card:hover {
+  transform: translateY(-3px);
+}
+
+.home-app-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: box-shadow 0.2s ease;
+}
+.home-app-icon:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+}
+
+.home-app-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+  line-height: 1.2;
+  max-width: 80px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-coreui-theme=light] .home-app-label {
+  color: rgba(26, 26, 46, 0.85);
+}
+
+.tab-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+  transition: all 0.2s ease;
+}
+.tab-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+.tab-btn.active {
+  background: rgba(139, 145, 249, 0.2);
+  border-color: rgba(139, 145, 249, 0.4);
+  color: #8b91f9;
+}
+
+[data-coreui-theme=light] .tab-btn {
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: rgba(26, 26, 46, 0.6);
+}
+[data-coreui-theme=light] .tab-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: rgba(26, 26, 46, 0.9);
+}
+[data-coreui-theme=light] .tab-btn.active {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #6366f1;
+}
+
+.letter-spacing-1 {
+  letter-spacing: 1px;
 }
 
 .active-indicator-green {

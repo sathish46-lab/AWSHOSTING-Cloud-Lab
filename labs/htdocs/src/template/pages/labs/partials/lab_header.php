@@ -1,3 +1,6 @@
+<?php
+    // Lab data now fetched via API (lab_data.php) — no HTML embedding needed
+?>
 <div class="blur banner mb-3 rounded-0 border-bottom border-secondary border-opacity-10">
     <div class="card-body p-0">
         <div class="container-fluid pt-3 pb-1">
@@ -150,3 +153,9 @@
     </div>
 </div>
 </div>
+
+<script>
+    window.SESSION_HASH = "<?= $fullHash ?>";
+    window.LAB_USER = "<?= htmlspecialchars($currentUsername ?? Session::getUser()->getUsername()) ?>";
+    window.LAB_TYPE = "<?= htmlspecialchars($labType ?? 'essentials') ?>";
+</script>

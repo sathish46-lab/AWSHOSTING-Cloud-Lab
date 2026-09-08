@@ -1,4 +1,9 @@
 <?php
+if (!\TomLabs\Labs\LabFeatures::isAccountEnabled()) {
+    echo '<div class="text-center py-5"><h5 class="text-muted">This feature is currently disabled.</h5></div>';
+    return;
+}
+
 $user = Session::getUser();
 $username = $user?->getUsername() ?? 'Guest';
 $firstName = $user?->getFirstName() ?? '';
