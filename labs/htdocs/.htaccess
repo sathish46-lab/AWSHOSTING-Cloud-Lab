@@ -24,6 +24,9 @@ RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
+# Lab API - extensionless URLs
+RewriteRule ^api/labs/lab_data/?$ src/api/labs/lab_data.php [L,QSA]
+
 # MCP OAuth + Inspector — served by PHP (NOT proxied to Python MCP server)
 RewriteRule ^mcp/inspector/?$ app/mcp.php [L,QSA]
 RewriteRule ^mcp/authorize/?$ src/api/mcp/authorize.php [L,QSA]

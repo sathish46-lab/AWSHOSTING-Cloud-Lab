@@ -18,13 +18,14 @@ $db = DatabaseConnection::getDefaultDatabase();
 
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 $skip = isset($_GET['skip']) ? (int)$_GET['skip'] : 0;
-$limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+$limit = isset($_GET['limit']) ? min((int)$_GET['limit'], 100) : 20;
 
 $query = [];
 if (!empty($search)) {
-    // Search by email (case-insensitive)
+    // Escape regex special characters to prevent NoSQL injection
+    $escapedSearch = preg_quote($search, '/');
     $query = [
-        'email' => ['$regex' => $search, '$options' => 'i']
+        'email' => ['$regex' => $escapedSearch, '$options' => 'i']
     ];
 }
 

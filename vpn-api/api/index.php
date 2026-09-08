@@ -38,8 +38,22 @@ class API extends REST {
         }
         else {
             if(isset($_GET['namespace'])){
-                $dir = $_SERVER['DOCUMENT_ROOT'].'/api/apis/'.$_GET['namespace'];
+                // Whitelist allowed namespaces to prevent LFI
+                $allowedNamespaces = ['wireguard', 'vpn'];
+                $namespace = preg_replace('/[^a-zA-Z0-9_]/', '', $_GET['namespace']);
+                if (!in_array($namespace, $allowedNamespaces)) {
+                    $this->response($this->json(['error' => 'invalid_namespace']), 403);
+                    return;
+                }
+                $dir = $_SERVER['DOCUMENT_ROOT'].'/api/apis/'.$namespace;
                 $file = $dir.'/'.$func.'.php';
+                // Verify resolved path stays within apis directory
+                $realDir = realpath($dir);
+                $realApisDir = realpath($_SERVER['DOCUMENT_ROOT'].'/api/apis');
+                if ($realDir === false || $realApisDir === false || strpos($realDir, $realApisDir) !== 0) {
+                    $this->response($this->json(['error' => 'invalid_namespace']), 403);
+                    return;
+                }
                 if(file_exists($file)){
                     include $file;
                     $this->current_call = Closure::bind(${$func}, $this, get_class());
@@ -113,11 +127,19 @@ class API extends REST {
     /*************API SPACE START*******************/
     
     private function test(){
+        if (!$this->isAuthenticated()) {
+            $this->response($this->json(['error' => 'unauthorized']), 403);
+            return;
+        }
         $data = $this->json(getallheaders());
         $this->response($data,200);
     }
     
     private function gen_hash(){
+        if (!$this->isAuthenticated()) {
+            $this->response($this->json(['error' => 'unauthorized']), 403);
+            return;
+        }
         $st = microtime(true);
         if(isset($this->_request['pass'])){
             $cost = (int)$this->_request['cost'];
@@ -128,7 +150,6 @@ class API extends REST {
             $data = [
                 "hash" => $hash,
                 "info" => password_get_info($hash),
-                "val" => $this->_request['pass'],
                 "verified" => password_verify($this->_request['pass'], $hash),
                 "time_in_ms" => microtime(true) - $st
             ];
@@ -138,12 +159,15 @@ class API extends REST {
     }
     
     private function verify_hash(){
+        if (!$this->isAuthenticated()) {
+            $this->response($this->json(['error' => 'unauthorized']), 403);
+            return;
+        }
         if(isset($this->_request['pass']) and isset($this->_request['hash'])){
             $hash = $this->_request['hash'];
             $data = [
                 "hash" => $hash,
                 "info" => password_get_info($hash),
-                "val" => $this->_request['pass'],
                 "verified" => password_verify($this->_request['pass'], $hash),
             ];
             $data = $this->json($data);

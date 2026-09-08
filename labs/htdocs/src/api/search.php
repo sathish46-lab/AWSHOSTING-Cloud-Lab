@@ -8,6 +8,7 @@ require_once __DIR__ . '/../../src/lib/core/DatabaseConnection.class.php';
 session_start();
 
 $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+$qEscaped = preg_quote($q, '/');
 $userId = $_SESSION['user_id'] ?? 0;
 
 if (empty($q)) {
@@ -158,9 +159,9 @@ foreach ($quizSubs as $sub) {
 try {
     $lessonCursor = $db->ai_lessons->find([
         '$or' => [
-            ['title'  => ['$regex' => $q, '$options' => 'i']],
-            ['tags'   => ['$regex' => $q, '$options' => 'i']],
-            ['author' => ['$regex' => $q, '$options' => 'i']],
+            ['title'  => ['$regex' => $qEscaped, '$options' => 'i']],
+            ['tags'   => ['$regex' => $qEscaped, '$options' => 'i']],
+            ['author' => ['$regex' => $qEscaped, '$options' => 'i']],
         ],
         'visibility' => 'Public',
     ], ['limit' => 10]);

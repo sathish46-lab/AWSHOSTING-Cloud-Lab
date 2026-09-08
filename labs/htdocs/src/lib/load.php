@@ -8,6 +8,7 @@
 // 1. Load Constants and Env
 require_once __DIR__ . '/core/Env.class.php';
 require_once __DIR__ . '/core/Constants.class.php';
+require_once __DIR__ . '/core/Logger.class.php';
 
 // 2. Load Exceptions (Cache depends on this)
 require_once __DIR__ . '/exceptions/ObjectNotSupportedException.class.php';
@@ -145,33 +146,16 @@ function require_from_json(){
 
 
 function logit($log, $tag = "system") {
-    // Only log if in local mode or it's a fatal error
-    if (class_exists('Session') && (Session::$environment == "local" || $tag == 'fatal')) {
-        
-        $config_log = get_config('app_log');
-        
-        // Ensure the directory exists (Safety check)
-        $log_dir = dirname($config_log);
-        if (!is_dir($log_dir)) {
-            mkdir($log_dir, 0775, true);
-        }
-
-        // Get Caller Information
-        $bt = debug_backtrace();
-        $caller = array_shift($bt);
-        $file = basename($caller['file']);
-        $line = $caller['line'];
-
-        $dateStr = date('Y-m-d H:i:s');
-        $ip = $_SERVER['REMOTE_ADDR'] ?? 'CLI';
-        $uri = $_SERVER['REQUEST_URI'] ?? 'N/A';
-
-        // Format: [DATE] [TAG] [IP] [URI] [FILE:LINE] Message
-        $message = "[$dateStr] [$tag] [$ip] [$uri] [$file:$line] \n Message: $log \n" . str_repeat("-", 50) . "\n";
-        
-        // Write to the file defined in config.json
-        error_log($message, 3, $config_log);
-    }
+    // Map old tags to log levels
+    $levelMap = [
+        'fatal'   => Logger::LEVEL_CRITICAL,
+        'error'   => Logger::LEVEL_ERROR,
+        'warning' => Logger::LEVEL_WARNING,
+        'debug'   => Logger::LEVEL_DEBUG,
+    ];
+    $level = $levelMap[$tag] ?? Logger::LEVEL_INFO;
+    
+    Logger::log($level, $log, ['tag' => $tag]);
 }
 
 /**

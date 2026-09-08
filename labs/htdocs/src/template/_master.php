@@ -539,22 +539,22 @@ $classString = implode(' ', $htmlClasses);
         <?php if (!Session::get('footer', false) && !defined('IS_HOME_PAGE') && !Session::get('show_session_expired', false)) { echo Session::generateFooter(); } ?>
     </div>
     <!-- Premium Stackable Notification Container -->
-    <div id="notification-container" class="toast-container position-fixed top-0 end-0 p-3" style="margin-top: 4rem; z-index: 100000 !important; pointer-events: none;">
+    <div id="notification-container" class="toast-container position-fixed top-0 end-0 p-3 notification-container">
         <!-- Toasts will be injected here dynamically -->
     </div>
     <!-- This card section is for the background selection modal -->
     <div class="modal fade" id="bgSelectModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content border-0 rounded-4 shadow-lg" style="backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px); border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.1) !important;">
+            <div class="modal-content border-0 rounded-4 shadow-lg deep-blur-modal-content">
                 <div class="modal-header border-0 pt-4 px-4 pb-0">
                     <h5 class="fw-bold m-0 text-body-emphasis">Change Background</h5>
-                    <button type="button" class="btn-close" data-coreui-dismiss="modal" style="filter: var(--cui-btn-close-white-filter, none);"></button>
+                    <button type="button" class="btn-close modal-close-btn" data-coreui-dismiss="modal"></button>
                 </div>
                 <!-- Dynamic Content Container -->
                 <div id="bgSelectModalContent">
                     <div class="p-5 text-center">
-                        <i class="bx bx-loader-alt bx-spin text-primary" style="font-size: 3rem;"></i>
-                        <div class="mt-3 text-white opacity-75 fw-semibold tracking-widest uppercase" style="font-size: 0.8rem;">Loading Backgrounds...</div>
+                        <i class="bx bx-loader-alt bx-spin text-primary modal-loading-spinner"></i>
+                        <div class="mt-3 text-white opacity-75 fw-semibold tracking-widest uppercase modal-loading-text">Loading Backgrounds...</div>
                     </div>
                 </div>
                 <!-- Ok Button -->
@@ -568,15 +568,15 @@ $classString = implode(' ', $htmlClasses);
     <!-- Plain Theme Color Picker Modal — Edit Custom Theme -->
     <div class="modal fade" id="plainColorModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg">
-            <div class="modal-content border-0 rounded-4 shadow-lg" style="backdrop-filter: blur(32px); -webkit-backdrop-filter: blur(32px); border: 1px solid rgba(var(--cui-emphasis-color-rgb, 255, 255, 255), 0.1) !important;">
+            <div class="modal-content border-0 rounded-4 shadow-lg deep-blur-modal-content">
                 <div class="modal-header border-0 pt-4 px-4 pb-0">
                     <h5 class="fw-bold m-0 text-body-emphasis">Edit Custom Theme</h5>
-                    <button type="button" class="btn-close" data-coreui-dismiss="modal" style="filter: var(--cui-btn-close-white-filter, none);"></button>
+                    <button type="button" class="btn-close modal-close-btn" data-coreui-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4" id="plainColorModalContent">
                     <div class="p-5 text-center">
-                        <i class="bx bx-loader-alt bx-spin text-primary" style="font-size: 3rem;"></i>
-                        <div class="mt-3 text-white opacity-75 fw-semibold tracking-widest uppercase" style="font-size: 0.8rem;">Loading Designer...</div>
+                        <i class="bx bx-loader-alt bx-spin text-primary modal-loading-spinner"></i>
+                        <div class="mt-3 text-white opacity-75 fw-semibold tracking-widest uppercase modal-loading-text">Loading Designer...</div>
                     </div>
                 </div>
             </div>
@@ -589,24 +589,24 @@ $classString = implode(' ', $htmlClasses);
             <div class="modal-content border-0 rounded-4 shadow-lg blur">
                 <div class="modal-header border-0 pt-4 px-4 pb-2">
                     <h5 class="fw-bold m-0 text-body-emphasis">Visuals Recommendation</h5>
-                    <button type="button" class="btn-close" data-coreui-dismiss="modal" style="filter: var(--cui-btn-close-white-filter, none);"></button>
+                    <button type="button" class="btn-close modal-close-btn" data-coreui-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4 pt-2">
                     <p class="small text-body-secondary mb-4">
                         This website use Blur effects for background. This effect is only available if your browser supports WebGL and your GPU is a high performance one. You can check your GPU info below.
                     </p>
-                    <div class="rounded-3 overflow-hidden mb-4" style="border: 1px solid var(--cui-border-color) !important;">
+                    <div class="rounded-3 overflow-hidden mb-4 gpu-info-table">
                         <table class="table table-borderless mb-0 small">
                             <tbody>
-                                <tr style="border-bottom: 1px solid var(--cui-border-color);">
+                                <tr>
                                     <td class="py-2 px-3 text-body-secondary">WebGL Support</td>
                                     <td class="py-2 px-3 fw-semibold" id="gpuModalWebGL">Yes</td>
                                 </tr>
-                                <tr style="border-bottom: 1px solid var(--cui-border-color);">
+                                <tr>
                                     <td class="py-2 px-3 text-body-secondary">High Performance GPU</td>
                                     <td class="py-2 px-3 fw-semibold" id="gpuModalHighPerf">Yes</td>
                                 </tr>
-                                <tr style="border-bottom: 1px solid var(--cui-border-color);">
+                                <tr>
                                     <td class="py-2 px-3 text-body-secondary">GPU Vendor</td>
                                     <td class="py-2 px-3 text-body-emphasis" id="gpuModalVendor">-</td>
                                 </tr>
