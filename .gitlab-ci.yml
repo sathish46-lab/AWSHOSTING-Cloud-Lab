@@ -12,6 +12,7 @@ test:
       - master
       - merge_requests
     changes:
+      - ".gitlab-ci.yml"
       - "labs/**/*.php"
       - "labs/**/*.js"
       - "labs/**/*.scss"
@@ -28,6 +29,7 @@ build:
     refs:
       - master
     changes:
+      - ".gitlab-ci.yml"
       - "labs/workspace/**/*"
       - "labs/htdocs/assets/**/*"
   script:
@@ -44,6 +46,7 @@ deploy:
     refs:
       - master
     changes:
+      - ".gitlab-ci.yml"
       - "labs/**/*"
       - "vpn-api/**/*"
       - "opt/**/*"
