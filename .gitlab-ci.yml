@@ -6,7 +6,7 @@ stages:
 test:
   stage: test
   tags:
-    - local
+    - production
   only:
     refs:
       - master
@@ -24,7 +24,7 @@ test:
 build:
   stage: build
   tags:
-    - local
+    - production
   only:
     refs:
       - master
@@ -41,7 +41,7 @@ build:
 deploy:
   stage: deploy
   tags:
-    - local
+    - production
   only:
     refs:
       - master
