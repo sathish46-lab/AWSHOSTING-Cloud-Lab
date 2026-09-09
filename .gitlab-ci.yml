@@ -1,13 +1,3 @@
-# ============================================================================
-# GitLab CI/CD Pipeline for Dev_lab
-#
-# Runner: shell executor (runs on Mac)
-# Stages:
-#   1. test    — Run PHP & Python tests inside Dev_lab container
-#   2. build   — Compile SCSS, concat JS, obfuscate (Grunt)
-#   3. deploy  — Rsync to TomCloudLab production
-# ============================================================================
-
 stages:
   - test
   - build
@@ -17,9 +7,6 @@ variables:
   GIT_DEPTH: 0
   CONTAINER_NAME: "Dev_lab_ci"
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Stage 1: TEST
-# ──────────────────────────────────────────────────────────────────────────────
 test:
   stage: test
   tags:
@@ -36,23 +23,16 @@ test:
       - "run_tests.sh"
       - ".gitlab-ci.yml"
   script:
-    - echo "▶ Running tests inside Dev_lab container..."
-    
-    # Ensure Dev_lab container is running
+    - echo "Running tests inside Dev_lab container..."
     - |
       if ! docker ps --format '{{.Names}}' | grep -q '^Dev_lab$'; then
-        echo "  Starting Dev_lab container..."
+        echo "Starting Dev_lab container..."
         docker start Dev_lab || true
         sleep 10
       fi
-    
-    # Run the test runner inside the container
     - docker exec -w /var/www Dev_lab ./run_tests.sh php
   allow_failure: false
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Stage 2: BUILD
-# ──────────────────────────────────────────────────────────────────────────────
 build:
   stage: build
   tags:
@@ -64,29 +44,17 @@ build:
       - "labs/workspace/**/*"
       - "labs/htdocs/assets/**/*"
   script:
-    - echo "▶ Building assets inside Dev_lab container..."
-    
-    # Ensure container is running
+    - echo "Building assets inside Dev_lab container..."
     - |
       if ! docker ps --format '{{.Names}}' | grep -q '^Dev_lab$'; then
         docker start Dev_lab || true
         sleep 10
       fi
-    
-    # Run Grunt build inside the container
-    - >
-      docker exec -w /var/www/labs/workspace/grunt Dev_lab
-      bash -c "npm install && npx grunt build"
-    
-    # Verify build output
-    - echo "▶ Verifying build output..."
-    - test -f labs/htdocs/assets/css/app.css && echo "  ✓ app.css"
-    - test -f labs/htdocs/assets/js/app.js && echo "  ✓ app.js"
-    - test -f labs/htdocs/assets/js/app.min.js && echo "  ✓ app.min.js"
+    - docker exec -w /var/www/labs/workspace/grunt Dev_lab bash -c "npm install && npx grunt build"
+    - test -f labs/htdocs/assets/css/app.css && echo "app.css built"
+    - test -f labs/htdocs/assets/js/app.js && echo "app.js built"
+    - test -f labs/htdocs/assets/js/app.min.js && echo "app.min.js built"
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Stage 3: DEPLOY
-# ──────────────────────────────────────────────────────────────────────────────
 deploy:
   stage: deploy
   tags:
@@ -105,36 +73,19 @@ deploy:
     - test
     - build
   script:
-    - echo "▶ Deploying to TomCloudLab..."
-    
-    # Generate version file
+    - echo "Deploying to TomCloudLab..."
     - git describe --tags --always > labs/.version
-    - echo "  Version: $(cat labs/.version)"
-    
-    # Deploy path
+    - echo "Version: $(cat labs/.version)"
     - DEPLOY_TARGET="/Users/sathish/Downloads/TomCloudLab"
-    
-    # Sync labs folder
-    - echo "  Syncing labs/..."
     - rsync -av --delete --exclude 'vendor' --exclude 'node_modules' labs/ "$DEPLOY_TARGET/labs/"
-    
-    # Sync vpn-api folder
-    - echo "  Syncing vpn-api/..."
     - rsync -av --delete --exclude 'vendor' --exclude 'node_modules' vpn-api/ "$DEPLOY_TARGET/vpn-api/"
-    
-    # Sync opt folder (preserve config.json)
-    - echo "  Syncing opt/..."
     - rsync -av --delete --exclude 'labs-control-panel/config.json' opt/ "$DEPLOY_TARGET/opt/"
-    
-    # Sync config files
-    - echo "  Syncing config files..."
     - cp session.json "$DEPLOY_TARGET/session.json"
     - cp init-services.sh "$DEPLOY_TARGET/init-services.sh"
     - cp entrypoint.sh "$DEPLOY_TARGET/entrypoint.sh"
     - cp run_tests.sh "$DEPLOY_TARGET/run_tests.sh"
     - chmod +x "$DEPLOY_TARGET/run_tests.sh"
-    
-    - echo "✅ Deployment complete!"
+    - echo "Deployment complete!"
   environment:
     name: production
     url: https://labs.tomweb.in
