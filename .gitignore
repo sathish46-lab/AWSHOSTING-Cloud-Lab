@@ -17,6 +17,7 @@
 !/Migrate.sh
 !/entrypoint.sh
 !/init-services.sh
+!/run_tests.sh
 
 # =========================
 # Original Ignores

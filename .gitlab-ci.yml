@@ -1,52 +1,140 @@
-variables:
-  GIT_DEPTH: 0
+# ============================================================================
+# GitLab CI/CD Pipeline for Dev_lab
+#
+# Runner: shell executor (runs on Mac)
+# Stages:
+#   1. test    — Run PHP & Python tests inside Dev_lab container
+#   2. build   — Compile SCSS, concat JS, obfuscate (Grunt)
+#   3. deploy  — Rsync to TomCloudLab production
+# ============================================================================
 
 stages:
+  - test
+  - build
   - deploy
 
-deploy_to_tomcloud_lab:
-  stage: deploy
-  
-  # This tag must match the tag you give your GitLab Runner when you register it.
-  # It tells GitLab to run this job on YOUR specific server.
+variables:
+  GIT_DEPTH: 0
+  CONTAINER_NAME: "Dev_lab_ci"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Stage 1: TEST
+# ──────────────────────────────────────────────────────────────────────────────
+test:
+  stage: test
   tags:
-    - production
+    - local
+  only:
+    refs:
+      - master
+      - merge_requests
+    changes:
+      - "labs/**/*.php"
+      - "labs/**/*.js"
+      - "labs/**/*.scss"
+      - "vpn-api/**/*.php"
+      - "run_tests.sh"
+      - ".gitlab-ci.yml"
+  script:
+    - echo "▶ Running tests inside Dev_lab container..."
     
-  # Only run this deployment if changes happen on the 'main' branch
-  # AND only if files inside 'labs/' or 'vpn-api/' were changed.
+    # Ensure Dev_lab container is running
+    - |
+      if ! docker ps --format '{{.Names}}' | grep -q '^Dev_lab$'; then
+        echo "  Starting Dev_lab container..."
+        docker start Dev_lab || true
+        sleep 10
+      fi
+    
+    # Run the test runner inside the container
+    - docker exec -w /var/www Dev_lab ./run_tests.sh php
+  allow_failure: false
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Stage 2: BUILD
+# ──────────────────────────────────────────────────────────────────────────────
+build:
+  stage: build
+  tags:
+    - local
   only:
     refs:
       - master
     changes:
-      - ".gitlab-ci.yml"
+      - "labs/workspace/**/*"
+      - "labs/htdocs/assets/**/*"
+  script:
+    - echo "▶ Building assets inside Dev_lab container..."
+    
+    # Ensure container is running
+    - |
+      if ! docker ps --format '{{.Names}}' | grep -q '^Dev_lab$'; then
+        docker start Dev_lab || true
+        sleep 10
+      fi
+    
+    # Run Grunt build inside the container
+    - >
+      docker exec -w /var/www/labs/workspace/grunt Dev_lab
+      bash -c "npm install && npx grunt build"
+    
+    # Verify build output
+    - echo "▶ Verifying build output..."
+    - test -f labs/htdocs/assets/css/app.css && echo "  ✓ app.css"
+    - test -f labs/htdocs/assets/js/app.js && echo "  ✓ app.js"
+    - test -f labs/htdocs/assets/js/app.min.js && echo "  ✓ app.min.js"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Stage 3: DEPLOY
+# ──────────────────────────────────────────────────────────────────────────────
+deploy:
+  stage: deploy
+  tags:
+    - local
+  only:
+    refs:
+      - master
+    changes:
       - "labs/**/*"
       - "vpn-api/**/*"
       - "opt/**/*"
       - "session.json"
       - "init-services.sh"
       - "entrypoint.sh"
+  dependencies:
+    - test
+    - build
   script:
-    - echo "Starting deployment to TomCloudLab..."
+    - echo "▶ Deploying to TomCloudLab..."
     
-    # 0. Generate version file based on current commit and tags
+    # Generate version file
     - git describe --tags --always > labs/.version
+    - echo "  Version: $(cat labs/.version)"
     
-    # 1. Sync the 'labs' folder. 
-    # We exclude 'vendor' and 'node_modules' so production dependencies stay safe.
-    - rsync -av --delete --exclude 'vendor' --exclude 'node_modules' labs/ /Users/sathish/Downloads/TomCloudLab/labs/
+    # Deploy path
+    - DEPLOY_TARGET="/Users/sathish/Downloads/TomCloudLab"
     
-    # 2. Sync the 'vpn-api' folder.
-    - rsync -av --delete --exclude 'vendor' --exclude 'node_modules' vpn-api/ /Users/sathish/Downloads/TomCloudLab/vpn-api/
+    # Sync labs folder
+    - echo "  Syncing labs/..."
+    - rsync -av --delete --exclude 'vendor' --exclude 'node_modules' labs/ "$DEPLOY_TARGET/labs/"
     
-    # 3. Sync the 'opt' folder (Labs Control Panel & Orchestrators)
-    # We exclude 'labs-control-panel/config.json' so rsync doesn't delete the production config
-    - rsync -av --delete --exclude 'labs-control-panel/config.json' opt/ /Users/sathish/Downloads/TomCloudLab/opt/
+    # Sync vpn-api folder
+    - echo "  Syncing vpn-api/..."
+    - rsync -av --delete --exclude 'vendor' --exclude 'node_modules' vpn-api/ "$DEPLOY_TARGET/vpn-api/"
     
-    # 4. Sync the 'session.json' configuration
-    - cp session.json /Users/sathish/Downloads/TomCloudLab/session.json
+    # Sync opt folder (preserve config.json)
+    - echo "  Syncing opt/..."
+    - rsync -av --delete --exclude 'labs-control-panel/config.json' opt/ "$DEPLOY_TARGET/opt/"
     
-    # 5. Sync the startup scripts to ensure environments are identical
-    - cp init-services.sh /Users/sathish/Downloads/TomCloudLab/init-services.sh
-    - cp entrypoint.sh /Users/sathish/Downloads/TomCloudLab/entrypoint.sh
+    # Sync config files
+    - echo "  Syncing config files..."
+    - cp session.json "$DEPLOY_TARGET/session.json"
+    - cp init-services.sh "$DEPLOY_TARGET/init-services.sh"
+    - cp entrypoint.sh "$DEPLOY_TARGET/entrypoint.sh"
+    - cp run_tests.sh "$DEPLOY_TARGET/run_tests.sh"
+    - chmod +x "$DEPLOY_TARGET/run_tests.sh"
     
-    - echo "Deployment of labs, vpn-api, and opt completed successfully!"
+    - echo "✅ Deployment complete!"
+  environment:
+    name: production
+    url: https://labs.tomweb.in
