@@ -1,103 +1,239 @@
 <?php
 /**
  * Test api/account/activity.php — Security & Functionality
- * 
- * Tests:
- * 1. File exists and is valid PHP
- * 2. Requires authentication (401 for unauth)
- * 3. User scoping: query filters by user_id from session, NOT from params
- * 4. IDOR test: cannot request another user's data via param tampering
- * 5. Allowlist: valid action filter accepted
- * 6. Allowlist: invalid action filter rejected (400)
- * 7. Allowlist: valid entity_type filter accepted
- * 8. Allowlist: invalid entity_type filter rejected (400)
- * 9. Pagination: limit clamped to max 100
- * 10. Pagination: offset accepts valid values
- * 11. Response format: no _id fields leaked
- * 12. Response format: no internal Mongo fields leaked
- * 13. Response contains only safe fields
- * 14. Summary counts are user-scoped
- * 15. SQL/NoSQL injection: special chars in action param handled safely
+ *
+ * REAL RUNTIME TEST — Makes actual HTTP requests to the running server.
+ * Verifies auth, user scoping, allowlist validation, pagination, and response safety.
+ *
+ * Security properties tested:
+ * 1. Unauthenticated → 401
+ * 2. User scoping: entries belong to authenticated user only
+ * 3. IDOR: can't access another user's data via param tampering
+ * 4. Allowlist: invalid action filter → 400
+ * 5. Allowlist: invalid entity_type filter → 400
+ * 6. Pagination clamped to max 100
+ * 7. Response contains only safe fields (no _id, no user_agent, etc.)
+ * 8. Summary counts are user-scoped
+ *
+ * Usage:
+ *   # Inside Docker container:
+ *   php workspace/tests/test_activity_api.php
  */
 
-$base = dirname(__DIR__, 2);
-$passed = 0;
-$failed = 0;
+require_once __DIR__ . '/bootstrap.php';
 
-function test($name, $condition) {
-    global $passed, $failed;
-    if ($condition) {
-        echo "  PASS: $name\n";
-        $passed++;
-    } else {
-        echo "  FAIL: $name\n";
-        $failed++;
-    }
+echo "=== API: activity.php Security Tests (Runtime) ===\n\n";
+
+$db = DatabaseConnection::getDefaultDatabase();
+
+// Create two test users for IDOR testing
+$emailA = 'activity_a_' . time() . '@example.com';
+$emailB = 'activity_b_' . time() . '@example.com';
+$tokenA = create_test_user($emailA, 'user');
+$tokenB = create_test_user($emailB, 'user');
+
+// Seed some audit log entries for user A
+$userIdA = null;
+$userA = $db->users->findOne(['email' => $emailA]);
+if ($userA) {
+    $userIdA = (string)$userA['_id'];
+    $db->audit_log->insertMany([
+        [
+            'user_id' => $userIdA,
+            'action' => 'create',
+            'entity_type' => 'instance',
+            'entity_id' => 'test_instance_1',
+            'details' => ['name' => 'Test Instance'],
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'TestBot/1.0',
+            'request_uri' => '/api/instances/create.php',
+            'request_method' => 'POST',
+            'created_at' => new MongoDB\BSON\UTCDateTime(time() * 1000),
+        ],
+        [
+            'user_id' => $userIdA,
+            'action' => 'delete',
+            'entity_type' => 'instance',
+            'entity_id' => 'test_instance_2',
+            'details' => [],
+            'ip_address' => '127.0.0.1',
+            'user_agent' => 'TestBot/1.0',
+            'request_uri' => '/api/instances/delete.php',
+            'request_method' => 'POST',
+            'created_at' => new MongoDB\BSON\UTCDateTime(time() * 1000),
+        ],
+    ]);
 }
 
-echo "=== API: activity.php Security Tests ===\n\n";
+// ── HTTP Tests ──
+echo "--- HTTP Auth Tests ---\n";
 
-$path = "$base/htdocs/src/api/account/activity.php";
-$content = file_get_contents($path);
+// Test 1: Unauthenticated → 401
+$response = http_request('GET', '/api/account/activity.php');
+test("Unauthenticated → 401",
+    $response['status'] === 401 || ($response['body_json']['error'] ?? '') === 'Unauthorized',
+    "Got {$response['status']}: " . ($response['body_json']['error'] ?? ''));
 
-// 1. File exists and is valid PHP
-test("activity.php exists", file_exists($path));
-test("activity.php contains <?php", strpos($content, '<?php') !== false);
+// Test 2: Authenticated → 200 with valid structure
+$response = http_request('GET', '/api/account/activity.php', [
+    'cookie' => "session_token=$tokenA",
+]);
+test("Authenticated → 200", $response['status'] === 200,
+    "Got {$response['status']}");
+test("Response has status field", ($response['body_json']['status'] ?? '') === 'success');
+test("Response has entries array", is_array($response['body_json']['entries'] ?? null));
+test("Response has total field", isset($response['body_json']['total']));
+test("Response has summary field", is_array($response['body_json']['summary'] ?? null));
 
-// 2. Requires authentication
-test("Checks auth status", strpos($content, 'Session::getAuthStatus()') !== false);
-test("Returns 401 for unauth", strpos($content, 'http_response_code(401)') !== false);
+// ── Allowlist validation ──
+echo "\n--- Allowlist Validation ---\n";
 
-// 3. User scoping: query uses session user_id, never request params
-test("Gets user_id from Session::getUser()", strpos($content, 'Session::getUser()') !== false);
-test("user_id from getUserId()", strpos($content, 'getUserId()') !== false);
-test("Query filters by user_id from session", strpos($content, "'user_id' => ['\$in' => [$userId") !== false);
+// Test 3: Invalid action filter → 400
+$response = http_request('GET', '/api/account/activity.php?action=INJECTDropTable', [
+    'cookie' => "session_token=$tokenA",
+]);
+test("Invalid action filter → 400", $response['status'] === 400,
+    "Got {$response['status']}: " . ($response['body_json']['error'] ?? ''));
+test("Error message for invalid action",
+    strpos($response['body_json']['error'] ?? '', 'Invalid action') !== false);
 
-// 4. IDOR: no user_id accepted from request params
-test("No user_id from $_GET", strpos($content, '$_GET[\'user_id\']') === false && strpos($content, '$_GET["user_id"]') === false);
-test("No user_id from $_POST", strpos($content, '$_POST[\'user_id\']') === false && strpos($content, '$_POST["user_id"]') === false);
-test("No user_id from JSON body", strpos($content, "'user_id'") === false || substr_count($content, "'user_id'") <= 3); // Only in the query filter
+// Test 4: Invalid entity_type filter → 400
+$response = http_request('GET', '/api/account/activity.php?entity_type=malicious', [
+    'cookie' => "session_token=$tokenA",
+]);
+test("Invalid entity_type filter → 400", $response['status'] === 400,
+    "Got {$response['status']}: " . ($response['body_json']['error'] ?? ''));
+test("Error message for invalid entity_type",
+    strpos($response['body_json']['error'] ?? '', 'Invalid entity_type') !== false);
 
-// 5. Allowlist: valid actions defined
-test("Valid actions allowlist exists", strpos($content, '$validActions') !== false);
-test("Allowlist includes create", strpos($content, "'create'") !== false);
-test("Allowlist includes delete", strpos($content, "'delete'") !== false);
+// Test 5: Valid action filter works
+$response = http_request('GET', '/api/account/activity.php?action=create', [
+    'cookie' => "session_token=$tokenA",
+]);
+test("Valid action filter → 200", $response['status'] === 200);
 
-// 6. Invalid action rejected
-test("Invalid action returns 400", strpos($content, "Invalid action filter") !== false);
+// Test 6: Valid entity_type filter works
+$response = http_request('GET', '/api/account/activity.php?entity_type=instance', [
+    'cookie' => "session_token=$tokenA",
+]);
+test("Valid entity_type filter → 200", $response['status'] === 200);
 
-// 7. Valid entity_type accepted
-test("Valid entity types allowlist exists", strpos($content, '$validEntityTypes') !== false);
+// ── Pagination ──
+echo "\n--- Pagination ---\n";
 
-// 8. Invalid entity_type rejected
-test("Invalid entity_type returns 400", strpos($content, "Invalid entity_type filter") !== false);
+// Test 7: Limit clamped to max 100
+$response = http_request('GET', '/api/account/activity.php?limit=999', [
+    'cookie' => "session_token=$tokenA",
+]);
+test("Limit 999 clamped to 100", ($response['body_json']['limit'] ?? 0) <= 100,
+    "Got limit: " . ($response['body_json']['limit'] ?? 'null'));
 
-// 9. Pagination limits
-test("Limit capped at 100", strpos($content, '$maxLimit = 100') !== false);
-test("Limit uses min/max clamping", strpos($content, 'min(max(') !== false);
+// Test 8: Limit=1 returns at most 1 entry
+$response = http_request('GET', '/api/account/activity.php?limit=1', [
+    'cookie' => "session_token=$tokenA",
+]);
+test("Limit=1 returns at most 1 entry",
+    count($response['body_json']['entries'] ?? []) <= 1);
 
-// 10. Offset validated
-test("Offset defaults to 0", strpos($content, "offset'] ?? 0") !== false);
-test("Offset clamped to >= 0", strpos($content, 'max((int)') !== false && strpos($content, 'offset') !== false);
+// Test 9: Offset works
+$response = http_request('GET', '/api/account/activity.php?offset=0&limit=10', [
+    'cookie' => "session_token=$tokenA",
+]);
+test("Offset=0 returns entries", $response['status'] === 200);
 
-// 11-13. Response format: safe fields only
-test("Does not return _id field", strpos($content, "'_id' =>") === false || substr_count($content, "'_id' =>") <= 0);
-test("Returns action field", strpos($content, "'action' =>") !== false);
-test("Returns entity_type field", strpos($content, "'entity_type' =>") !== false);
-test("Returns entity_id field", strpos($content, "'entity_id' =>") !== false);
-test("Returns details field", strpos($content, "'details' =>") !== false);
-test("Returns ip_address field", strpos($content, "'ip_address' =>") !== false);
-test("Returns created_at field", strpos($content, "'created_at' =>") !== false);
-test("Does NOT return user_agent", strpos($content, "'user_agent'") === false || substr_count($content, "'user_agent'") === 0);
-test("Does NOT return request_uri", strpos($content, "'request_uri'") === false || substr_count($content, "'request_uri'") === 0);
-test("Does NOT return request_method", strpos($content, "'request_method'") === false || substr_count($content, "'request_method'") === 0);
+// ── Response safety ──
+echo "\n--- Response Safety ---\n";
 
-// 14. Summary is user-scoped
-test("Summary queries scope to user_id", substr_count($content, "['\$in' => [$userId") >= 2); // filter + each summary count
+$entries = $response['body_json']['entries'] ?? [];
+if (count($entries) > 0) {
+    $first = $entries[0];
+    test("Entry has 'action' field", isset($first['action']));
+    test("Entry has 'entity_type' field", isset($first['entity_type']));
+    test("Entry has 'created_at' field", isset($first['created_at']));
+    test("Entry does NOT have '_id' field", !isset($first['_id']));
+    test("Entry does NOT have 'user_agent' field", !isset($first['user_agent']));
+    test("Entry does NOT have 'request_uri' field", !isset($first['request_uri']));
+    test("Entry does NOT have 'request_method' field", !isset($first['request_method']));
+    test("Entry does NOT have 'password' field", !isset($first['password']));
+    test("Entry does NOT have 'session_tokens' field", !isset($first['session_tokens']));
+} else {
+    skip("Entry field checks", "No entries returned (empty audit log)");
+}
 
-// 15. NoSQL injection protection via allowlist
-test("Action filter validated against allowlist (not passed raw to Mongo)", strpos($content, 'in_array($actionFilter, $validActions, true)') !== false);
-test("Entity_type filter validated against allowlist", strpos($content, 'in_array($entityTypeFilter, $validEntityTypes, true)') !== false);
+// ── IDOR: User A can't see User B's entries ──
+echo "\n--- IDOR Protection ---\n";
 
-echo "\n=== Results: $passed passed, $failed failed ===\n";
-exit($failed > 0 ? 1 : 0);
+$responseA = http_request('GET', '/api/account/activity.php', [
+    'cookie' => "session_token=$tokenA",
+]);
+$responseB = http_request('GET', '/api/account/activity.php', [
+    'cookie' => "session_token=$tokenB",
+]);
+
+$entriesA = $responseA['body_json']['entries'] ?? [];
+$entriesB = $responseB['body_json']['entries'] ?? [];
+
+// User A has seeded entries, User B should have none
+test("User A has entries", count($entriesA) > 0,
+    "Got " . count($entriesA) . " entries");
+test("User B has no entries (different user)", count($entriesB) === 0,
+    "Got " . count($entriesB) . " entries — possible IDOR leak");
+
+// Verify User A's entries don't appear in User B's response
+if (count($entriesB) > 0) {
+    $bEntityIds = array_column($entriesB, 'entity_id');
+    test("User B doesn't see User A's entity_ids",
+        !in_array('test_instance_1', $bEntityIds),
+        "Leaked entity_id from User A");
+} else {
+    test("User B doesn't see User A's entity_ids", true);
+}
+
+// ── Summary is user-scoped ──
+echo "\n--- Summary User Scoping ---\n";
+
+$summaryA = $responseA['body_json']['summary'] ?? [];
+$summaryB = $responseB['body_json']['summary'] ?? [];
+
+// User A should have non-zero counts, User B should be all zeros
+$hasNonZero = false;
+foreach ($summaryA as $count) {
+    if ($count > 0) { $hasNonZero = true; break; }
+}
+test("User A summary has non-zero counts", $hasNonZero);
+
+$allZero = true;
+foreach ($summaryB as $count) {
+    if ($count > 0) { $allZero = false; break; }
+}
+test("User B summary is all zeros (user-scoped)", $allZero);
+
+// ── NoSQL injection via action param ──
+echo "\n--- NoSQL Injection Protection ---\n";
+
+$injectionPayloads = [
+    '{"$gt": ""}',
+    '{"$ne": null}',
+    '$regex',
+    'create; DROP TABLE',
+];
+
+foreach ($injectionPayloads as $payload) {
+    $response = http_request('GET', '/api/account/activity.php?action=' . urlencode($payload), [
+        'cookie' => "session_token=$tokenA",
+    ]);
+    // Should return 400 (invalid action) or 200 (filtered), never crash
+    test("Injection payload rejected safely: " . substr($payload, 0, 20),
+        in_array($response['status'], [200, 400]),
+        "Got {$response['status']}");
+}
+
+// ── Cleanup ──
+// Remove seeded audit log entries
+if ($userIdA) {
+    $db->audit_log->deleteMany(['user_id' => $userIdA]);
+}
+cleanup_test_user($emailA);
+cleanup_test_user($emailB);
+
+test_summary();

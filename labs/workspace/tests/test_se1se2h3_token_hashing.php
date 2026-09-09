@@ -30,6 +30,7 @@ $webapiContent = file_get_contents(__DIR__ . '/../../htdocs/src/lib/core/WebAPI.
 // Test 1: Token hashing on storage
 test('UserSession uses password_hash for token', strpos($sessionContent, 'password_hash($sessionToken') !== false);
 test('UserSession stores token_hash field', strpos($sessionContent, "'token_hash' => $tokenHash") !== false);
+test('UserSession stores token_id field', strpos($sessionContent, "'token_id'") !== false);
 test('UserSession does NOT store plain token field', strpos($sessionContent, "'token' => $sessionToken") === false);
 
 // Test 2: Token validation uses password_verify
@@ -37,11 +38,11 @@ test('WebAPI uses password_verify for token validation', strpos($webapiContent, 
 
 // Test 3: Token expiry check
 test('WebAPI has 30-day expiry constant', strpos($webapiContent, '30 * 24 * 3600') !== false);
-test('WebAPI checks token age against cutoff', strpos($webapiContent, 'createdAt < $cutoffTime') !== false);
+test('WebAPI checks created_at against cutoff', strpos($webapiContent, 'created_at') !== false && strpos($webapiContent, 'cutoffTime') !== false);
 
-// Test 4: Logout matches by hashed token
-test('Logout iterates users to find matching hash', strpos($sessionContent, 'password_verify($sessionToken, $storedHash)') !== false);
-test('Logout uses token_hash for pull', strpos($sessionContent, "'token_hash' => \$storedHash") !== false);
+// Test 4: Logout matches by token_id
+test('Logout uses token_id for lookup', strpos($sessionContent, 'session_tokens.token_id') !== false);
+test('Logout uses pull with token_id', strpos($sessionContent, "'token_id' => \$tokenId") !== false);
 
 echo "\n--- Results: {$passed} passed, {$failed} failed ---\n";
 exit($failed > 0 ? 1 : 0);

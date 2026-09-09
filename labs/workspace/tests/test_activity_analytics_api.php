@@ -1,97 +1,183 @@
 <?php
 /**
  * Test api/account/activity_analytics.php — Security & Functionality
- * 
- * Tests:
- * 1. File exists and is valid PHP
- * 2. Requires authentication (401 for unauth)
- * 3. User scoping: every aggregation filters by session user_id
- * 4. IDOR: no user_id accepted from request params
- * 5. Action breakdown: returns array of {action, count}
- * 6. Entity breakdown: returns array of {entity_type, count}
- * 7. Daily trend: returns array of {date, count}
- * 8. Hourly activity: returns 24-element array
- * 9. Security events: returns array with safe fields only
- * 10. Security events: limited to 20 most recent
- * 11. Summary stats: total_actions, active_days, this_week, most_common_action
- * 12. No _id fields in any response data
- * 13. No internal Mongo fields leaked
- * 14. Error handling: generic error message on failure
+ *
+ * REAL RUNTIME TEST — Makes actual HTTP requests to the running server.
+ * Verifies auth, user scoping, response structure, and data isolation.
+ *
+ * Security properties tested:
+ * 1. Unauthenticated → 401
+ * 2. User scoping: all analytics data belongs to authenticated user only
+ * 3. IDOR: can't access another user's analytics via param tampering
+ * 4. Response contains all expected sections with correct types
+ * 5. No internal Mongo fields (_id, ObjectId, etc.) in response
+ * 6. Summary stats are user-scoped
+ *
+ * Usage:
+ *   # Inside Docker container:
+ *   php workspace/tests/test_activity_analytics_api.php
  */
 
-$base = dirname(__DIR__, 2);
-$passed = 0;
-$failed = 0;
+require_once __DIR__ . '/bootstrap.php';
 
-function test($name, $condition) {
-    global $passed, $failed;
-    if ($condition) {
-        echo "  PASS: $name\n";
-        $passed++;
-    } else {
-        echo "  FAIL: $name\n";
-        $failed++;
-    }
+echo "=== API: activity_analytics.php Security Tests (Runtime) ===\n\n";
+
+$db = DatabaseConnection::getDefaultDatabase();
+
+// Create two test users for IDOR testing
+$emailA = 'analytics_a_' . time() . '@example.com';
+$emailB = 'analytics_b_' . time() . '@example.com';
+$tokenA = create_test_user($emailA, 'user');
+$tokenB = create_test_user($emailB, 'user');
+
+// Seed audit log entries for user A
+$userIdA = null;
+$userA = $db->users->findOne(['email' => $emailA]);
+if ($userA) {
+    $userIdA = (string)$userA['_id'];
+    $now = time();
+    $db->audit_log->insertMany([
+        [
+            'user_id' => $userIdA, 'action' => 'create', 'entity_type' => 'instance',
+            'entity_id' => 'inst_1', 'details' => [], 'ip_address' => '127.0.0.1',
+            'user_agent' => 'Test', 'request_uri' => '/test', 'request_method' => 'POST',
+            'created_at' => new MongoDB\BSON\UTCDateTime($now * 1000),
+        ],
+        [
+            'user_id' => $userIdA, 'action' => 'update', 'entity_type' => 'instance',
+            'entity_id' => 'inst_1', 'details' => [], 'ip_address' => '127.0.0.1',
+            'user_agent' => 'Test', 'request_uri' => '/test', 'request_method' => 'POST',
+            'created_at' => new MongoDB\BSON\UTCDateTime($now * 1000),
+        ],
+        [
+            'user_id' => $userIdA, 'action' => 'change_password', 'entity_type' => 'user',
+            'entity_id' => $userIdA, 'details' => [], 'ip_address' => '127.0.0.1',
+            'user_agent' => 'Test', 'request_uri' => '/test', 'request_method' => 'POST',
+            'created_at' => new MongoDB\BSON\UTCDateTime($now * 1000),
+        ],
+    ]);
 }
 
-echo "=== API: activity_analytics.php Security Tests ===\n\n";
+// ── HTTP Tests ──
+echo "--- HTTP Auth Tests ---\n";
 
-$path = "$base/htdocs/src/api/account/activity_analytics.php";
-$content = file_get_contents($path);
+// Test 1: Unauthenticated → 401
+$response = http_request('GET', '/api/account/activity_analytics.php');
+test("Unauthenticated → 401",
+    $response['status'] === 401 || ($response['body_json']['error'] ?? '') === 'Unauthorized',
+    "Got {$response['status']}: " . ($response['body_json']['error'] ?? ''));
 
-// 1. File exists and is valid PHP
-test("activity_analytics.php exists", file_exists($path));
-test("activity_analytics.php contains <?php", strpos($content, '<?php') !== false);
+// Test 2: Authenticated → 200 with valid structure
+$response = http_request('GET', '/api/account/activity_analytics.php', [
+    'cookie' => "session_token=$tokenA",
+]);
+test("Authenticated → 200", $response['status'] === 200,
+    "Got {$response['status']}: " . substr($response['body'], 0, 200));
 
-// 2. Requires authentication
-test("Checks auth status", strpos($content, 'Session::getAuthStatus()') !== false);
-test("Returns 401 for unauth", strpos($content, 'http_response_code(401)') !== false);
+test("Response has status=success", ($response['body_json']['status'] ?? '') === 'success');
 
-// 3. User scoping
-test("Gets user from Session", strpos($content, 'Session::getUser()') !== false);
-test("user_id from getUserId()", strpos($content, 'getUserId()') !== false);
-test("User filter uses \$in with session userId", strpos($content, "['\$in' => [\$userId") !== false);
+// ── Response structure ──
+echo "\n--- Response Structure ---\n";
 
-// 4. IDOR protection
-test("No user_id from GET", strpos($content, '$_GET') === false || strpos($content, '$_GET') === false);
+test("Has action_breakdown array", is_array($response['body_json']['action_breakdown'] ?? null));
+test("Has entity_breakdown array", is_array($response['body_json']['entity_breakdown'] ?? null));
+test("Has daily_trend array", is_array($response['body_json']['daily_trend'] ?? null));
+test("Has hourly_activity array", is_array($response['body_json']['hourly_activity'] ?? null));
+test("Has security_events array", is_array($response['body_json']['security_events'] ?? null));
+test("Has summary object", is_array($response['body_json']['summary'] ?? null));
 
-// 5-6. Breakdown arrays
-test("Action breakdown pipeline exists", strpos($content, 'action_breakdown') !== false);
-test("Entity breakdown pipeline exists", strpos($content, 'entity_breakdown') !== false);
+// Test hourly_activity has 24 elements
+$hourly = $response['body_json']['hourly_activity'] ?? [];
+test("hourly_activity has 24 elements", count($hourly) === 24,
+    "Got " . count($hourly) . " elements");
 
-// 7. Daily trend
-test("Daily trend pipeline exists", strpos($content, 'daily_trend') !== false);
-test("Daily trend uses 30-day window", strpos($content, '30 * 86400') !== false);
+// Test summary has required fields
+$summary = $response['body_json']['summary'] ?? [];
+test("Summary has total_actions", array_key_exists('total_actions', $summary));
+test("Summary has active_days", array_key_exists('active_days', $summary));
+test("Summary has this_week", array_key_exists('this_week', $summary));
+test("Summary has most_common_action", array_key_exists('most_common_action', $summary));
 
-// 8. Hourly activity
-test("Hourly activity returns 24-element array", strpos($content, 'array_fill(0, 24, 0)') !== false);
+// Test action_breakdown entries have correct structure
+$actionBreakdown = $response['body_json']['action_breakdown'] ?? [];
+if (count($actionBreakdown) > 0) {
+    $first = $actionBreakdown[0];
+    test("Action breakdown entry has 'action' field", isset($first['action']));
+    test("Action breakdown entry has 'count' field", isset($first['count']));
+    test("Action breakdown entry does NOT have '_id'", !isset($first['_id']));
+} else {
+    skip("Action breakdown structure", "No entries (empty audit log)");
+}
 
-// 9. Security events: safe fields only
-test("Security events limited to safe fields", strpos($content, "'action' => 1") !== false);
-test("Security events includes ip_address", strpos($content, "'ip_address' => 1") !== false);
-test("Security events does NOT return user_agent", strpos($content, "'user_agent'") === false || substr_count($content, "'user_agent'") === 0);
-test("Security events does NOT return request_uri", strpos($content, "'request_uri'") === false || substr_count($content, "'request_uri'") === 0);
+// ── Data isolation: User B should see empty analytics ──
+echo "\n--- Data Isolation (IDOR Protection) ---\n";
 
-// 10. Security events limit
-test("Security events limited to 20", strpos($content, "'\$limit' => 20") !== false);
+$responseB = http_request('GET', '/api/account/activity_analytics.php', [
+    'cookie' => "session_token=$tokenB",
+]);
+test("User B → 200", $responseB['status'] === 200);
 
-// 11. Summary stats
-test("Summary includes total_actions", strpos($content, "'total_actions'") !== false);
-test("Summary includes active_days", strpos($content, "'active_days'") !== false);
-test("Summary includes this_week", strpos($content, "'this_week'") !== false);
-test("Summary includes most_common_action", strpos($content, "'most_common_action'") !== false);
+$summaryB = $responseB['body_json']['summary'] ?? [];
+test("User B total_actions is 0",
+    ($summaryB['total_actions'] ?? -1) === 0,
+    "Got: " . ($summaryB['total_actions'] ?? 'null'));
 
-// 12-13. No internal data leaked (response entries don't contain _id)
-// Note: _id appears in $group aggregation pipeline stages (expected), but NOT in response entries
-test("Action breakdown response uses 'action' not '_id'", strpos($content, "'action' => \$doc['_id']") !== false);
-test("Entity breakdown response uses 'entity_type' not '_id'", strpos($content, "'entity_type' => \$doc['_id']") !== false);
-test("Daily trend response uses 'date' not '_id'", strpos($content, "'date' => \$doc['_id']") !== false);
-test("Hourly response maps _id to array index", strpos($content, "\$hour = (int)\$doc['_id']") !== false);
-test("Error message is generic", strpos($content, "Failed to load analytics") !== false);
+$actionsB = $responseB['body_json']['action_breakdown'] ?? [];
+test("User B action_breakdown is empty",
+    count($actionsB) === 0,
+    "Got " . count($actionsB) . " entries — possible IDOR leak");
 
-// 14. User filter applied to all pipelines
-test("User filter applied to action pipeline", strpos($content, 'userFilter') !== false);
-test("User filter applied to daily pipeline", substr_count($content, 'userFilter') >= 4);
+$hourlyB = $responseB['body_json']['hourly_activity'] ?? [];
+$hourlySumB = array_sum($hourlyB);
+test("User B hourly_activity sums to 0",
+    $hourlySumB === 0,
+    "Sum: $hourlySumB — possible data leak");
 
-echo "\n=== Results: $passed passed, $failed failed ===\n";
-exit($failed > 0 ? 1 : 0);
+$securityB = $responseB['body_json']['security_events'] ?? [];
+test("User B security_events is empty",
+    count($securityB) === 0,
+    "Got " . count($securityB) . " events — possible IDOR leak");
+
+// ── User A has data ──
+echo "\n--- User A Data Verification ---\n";
+
+$summaryA = $response['body_json']['summary'] ?? [];
+test("User A total_actions > 0",
+    ($summaryA['total_actions'] ?? 0) > 0,
+    "Got: " . ($summaryA['total_actions'] ?? 'null'));
+
+$actionsA = $response['body_json']['action_breakdown'] ?? [];
+test("User A has action_breakdown entries",
+    count($actionsA) > 0,
+    "Got " . count($actionsA) . " entries");
+
+$securityA = $response['body_json']['security_events'] ?? [];
+test("User A has security_events (password change seeded)",
+    count($securityA) > 0,
+    "Got " . count($securityA) . " events");
+
+// ── Response safety: no internal fields leaked ──
+echo "\n--- Response Safety ---\n";
+
+// Check security_events don't leak internal fields
+if (count($securityA) > 0) {
+    $seEvent = $securityA[0];
+    test("Security event has 'action' field", isset($seEvent['action']));
+    test("Security event has 'ip_address' field", isset($seEvent['ip_address']));
+    test("Security event does NOT have '_id'", !isset($seEvent['_id']));
+    test("Security event does NOT have 'user_agent'", !isset($seEvent['user_agent']));
+    test("Security event does NOT have 'request_uri'", !isset($seEvent['request_uri']));
+    test("Security event does NOT have 'request_method'", !isset($seEvent['request_method']));
+    test("Security event does NOT have 'password'", !isset($seEvent['password']));
+} else {
+    skip("Security event field checks", "No security events");
+}
+
+// ── Cleanup ──
+if ($userIdA) {
+    $db->audit_log->deleteMany(['user_id' => $userIdA]);
+}
+cleanup_test_user($emailA);
+cleanup_test_user($emailB);
+
+test_summary();
